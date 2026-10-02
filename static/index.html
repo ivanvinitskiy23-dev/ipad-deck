@@ -5,11 +5,11 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-  <meta name="apple-mobile-web-app-title" content="Gadget v31" />
+  <meta name="apple-mobile-web-app-title" content="Gadget v32" />
   <meta name="mobile-web-app-capable" content="yes" />
   <meta http-equiv="Cache-Control" content="no-store, no-cache, must-revalidate" />
   <meta http-equiv="Pragma" content="no-cache" />
-  <title>Kissaten Gadget v31</title>
+  <title>Kissaten Gadget v32</title>
   <style>
     * { -webkit-tap-highlight-color: transparent; box-sizing: border-box; }
     html, body {
@@ -941,7 +941,7 @@
       <div class="drawer-section">Hub PC</div>
       <div class="side-brand" id="mediaBrand">Wabi · Console</div>
       <div class="meta" id="meta">подключение…</div>
-      <div class="meta" id="buildMeta">build v31</div>
+      <div class="meta" id="buildMeta">build v32</div>
       <div class="toast" id="toast"></div>
       <input class="hub-field" id="hubInput" type="text" placeholder="http://192.168.0.247:8787" />
       <button class="drawer-btn" id="hubSave" type="button">Save hub URL</button>
@@ -961,18 +961,18 @@
     <br><b>Поделиться → На экран «Домой»</b>
     <br>открой ярлык — без строки Safari.
     <br>    <br>Важно: добавляй URL с версией:
-    <br><b id="tipUrl">http://192.168.0.247:8787/?v=31</b>
+    <br><b id="tipUrl">http://192.168.0.247:8787/?v=32</b>
     <br>(старый ярлык без ?v= кэширует старый UI)
     <br><br>Для старта без ПК — GitHub Pages URL из README.
     <button type="button" id="tipOk">Понятно</button>
   </div>
 
-  <script src="gadget-core.js?v=31"></script>
+  <script src="gadget-core.js?v=32"></script>
   <script>
     (function () {
       var IDLE_MS = 45000;
-      var DRIVE_VER = 31;
-      var APP_VER = 31;
+      var DRIVE_VER = 32;
+      var APP_VER = 32;
       var THEME_KEY = "kissaten_deck_theme";
       var GC = window.GadgetCore;
       // Drop obsolete night-mode flag from older builds
@@ -988,6 +988,8 @@
       var lastVolume = 50;
       var isMuted = false;
       var failCount = 0;
+      var hubQuietUntil = 0;
+      var hubDownNoted = false;
       var mode = (GC && (GC.getHubBase() || GC.isLikelyHubOrigin())) ? "deck" : "solo"; // deck | solo
       var modeLock = null; // null=auto, "deck"|"solo"=manual from MENU
       var artRev = -1;
@@ -1207,6 +1209,8 @@
       function pickMode(next) {
         modeLock = next;
         failCount = 0;
+        hubQuietUntil = 0;
+        hubDownNoted = false;
         if (next === "deck") {
           /* HTTPS Pages cannot XHR to HTTP LAN hub (mixed content) — jump to hub UI */
           if (GC && GC.isMixedContentHub()) {
@@ -1374,7 +1378,7 @@
           nowApp.textContent = "";
           nowApp.className = "media-app";
         }
-        if (np.has_art && np.art_rev) {
+        if (np.has_art && np.art_rev && !hubIsQuiet()) {
           if (artRev !== np.art_rev) {
             artRev = np.art_rev;
             nowArt.src = hubPath("/api/cover?r=" + artRev);
@@ -1493,11 +1497,38 @@
         }
       }
 
+      function hubIsQuiet() {
+        return (new Date()).getTime() < hubQuietUntil;
+      }
+
+      function markHubDown() {
+        failCount++;
+        if (failCount < 2) return;
+        setMode("solo", { auto: true });
+        /* Stop hammering a dead PC — iOS shows a native "cannot connect" dialog per request */
+        hubQuietUntil = (new Date()).getTime() + 90000;
+        if (!hubDownNoted) {
+          hubDownNoted = true;
+          setMeta("<b>ПК выключен</b><br>standalone · без запросов к хабу");
+        }
+      }
+
+      function markHubUp() {
+        var wasQuiet = hubIsQuiet() || failCount > 0 || mode === "solo";
+        failCount = 0;
+        hubQuietUntil = 0;
+        hubDownNoted = false;
+        setMode("deck", { auto: true });
+        return wasQuiet;
+      }
+
       function refreshStatus() {
         if (GC && GC.isMixedContentHub()) {
           setMeta("<b>Pages · Solo</b><br>DECK = открыть LAN hub");
           return;
         }
+        if (modeLock === "solo") return;
+        if (hubIsQuiet()) return;
         if (mode !== "deck" && failCount >= 2) return;
         var xhr = new XMLHttpRequest();
         xhr.open("GET", hubPath("/api/status"), true);
@@ -1505,13 +1536,10 @@
         xhr.onreadystatechange = function () {
           if (xhr.readyState !== 4) return;
           if (xhr.status !== 200) {
-            failCount++;
-            if (failCount >= 2) setMode("solo", { auto: true });
-            setMeta("<b>нет связи с хабом</b> · повтор " + failCount);
+            markHubDown();
             return;
           }
-          failCount = 0;
-          setMode("deck", { auto: true });
+          markHubUp();
           try {
             var s = JSON.parse(xhr.responseText);
             var disk = s.disk_free_gb != null ? s.disk_free_gb + " GB free" : "?";
@@ -1530,17 +1558,9 @@
             setMeta("ошибка статуса");
           }
         };
-        xhr.onerror = function () {
-          failCount++;
-          if (failCount >= 2) setMode("solo", { auto: true });
-          setMeta("<b>нет связи с хабом</b>");
-        };
-        xhr.ontimeout = function () {
-          failCount++;
-          if (failCount >= 2) setMode("solo", { auto: true });
-          setMeta("<b>таймаут хаба</b> · повтор " + failCount);
-        };
-        xhr.send(null);
+        xhr.onerror = function () { markHubDown(); };
+        xhr.ontimeout = function () { markHubDown(); };
+        try { xhr.send(null); } catch (e) { markHubDown(); }
       }
 
       function heartbeat() {
@@ -1548,33 +1568,23 @@
           if (mode !== "solo" && modeLock !== "deck") setMode("solo", { auto: true });
           return;
         }
+        if (modeLock === "solo") return;
+        if (hubIsQuiet()) return;
         var xhr = new XMLHttpRequest();
         xhr.open("GET", hubPath("/api/ping"), true);
         xhr.timeout = 2500;
         xhr.onreadystatechange = function () {
           if (xhr.readyState !== 4) return;
           if (xhr.status === 200) {
-            var wasSolo = mode === "solo";
-            failCount = 0;
-            setMode("deck", { auto: true });
-            if (wasSolo && mode === "deck") refreshStatus();
+            var woke = markHubUp();
+            if (woke) refreshStatus();
           } else {
-            failCount++;
-            if (failCount >= 2) setMode("solo", { auto: true });
+            markHubDown();
           }
         };
-        xhr.onerror = function () {
-          failCount++;
-          if (failCount >= 2) setMode("solo", { auto: true });
-        };
-        xhr.ontimeout = function () {
-          failCount++;
-          if (failCount >= 2) setMode("solo", { auto: true });
-        };
-        try { xhr.send(null); } catch (e) {
-          failCount++;
-          if (failCount >= 2) setMode("solo", { auto: true });
-        }
+        xhr.onerror = function () { markHubDown(); };
+        xhr.ontimeout = function () { markHubDown(); };
+        try { xhr.send(null); } catch (e) { markHubDown(); }
       }
 
       function refreshLivingClient() {
@@ -2149,9 +2159,9 @@
       setTimeout(refreshLivingClient, 3000);
       setTimeout(refreshLivingClient, 10000);
       heartbeat();
-      setInterval(heartbeat, 1500);
+      setInterval(heartbeat, 8000);
       refreshStatus();
-      setInterval(refreshStatus, 2000);
+      setInterval(refreshStatus, 8000);
     })();
   </script>
 </body>
