@@ -181,7 +181,7 @@
     </div>
   </div>
 
-  <script src="gadget-core.js?v=20"></script>
+  <script src="gadget-core.js?v=24"></script>
   <script>
     (function () {
       function param(name) {
@@ -196,6 +196,9 @@
         try { GC.setHubBase(hubParam); } catch (e) {}
       }
       function hubPath(path) {
+        /* API only — static already same-origin */
+        if (!path) path = "/";
+        if (path.charAt(0) !== "/") path = "/" + path;
         return GC ? GC.apiUrl(path) : path;
       }
 
@@ -685,11 +688,14 @@
 
       function fetchMedia() {
         if (pageMode === "solo") {
-          media.playing = false;
-          media.title = "";
-          media.artist = "";
-          document.getElementById("cap").textContent = P.caption;
-          srcEl.textContent = "standalone";
+          var rn = GC && GC.readRadioNow ? GC.readRadioNow() : { playing: false };
+          media.playing = !!rn.playing;
+          media.title = rn.name || "";
+          media.artist = rn.playing ? "Radio · live" : "Radio";
+          document.getElementById("cap").textContent = media.title
+            ? ((media.playing ? "▶ " : "❚❚ ") + media.title)
+            : P.caption;
+          srcEl.textContent = media.artist || "standalone";
           artEl.className = "";
           artEl.removeAttribute("src");
           return;

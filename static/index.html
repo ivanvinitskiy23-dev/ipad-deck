@@ -906,7 +906,7 @@
       <div class="drawer-section">Hub PC</div>
       <div class="side-brand" id="mediaBrand">Wabi · Console</div>
       <div class="meta" id="meta">подключение…</div>
-      <div class="meta" id="buildMeta">build v23</div>
+      <div class="meta" id="buildMeta">build v24</div>
       <div class="toast" id="toast"></div>
       <input class="hub-field" id="hubInput" type="text" placeholder="http://192.168.0.247:8787" />
       <button class="drawer-btn" id="hubSave" type="button">Save hub URL</button>
@@ -926,18 +926,18 @@
     <br><b>Поделиться → На экран «Домой»</b>
     <br>открой ярлык — без строки Safari.
     <br>    <br>Важно: добавляй URL с версией:
-    <br><b id="tipUrl">http://192.168.0.247:8787/?v=23</b>
+    <br><b id="tipUrl">http://192.168.0.247:8787/?v=24</b>
     <br>(старый ярлык без ?v= кэширует старый UI)
     <br><br>Для старта без ПК — GitHub Pages URL из README.
     <button type="button" id="tipOk">Понятно</button>
   </div>
 
-  <script src="gadget-core.js?v=23"></script>
+  <script src="gadget-core.js?v=24"></script>
   <script>
     (function () {
       var IDLE_MS = 90000;
-      var DRIVE_VER = 23;
-      var APP_VER = 23;
+      var DRIVE_VER = 24;
+      var APP_VER = 24;
       var THEME_KEY = "kissaten_deck_theme";
       var GC = window.GadgetCore;
       // Drop obsolete night-mode flag from older builds
@@ -974,8 +974,18 @@
         D: "Wabi · Console"
       };
 
+      function localPath(path) {
+        if (!path) path = "/";
+        if (path.charAt(0) === "/") path = path.substring(1);
+        return path;
+      }
+
       function hubPath(path) {
-        return GC ? GC.apiUrl(path) : path;
+        /* Only /api/* goes to LAN hub. Static files stay same-origin (Pages/LAN). */
+        if (path.indexOf("/api/") === 0 || path.indexOf("api/") === 0) {
+          return GC ? GC.apiUrl(path.charAt(0) === "/" ? path : "/" + path) : path;
+        }
+        return localPath(path);
       }
 
       function toast(msg) {
@@ -1063,10 +1073,13 @@
 
       function driveUrl() {
         var hub = GC ? GC.getHubBase() : "";
-        var q = "theme=" + theme + "&v=" + DRIVE_VER + "&t=" + (new Date().getTime()) +
+        var q = "theme=" + theme +
+          "&v=" + DRIVE_VER +
+          "&t=" + (new Date().getTime()) +
           "&mode=" + mode;
         if (hub) q += "&hub=" + encodeURIComponent(hub);
-        return hubPath("/night-drive.html?" + q);
+        /* Always same-origin — never hubPath (HTTPS Pages cannot iframe HTTP hub) */
+        return "night-drive.html?" + q;
       }
 
       function openDrawer() {
@@ -1182,7 +1195,21 @@
       function showIdle() {
         loadIdleFrame(true);
         idleEl.className = "on";
-        // no forced re-reload — that caused full-screen flicker
+        if (idleFailTimer) clearTimeout(idleFailTimer);
+        idleFailTimer = setTimeout(function () {
+          /* If iframe stayed blank, force same-origin reload once */
+          try {
+            var doc = idleFrame.contentDocument;
+            if (!doc || !doc.getElementById("c")) {
+              idleLoadedTheme = null;
+              loadIdleFrame(true);
+            }
+          } catch (eCross) {
+            /* cross-origin (old hub URL) — force local */
+            idleLoadedTheme = null;
+            loadIdleFrame(true);
+          }
+        }, 2500);
       }
 
       function bumpIdle() {
@@ -1533,6 +1560,14 @@
         nowArt.removeAttribute("src");
         var playBtn = document.getElementById("radioPlayBtn");
         if (playBtn) playBtn.textContent = radioPlaying ? "Stop" : "Play";
+        if (GC.publishRadioNow) {
+          GC.publishRadioNow({
+            playing: radioPlaying,
+            id: st.id,
+            name: st.name,
+            t: new Date().getTime()
+          });
+        }
       }
 
       function syncRadioUI() {
@@ -1771,16 +1806,17 @@
         GC.setAlarm(a);
         syncAlarmUI();
       };
-      document.getElementById("radioPlayBtn").onclick = toggleRadio;
-      document.getElementById("radioPrevBtn").onclick = function () { stepRadio(-1); };
-      document.getElementById("radioNextBtn").onclick = function () { stepRadio(1); };
 
-      var actionBtns = document.querySelectorAll("button.pad, button.media-btn");
+      var actionBtns = document.querySelectorAll("button.pad, #mediaControlsDeck button.media-btn");
       for (var i = 0; i < actionBtns.length; i++) {
         (function (btn) {
           btn.onclick = function () { doAction(btn.getAttribute("data-action")); };
         })(actionBtns[i]);
       }
+
+      document.getElementById("radioPlayBtn").onclick = toggleRadio;
+      document.getElementById("radioPrevBtn").onclick = function () { stepRadio(-1); };
+      document.getElementById("radioNextBtn").onclick = function () { stepRadio(1); };
 
       var themePills = document.querySelectorAll(".theme-pill");
       for (var j = 0; j < themePills.length; j++) {

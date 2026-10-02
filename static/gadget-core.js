@@ -112,6 +112,7 @@
     var xhr = new XMLHttpRequest();
     xhr.open("GET", url, true);
     xhr.timeout = timeout || 8000;
+    try { xhr.setRequestHeader("Accept", "application/json,text/plain,*/*"); } catch (eH) {}
     xhr.onreadystatechange = function () {
       if (xhr.readyState !== 4) return;
       if (xhr.status >= 200 && xhr.status < 300) {
@@ -188,36 +189,42 @@
   }
 
   function fetchWeather(cb) {
-    var meteoNew =
-      "https://api.open-meteo.com/v1/forecast" +
-      "?latitude=50.4501&longitude=30.5234" +
-      "&current=temperature_2m,weather_code,wind_speed_10m" +
-      "&timezone=auto";
     var meteoOld =
-      "https://api.open-meteo.com/v1/forecast" +
-      "?latitude=50.45&longitude=30.52&current_weather=true";
+      "https://api.open-meteo.com/v1/forecast?latitude=50.45&longitude=30.52&current_weather=true";
+    var meteoNew =
+      "https://api.open-meteo.com/v1/forecast?latitude=50.4501&longitude=30.5234" +
+      "&current=temperature_2m,weather_code,wind_speed_10m&timezone=auto";
     var wttr = "https://wttr.in/Kyiv?format=j1";
+    var wttrSimple = "https://wttr.in/Kyiv?format=j1&lang=en";
 
-    function tryWttr() {
-      xhrGet(wttr, 9000, function (txt) {
-        var w = parseWttr(txt);
-        cb(w);
+    function tryWttrSimple() {
+      xhrGet(wttrSimple, 10000, function (txt) {
+        cb(parseWttr(txt));
       }, function () { cb(null); });
     }
 
-    function tryOld() {
-      xhrGet(meteoOld, 8000, function (txt) {
+    function tryWttr() {
+      xhrGet(wttr, 10000, function (txt) {
+        var w = parseWttr(txt);
+        if (w) { cb(w); return; }
+        tryWttrSimple();
+      }, function () { tryWttrSimple(); });
+    }
+
+    function tryNew() {
+      xhrGet(meteoNew, 8000, function (txt) {
         var w = parseOpenMeteo(txt);
         if (w) { cb(w); return; }
         tryWttr();
       }, function () { tryWttr(); });
     }
 
-    xhrGet(meteoNew, 8000, function (txt) {
+    /* Prefer short URL first — more reliable on old Safari */
+    xhrGet(meteoOld, 8000, function (txt) {
       var w = parseOpenMeteo(txt);
       if (w) { cb(w); return; }
-      tryOld();
-    }, function () { tryOld(); });
+      tryNew();
+    }, function () { tryNew(); });
   }
 
   function emptyAlert() {
@@ -459,6 +466,24 @@
     try { localStorage.setItem(ALARM_KEY, JSON.stringify(cfg)); } catch (e) {}
   }
 
+  var RADIO_NOW_KEY = "kissaten_radio_now";
+
+  function publishRadioNow(state) {
+    try {
+      localStorage.setItem(RADIO_NOW_KEY, JSON.stringify(state || { playing: false }));
+    } catch (e) {}
+  }
+
+  function readRadioNow() {
+    try {
+      var raw = localStorage.getItem(RADIO_NOW_KEY);
+      if (!raw) return { playing: false };
+      return JSON.parse(raw);
+    } catch (e) {
+      return { playing: false };
+    }
+  }
+
   function getRadioId() {
     try { return localStorage.getItem(RADIO_KEY) || "fluid"; } catch (e) { return "fluid"; }
   }
@@ -507,6 +532,9 @@
     stationById: stationById,
     stationIndex: stationIndex,
     nextStationId: nextStationId,
+    publishRadioNow: publishRadioNow,
+    readRadioNow: readRadioNow,
+    RADIO_NOW_KEY: RADIO_NOW_KEY,
     RADIO_STATIONS: RADIO_STATIONS
   };
 })(this);
