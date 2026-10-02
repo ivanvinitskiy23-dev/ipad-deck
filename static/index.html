@@ -5,11 +5,11 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-  <meta name="apple-mobile-web-app-title" content="Gadget v26" />
+  <meta name="apple-mobile-web-app-title" content="Gadget v30" />
   <meta name="mobile-web-app-capable" content="yes" />
   <meta http-equiv="Cache-Control" content="no-store, no-cache, must-revalidate" />
   <meta http-equiv="Pragma" content="no-cache" />
-  <title>Kissaten Gadget v26</title>
+  <title>Kissaten Gadget v30</title>
   <style>
     * { -webkit-tap-highlight-color: transparent; box-sizing: border-box; }
     html, body {
@@ -590,10 +590,33 @@
     }
     #ticker .ticker-track .sep { opacity: 0.35; padding: 0 2px; }
 
-    #idle { display: none; position: absolute; left: 0; right: 0; top: 0; bottom: 0; z-index: 20; background: #000; }
-    #idle.on { display: block; }
-    #idle iframe { border: 0; width: 100%; height: 100%; pointer-events: none; background: #000; }
-    #idle .catch { position: absolute; left: 0; right: 0; top: 0; bottom: 0; }
+    #idle {
+      display: block;
+      position: fixed;
+      left: 0; right: 0; top: 0; bottom: 0;
+      width: 100%; height: 100%;
+      z-index: 100;
+      background: #000;
+      visibility: hidden;
+      pointer-events: none;
+      opacity: 0;
+      -webkit-transform: translateZ(0);
+      transform: translateZ(0);
+    }
+    #idle.on {
+      visibility: visible;
+      pointer-events: auto;
+      opacity: 1;
+    }
+    #idle iframe {
+      position: absolute; left: 0; top: 0;
+      border: 0; width: 100%; height: 100%;
+      pointer-events: none; background: #000;
+    }
+    #idle .catch {
+      position: absolute; left: 0; right: 0; top: 0; bottom: 0;
+      z-index: 2;
+    }
     #tip {
       display: none; position: absolute; left: 12px; right: 12px; bottom: 24px; z-index: 50;
       border: 1px solid; border-radius: 12px; padding: 14px; font-size: 14px; line-height: 1.45;
@@ -864,7 +887,7 @@
           </div>
         </div>
 
-        <div class="solo-note">Радио — кнопки Play/Prev/Next у плеера сверху. Будильник только пока экран открыт.</div>
+        <div class="solo-note">Радио — Play/Prev/Next у плеера. Будильник: экран открыт + STANDALONE. On разблокирует звук на iPad.</div>
       </div>
 
       <div class="grid">
@@ -925,7 +948,7 @@
       <div class="drawer-section">Hub PC</div>
       <div class="side-brand" id="mediaBrand">Wabi · Console</div>
       <div class="meta" id="meta">подключение…</div>
-      <div class="meta" id="buildMeta">build v26</div>
+      <div class="meta" id="buildMeta">build v30</div>
       <div class="toast" id="toast"></div>
       <input class="hub-field" id="hubInput" type="text" placeholder="http://192.168.0.247:8787" />
       <button class="drawer-btn" id="hubSave" type="button">Save hub URL</button>
@@ -945,18 +968,18 @@
     <br><b>Поделиться → На экран «Домой»</b>
     <br>открой ярлык — без строки Safari.
     <br>    <br>Важно: добавляй URL с версией:
-    <br><b id="tipUrl">http://192.168.0.247:8787/?v=26</b>
+    <br><b id="tipUrl">http://192.168.0.247:8787/?v=30</b>
     <br>(старый ярлык без ?v= кэширует старый UI)
     <br><br>Для старта без ПК — GitHub Pages URL из README.
     <button type="button" id="tipOk">Понятно</button>
   </div>
 
-  <script src="gadget-core.js?v=26"></script>
+  <script src="gadget-core.js?v=30"></script>
   <script>
     (function () {
-      var IDLE_MS = 60000;
-      var DRIVE_VER = 26;
-      var APP_VER = 26;
+      var IDLE_MS = 45000;
+      var DRIVE_VER = 30;
+      var APP_VER = 30;
       var THEME_KEY = "kissaten_deck_theme";
       var GC = window.GadgetCore;
       // Drop obsolete night-mode flag from older builds
@@ -965,6 +988,10 @@
       var idleTimer = null;
       var idleLoadedTheme = null;
       var idleFailTimer = null;
+      var lastActivity = (new Date()).getTime();
+      var lastTouchAt = 0;
+      var ignoreBumpUntil = 0;
+      var idleWatch = null;
       var lastVolume = 50;
       var isMuted = false;
       var failCount = 0;
@@ -974,6 +1001,10 @@
       var livingTimer = null;
       var newsTimer = null;
       var alarmFiredKey = "";
+      var alarmUnlocked = false;
+      var alarmCtx = null;
+      var alarmOsc = null;
+      var alarmPulse = null;
       var radioAudio = null;
       var alarmAudio = null;
       var toastEl = document.getElementById("toast");
@@ -1090,7 +1121,7 @@
         idleFrame.src = "about:blank";
         saveTheme(t);
         if (wasIdle) {
-          setTimeout(function () { showIdle(); }, 80);
+          setTimeout(function () { showIdle(true); }, 80);
         }
       }
 
@@ -1099,7 +1130,8 @@
         var q = "theme=" + theme +
           "&v=" + DRIVE_VER +
           "&t=" + (new Date().getTime()) +
-          "&mode=" + mode;
+          "&mode=" + mode +
+          "&fill=1";
         if (hub) q += "&hub=" + encodeURIComponent(hub);
         /* Always same-origin — never hubPath (HTTPS Pages cannot iframe HTTP hub) */
         return "night-drive.html?" + q;
@@ -1141,9 +1173,13 @@
       }
 
       document.getElementById("fsBtn").onclick = goFullscreenTip;
-      document.getElementById("cinemaBtn").onclick = function () {
+      document.getElementById("cinemaBtn").onclick = function (ev) {
+        if (ev && ev.preventDefault) ev.preventDefault();
+        if (ev && ev.stopPropagation) ev.stopPropagation();
         closeDrawer();
-        showIdle();
+        /* Delay past iOS synthetic mousedown on the same tap point */
+        ignoreBumpUntil = (new Date()).getTime() + 2800;
+        setTimeout(function () { showIdle(true); }, 50);
         toast("cinema");
       };
       document.getElementById("infoChip").onclick = function () { openDrawer(); };
@@ -1217,21 +1253,44 @@
       }, false);
 
       function loadIdleFrame(forceReload) {
-        var idleKey = theme + "|v" + DRIVE_VER;
+        var idleKey = theme + "|v" + DRIVE_VER + "|fill";
         if (forceReload || idleLoadedTheme !== idleKey) {
           idleFrame.src = driveUrl();
           idleLoadedTheme = idleKey;
+        } else {
+          try {
+            if (idleFrame.contentWindow && idleFrame.contentWindow.fitCanvasPublic) {
+              idleFrame.contentWindow.fitCanvasPublic();
+            }
+          } catch (eFit) {}
         }
       }
 
-      function showIdle() {
-        /* Show overlay FIRST so iframe gets non-zero layout on iOS WebKit */
+      function showIdle(forced) {
+        /* Guard must outlast iOS ghost mousedown that hits idleCatch after Cinema */
+        ignoreBumpUntil = (new Date()).getTime() + (forced ? 2800 : 1500);
+        closeDrawer();
         idleEl.className = "on";
         if (idleFailTimer) clearTimeout(idleFailTimer);
         setTimeout(function () {
           loadIdleFrame(true);
-        }, 60);
+        }, 100);
+        setTimeout(function () {
+          try {
+            if (idleFrame.contentWindow && idleFrame.contentWindow.fitCanvasPublic) {
+              idleFrame.contentWindow.fitCanvasPublic();
+            }
+          } catch (e1) {}
+        }, 500);
+        setTimeout(function () {
+          try {
+            if (idleFrame.contentWindow && idleFrame.contentWindow.fitCanvasPublic) {
+              idleFrame.contentWindow.fitCanvasPublic();
+            }
+          } catch (e2) {}
+        }, 1200);
         idleFailTimer = setTimeout(function () {
+          if (idleEl.className !== "on") return;
           try {
             var doc = idleFrame.contentDocument;
             var canvas = doc && doc.getElementById("c");
@@ -1246,17 +1305,47 @@
             idleLoadedTheme = null;
             loadIdleFrame(true);
           }
-        }, 2800);
+        }, 3500);
       }
 
-      function bumpIdle() {
-        idleEl.className = "";
-        if (idleFailTimer) {
-          clearTimeout(idleFailTimer);
-          idleFailTimer = null;
+      function bumpIdle(e, opts) {
+        var now = (new Date()).getTime();
+        var forceDismiss = !!(opts && opts.dismiss);
+        /* iOS ghost mousedown after touch */
+        if (e && e.type === "mousedown" && (now - lastTouchAt) < 1600) {
+          return;
         }
+        /* CRITICAL: even idleCatch dismiss is blocked during guard —
+           Cinema tap's synthetic mousedown lands on idleCatch and used to kill idle */
+        if (now < ignoreBumpUntil) {
+          return;
+        }
+        if (idleEl.className === "on") {
+          if (!forceDismiss) return;
+          idleEl.className = "";
+          if (idleFailTimer) {
+            clearTimeout(idleFailTimer);
+            idleFailTimer = null;
+          }
+        }
+        if (e && e.type === "touchstart") {
+          lastTouchAt = now;
+        }
+        lastActivity = now;
         if (idleTimer) clearTimeout(idleTimer);
-        idleTimer = setTimeout(showIdle, IDLE_MS);
+        idleTimer = setTimeout(function () { showIdle(false); }, IDLE_MS);
+      }
+
+      function startIdleWatch() {
+        if (idleWatch) return;
+        idleWatch = setInterval(function () {
+          if (idleEl.className === "on") return;
+          var now = (new Date()).getTime();
+          if (now < ignoreBumpUntil) return;
+          if ((now - lastActivity) >= IDLE_MS) {
+            showIdle(false);
+          }
+        }, 2000);
       }
 
       var nowPlaying = false;
@@ -1525,6 +1614,10 @@
         checkAlarm(d);
       }
 
+      function alarmDayKey(d, hh, mm) {
+        return d.getFullYear() + "-" + d.getMonth() + "-" + d.getDate() + "-" + hh + "-" + mm;
+      }
+
       function syncAlarmUI() {
         if (!GC) return;
         var a = GC.getAlarm();
@@ -1536,22 +1629,114 @@
         btn.className = a.enabled ? "solo-toggle on" : "solo-toggle";
         if (st) {
           st.textContent = a.enabled
-            ? ("звонок в " + pad2(a.hh || 0) + ":" + pad2(a.mm || 0))
+            ? ("звонок в " + pad2(a.hh || 0) + ":" + pad2(a.mm || 0) + " · экран открыт")
             : "будильник выкл";
         }
       }
 
-      function playAlarmTone() {
+      function ensureAlarmAudio() {
+        if (!alarmAudio) {
+          alarmAudio = new Audio("alarm-beep.wav?v=" + APP_VER);
+          alarmAudio.loop = true;
+          try { alarmAudio.setAttribute("playsinline", "true"); } catch (e0) {}
+          try { alarmAudio.preload = "auto"; } catch (e1) {}
+        }
+        return alarmAudio;
+      }
+
+      /* Must run inside a tap — iOS blocks timer-started Audio.play() */
+      function unlockAlarmAudio() {
+        ensureAlarmAudio();
         try {
-          if (!alarmAudio) {
-            alarmAudio = new Audio(
-              "data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2teleQgATp3e2KVlDgBToN/Xo2QP"
-            );
-            alarmAudio.loop = true;
+          var p = alarmAudio.play();
+          if (p && typeof p.then === "function") {
+            p.then(function () {
+              try {
+                alarmAudio.pause();
+                alarmAudio.currentTime = 0;
+              } catch (eP) {}
+              alarmUnlocked = true;
+            }).catch(function () {
+              alarmUnlocked = false;
+            });
+          } else {
+            alarmAudio.pause();
+            alarmAudio.currentTime = 0;
+            alarmUnlocked = true;
           }
-          alarmAudio.play();
+        } catch (e) {
+          alarmUnlocked = false;
+        }
+        try {
+          var AC = window.AudioContext || window.webkitAudioContext;
+          if (AC) {
+            if (!alarmCtx) alarmCtx = new AC();
+            if (alarmCtx.state === "suspended" && alarmCtx.resume) alarmCtx.resume();
+            alarmUnlocked = true;
+          }
+        } catch (e2) {}
+      }
+
+      function startAlarmOscPulse() {
+        if (!alarmCtx) return false;
+        try {
+          if (alarmCtx.state === "suspended" && alarmCtx.resume) alarmCtx.resume();
+          stopAlarmOscPulse();
+          function beepOnce() {
+            try {
+              var o = alarmCtx.createOscillator();
+              var g = alarmCtx.createGain();
+              o.type = "square";
+              o.frequency.value = 880;
+              g.gain.value = 0.07;
+              o.connect(g);
+              g.connect(alarmCtx.destination);
+              o.start(0);
+              if (g.gain.exponentialRampToValueAtTime) {
+                g.gain.setValueAtTime(0.07, alarmCtx.currentTime);
+                g.gain.exponentialRampToValueAtTime(0.001, alarmCtx.currentTime + 0.25);
+              }
+              o.stop(alarmCtx.currentTime + 0.28);
+              alarmOsc = o;
+            } catch (eB) {}
+          }
+          beepOnce();
+          alarmPulse = setInterval(beepOnce, 700);
+          return true;
+        } catch (e) {
+          return false;
+        }
+      }
+
+      function stopAlarmOscPulse() {
+        if (alarmPulse) {
+          clearInterval(alarmPulse);
+          alarmPulse = null;
+        }
+        try {
+          if (alarmOsc) {
+            alarmOsc.stop(0);
+            alarmOsc.disconnect();
+          }
         } catch (e) {}
+        alarmOsc = null;
+      }
+
+      function playAlarmTone() {
+        var ok = startAlarmOscPulse();
+        if (!ok) {
+          try {
+            ensureAlarmAudio();
+            var p = alarmAudio.play();
+            if (p && typeof p.then === "function") {
+              p.catch(function () {});
+            }
+          } catch (e) {}
+        }
         toast("ALARM");
+        if (idleEl.className === "on") {
+          bumpIdle(null, { dismiss: true });
+        }
       }
 
       function stopAlarmTone() {
@@ -1561,19 +1746,39 @@
             alarmAudio.currentTime = 0;
           }
         } catch (e) {}
-        alarmFiredKey = "";
+        stopAlarmOscPulse();
+        /* keep alarmFiredKey so it does not re-ring the same minute */
       }
 
       function checkAlarm(d) {
         if (!GC) return;
         var a = GC.getAlarm();
         if (!a || !a.enabled) return;
-        if (d.getHours() === (a.hh | 0) && d.getMinutes() === (a.mm | 0)) {
-          var key = d.getFullYear() + "-" + d.getMonth() + "-" + d.getDate() + "-" + a.hh + "-" + a.mm;
-          if (alarmFiredKey === key) return;
+        var hh = a.hh | 0;
+        var mm = a.mm | 0;
+        var nowT = d.getHours() * 60 + d.getMinutes();
+        var alarmT = hh * 60 + mm;
+        var key = alarmDayKey(d, hh, mm);
+        if (alarmFiredKey === key) return;
+        /* exact minute, or catch-up within 2 min if JS slept past it */
+        if (nowT === alarmT || (nowT > alarmT && nowT <= alarmT + 2)) {
           alarmFiredKey = key;
           playAlarmTone();
-          if (idleEl.className === "on") bumpIdle();
+        }
+      }
+
+      function armAlarmForToday() {
+        if (!GC) return;
+        var a = GC.getAlarm();
+        if (!a || !a.enabled) return;
+        var d = new Date();
+        var nowT = d.getHours() * 60 + d.getMinutes();
+        var alarmT = (a.hh | 0) * 60 + (a.mm | 0);
+        /* enabling after today's time → wait until tomorrow */
+        if (nowT >= alarmT) {
+          alarmFiredKey = alarmDayKey(d, a.hh | 0, a.mm | 0);
+        } else {
+          alarmFiredKey = "";
         }
       }
 
@@ -1876,8 +2081,15 @@
         a.mm = parseInt(parts[1], 10) || 0;
         a.enabled = !a.enabled;
         GC.setAlarm(a);
+        if (a.enabled) {
+          unlockAlarmAudio(); /* iOS: unlock sound on this tap */
+          armAlarmForToday();
+          toast("alarm on");
+        } else {
+          stopAlarmTone();
+          toast("alarm off");
+        }
         syncAlarmUI();
-        toast(a.enabled ? "alarm on" : "alarm off");
       };
       document.getElementById("alarmStop").onclick = function () {
         stopAlarmTone();
@@ -1890,6 +2102,7 @@
         a.hh = parseInt(parts[0], 10) || 0;
         a.mm = parseInt(parts[1], 10) || 0;
         GC.setAlarm(a);
+        if (a.enabled) armAlarmForToday();
         syncAlarmUI();
       };
 
@@ -1915,18 +2128,27 @@
         })(themePills[j]);
       }
 
-      document.body.addEventListener("touchstart", bumpIdle, false);
-      document.body.addEventListener("mousedown", bumpIdle, false);
+      document.body.addEventListener("touchstart", function (e) { bumpIdle(e); }, false);
+      document.body.addEventListener("mousedown", function (e) { bumpIdle(e); }, false);
       document.getElementById("idleCatch").addEventListener("touchstart", function (e) {
-        e.preventDefault(); bumpIdle();
+        e.preventDefault();
+        bumpIdle(e, { dismiss: true });
       }, false);
-      document.getElementById("idleCatch").addEventListener("mousedown", bumpIdle, false);
+      document.getElementById("idleCatch").addEventListener("mousedown", function (e) {
+        bumpIdle(e, { dismiss: true });
+      }, false);
 
       applyTheme(readTheme(), false);
       hideChrome();
       bumpIdle();
+      startIdleWatch();
+      /* Preload screensaver once so Cinema is instant on iPad */
+      setTimeout(function () {
+        if (idleEl.className !== "on") loadIdleFrame(false);
+      }, 2500);
       initRadioUI();
       syncAlarmUI();
+      armAlarmForToday();
       tickClock();
       setInterval(tickClock, 1000);
       refreshLivingClient();
