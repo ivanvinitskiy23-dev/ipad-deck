@@ -107,25 +107,51 @@
     return s;
   }
 
+  function nowSec() {
+    return Math.floor((new Date()).getTime() / 1000);
+  }
+
   function xhrGet(url, timeout, onOk, onFail) {
     var xhr = new XMLHttpRequest();
+    var settled = false;
+    function ok(txt) {
+      if (settled) return;
+      settled = true;
+      if (onOk) onOk(txt, xhr);
+    }
+    function fail() {
+      if (settled) return;
+      settled = true;
+      if (onFail) onFail(xhr);
+    }
     xhr.open("GET", url, true);
     xhr.timeout = timeout || 8000;
     try { xhr.setRequestHeader("Accept", "application/json,text/plain,*/*"); } catch (eH) {}
     xhr.onreadystatechange = function () {
       if (xhr.readyState !== 4) return;
-      if (xhr.status >= 200 && xhr.status < 300) {
-        if (onOk) onOk(xhr.responseText, xhr);
-      } else if (onFail) onFail(xhr);
+      if (xhr.status >= 200 && xhr.status < 300) ok(xhr.responseText);
+      else fail();
     };
-    xhr.onerror = function () { if (onFail) onFail(xhr); };
-    xhr.ontimeout = function () { if (onFail) onFail(xhr); };
-    try { xhr.send(null); } catch (e) { if (onFail) onFail(xhr); }
+    xhr.onerror = fail;
+    xhr.ontimeout = fail;
+    try { xhr.send(null); } catch (e) { fail(); }
     return xhr;
   }
 
   function corsProxy(url) {
     return "https://api.allorigins.win/raw?url=" + encodeURIComponent(url);
+  }
+
+  function corsProxyGet(url) {
+    return "https://api.allorigins.win/get?url=" + encodeURIComponent(url);
+  }
+
+  function parseAllOriginsGet(txt) {
+    try {
+      var data = JSON.parse(txt);
+      if (data && typeof data.contents === "string") return data.contents;
+    } catch (e) {}
+    return null;
   }
 
   function rss2jsonUrl(feedUrl) {
@@ -142,7 +168,7 @@
       wind_kmh: windI,
       text: short,
       text_full: windI == null ? short : (short + " · ветер " + windI + " км/ч"),
-      updated: Math.floor(Date.now() / 1000)
+      updated: nowSec()
     };
   }
 
@@ -188,40 +214,74 @@
   }
 
   function fetchWeather(cb) {
+    var finished = false;
+    function done(w) {
+      if (finished) return;
+      finished = true;
+      cb(w);
+    }
+
     var meteoOld =
       "https://api.open-meteo.com/v1/forecast?latitude=50.45&longitude=30.52&current_weather=true";
     var meteoNew =
       "https://api.open-meteo.com/v1/forecast?latitude=50.4501&longitude=30.5234" +
       "&current=temperature_2m,weather_code,wind_speed_10m&timezone=auto";
     var wttr = "https://wttr.in/Kyiv?format=j1";
-    var wttrSimple = "https://wttr.in/Kyiv?format=j1&lang=en";
 
-    function tryWttrSimple() {
-      xhrGet(wttrSimple, 10000, function (txt) {
-        cb(parseWttr(txt));
-      }, function () { cb(null); });
+    function tryProxyGet(url, parser, next) {
+      xhrGet(corsProxyGet(url), 12000, function (txt) {
+        var body = parseAllOriginsGet(txt);
+        var w = body ? parser(body) : null;
+        if (w) { done(w); return; }
+        if (next) next();
+        else done(null);
+      }, function () {
+        if (next) next();
+        else done(null);
+      });
+    }
+
+    function tryProxyRaw(url, parser, next) {
+      xhrGet(corsProxy(url), 12000, function (txt) {
+        var w = parser(txt);
+        if (w) { done(w); return; }
+        if (next) next();
+        else done(null);
+      }, function () {
+        if (next) next();
+        else done(null);
+      });
+    }
+
+    function tryProxied() {
+      tryProxyRaw(meteoOld, parseOpenMeteo, function () {
+        tryProxyGet(meteoOld, parseOpenMeteo, function () {
+          tryProxyRaw(wttr, parseWttr, function () {
+            tryProxyGet(wttr, parseWttr, function () { done(null); });
+          });
+        });
+      });
     }
 
     function tryWttr() {
       xhrGet(wttr, 10000, function (txt) {
         var w = parseWttr(txt);
-        if (w) { cb(w); return; }
-        tryWttrSimple();
-      }, function () { tryWttrSimple(); });
+        if (w) { done(w); return; }
+        tryProxied();
+      }, function () { tryProxied(); });
     }
 
     function tryNew() {
       xhrGet(meteoNew, 8000, function (txt) {
         var w = parseOpenMeteo(txt);
-        if (w) { cb(w); return; }
+        if (w) { done(w); return; }
         tryWttr();
       }, function () { tryWttr(); });
     }
 
-    /* Prefer short URL first — more reliable on old Safari */
     xhrGet(meteoOld, 8000, function (txt) {
       var w = parseOpenMeteo(txt);
-      if (w) { cb(w); return; }
+      if (w) { done(w); return; }
       tryNew();
     }, function () { tryNew(); });
   }
@@ -229,7 +289,7 @@
   function emptyAlert() {
     return {
       ok: false, alert: false, label: "НЕТ ДАННЫХ", place: "Киев",
-      places: [], changed: "", updated: Math.floor(Date.now() / 1000)
+      places: [], changed: "", updated: nowSec()
     };
   }
 
@@ -284,7 +344,7 @@
         changed: changed,
         level: level,
         source: "NEPTUN",
-        updated: Math.floor(Date.now() / 1000)
+        updated: nowSec()
       };
     } catch (e) {
       return emptyAlert();
@@ -321,7 +381,7 @@
         place: isAlert ? active.join(" · ") : "Киев",
         places: active,
         changed: changed,
-        updated: Math.floor(Date.now() / 1000)
+        updated: nowSec()
       };
     } catch (e) {
       return emptyAlert();
@@ -329,18 +389,24 @@
   }
 
   function fetchAlert(cb) {
+    var finished = false;
+    function done(r) {
+      if (finished) return;
+      finished = true;
+      cb(r);
+    }
     /* NEPTUN: CORS * — works from GitHub Pages. alerts.com.ua has no CORS. */
     var neptun = "https://neptun.in.ua/api/v1/alerts";
     xhrGet(neptun, 8000, function (txt) {
       var r = parseNeptunAlert(txt);
-      if (r.ok) { cb(r); return; }
+      if (r.ok) { done(r); return; }
       xhrGet(corsProxy("https://alerts.com.ua/api/states"), 8000, function (txt2) {
-        cb(parseAlertPayload(txt2));
-      }, function () { cb(emptyAlert()); });
+        done(parseAlertPayload(txt2));
+      }, function () { done(emptyAlert()); });
     }, function () {
       xhrGet(corsProxy("https://alerts.com.ua/api/states"), 8000, function (txt2) {
-        cb(parseAlertPayload(txt2));
-      }, function () { cb(emptyAlert()); });
+        done(parseAlertPayload(txt2));
+      }, function () { done(emptyAlert()); });
     });
   }
 
@@ -415,7 +481,7 @@
   function fetchNews(cb) {
     var all = [];
     var left = NEWS_FEEDS.length;
-    if (!left) { cb({ ok: true, items: [], updated: Math.floor(Date.now() / 1000) }); return; }
+    if (!left) { cb({ ok: true, items: [], updated: nowSec() }); return; }
     for (var i = 0; i < NEWS_FEEDS.length; i++) {
       (function (feed) {
         fetchOneFeed(feed, function (items) {
@@ -431,7 +497,7 @@
               unique.push(all[k]);
               if (unique.length >= 18) break;
             }
-            cb({ ok: true, items: unique, updated: Math.floor(Date.now() / 1000) });
+            cb({ ok: true, items: unique, updated: nowSec() });
           }
         });
       })(NEWS_FEEDS[i]);
@@ -441,14 +507,26 @@
   function fetchLivingBundle(cb) {
     var weather = null;
     var alert = null;
-    var done = 0;
-    function finish() {
-      done++;
-      if (done < 2) return;
+    var weatherDone = false;
+    var alertDone = false;
+    var sent = false;
+    function maybeSend() {
+      if (sent || !weatherDone || !alertDone) return;
+      sent = true;
       cb({ ok: true, weather: weather, alert: alert });
     }
-    fetchWeather(function (w) { weather = w; finish(); });
-    fetchAlert(function (a) { alert = a; finish(); });
+    fetchWeather(function (w) {
+      if (weatherDone) return;
+      weatherDone = true;
+      weather = w;
+      maybeSend();
+    });
+    fetchAlert(function (a) {
+      if (alertDone) return;
+      alertDone = true;
+      alert = a;
+      maybeSend();
+    });
   }
 
   function getAlarm() {

@@ -5,11 +5,11 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-  <meta name="apple-mobile-web-app-title" content="Gadget v20" />
+  <meta name="apple-mobile-web-app-title" content="Gadget v26" />
   <meta name="mobile-web-app-capable" content="yes" />
   <meta http-equiv="Cache-Control" content="no-store, no-cache, must-revalidate" />
   <meta http-equiv="Pragma" content="no-cache" />
-  <title>Kissaten Gadget v25</title>
+  <title>Kissaten Gadget v26</title>
   <style>
     * { -webkit-tap-highlight-color: transparent; box-sizing: border-box; }
     html, body {
@@ -202,13 +202,22 @@
       width: auto;
     }
     .radio-native {
-      display: none;
-      width: 100%;
-      height: 28px;
-      margin-top: 4px;
+      position: fixed;
+      left: -120px;
+      top: -120px;
+      width: 1px;
+      height: 1px;
+      opacity: 0.01;
+      /* never display:none — breaks iOS audio */
     }
     body.mode-solo .radio-native {
-      display: block;
+      position: static;
+      left: auto;
+      top: auto;
+      width: 100%;
+      height: 28px;
+      opacity: 1;
+      margin-top: 4px;
     }
     .media-btn:active { opacity: 0.8; }
     .fs-btn, .drawer-btn {
@@ -916,7 +925,7 @@
       <div class="drawer-section">Hub PC</div>
       <div class="side-brand" id="mediaBrand">Wabi · Console</div>
       <div class="meta" id="meta">подключение…</div>
-      <div class="meta" id="buildMeta">build v25</div>
+      <div class="meta" id="buildMeta">build v26</div>
       <div class="toast" id="toast"></div>
       <input class="hub-field" id="hubInput" type="text" placeholder="http://192.168.0.247:8787" />
       <button class="drawer-btn" id="hubSave" type="button">Save hub URL</button>
@@ -936,18 +945,18 @@
     <br><b>Поделиться → На экран «Домой»</b>
     <br>открой ярлык — без строки Safari.
     <br>    <br>Важно: добавляй URL с версией:
-    <br><b id="tipUrl">http://192.168.0.247:8787/?v=25</b>
+    <br><b id="tipUrl">http://192.168.0.247:8787/?v=26</b>
     <br>(старый ярлык без ?v= кэширует старый UI)
     <br><br>Для старта без ПК — GitHub Pages URL из README.
     <button type="button" id="tipOk">Понятно</button>
   </div>
 
-  <script src="gadget-core.js?v=25"></script>
+  <script src="gadget-core.js?v=26"></script>
   <script>
     (function () {
       var IDLE_MS = 60000;
-      var DRIVE_VER = 25;
-      var APP_VER = 25;
+      var DRIVE_VER = 26;
+      var APP_VER = 26;
       var THEME_KEY = "kissaten_deck_theme";
       var GC = window.GadgetCore;
       // Drop obsolete night-mode flag from older builds
@@ -1066,6 +1075,7 @@
       }
 
       function applyTheme(t, animate) {
+        var wasIdle = idleEl.className === "on";
         theme = t;
         if (animate) {
           appEl.className = "theme-fade";
@@ -1079,6 +1089,9 @@
         idleLoadedTheme = null;
         idleFrame.src = "about:blank";
         saveTheme(t);
+        if (wasIdle) {
+          setTimeout(function () { showIdle(); }, 80);
+        }
       }
 
       function driveUrl() {
@@ -1105,6 +1118,15 @@
         setTimeout(function () { window.scrollTo(0, 1); }, 50);
       }
 
+      function appBaseUrl() {
+        var path = location.pathname || "/";
+        if (path.charAt(path.length - 1) !== "/") {
+          path = path.replace(/\/[^\/]*$/, "/");
+          if (!path) path = "/";
+        }
+        return location.protocol + "//" + location.host + path;
+      }
+
       function goFullscreenTip() {
         hideChrome();
         var el = document.documentElement;
@@ -1114,7 +1136,7 @@
         }
         if (isStandalone()) { toast("уже полный экран"); return; }
         var tipUrl = document.getElementById("tipUrl");
-        if (tipUrl) tipUrl.textContent = location.origin + "/?v=" + APP_VER;
+        if (tipUrl) tipUrl.textContent = appBaseUrl() + "?v=" + APP_VER;
         tipEl.className = "on";
       }
 
@@ -1203,23 +1225,28 @@
       }
 
       function showIdle() {
-        loadIdleFrame(true);
+        /* Show overlay FIRST so iframe gets non-zero layout on iOS WebKit */
         idleEl.className = "on";
         if (idleFailTimer) clearTimeout(idleFailTimer);
+        setTimeout(function () {
+          loadIdleFrame(true);
+        }, 60);
         idleFailTimer = setTimeout(function () {
-          /* If iframe stayed blank, force same-origin reload once */
           try {
             var doc = idleFrame.contentDocument;
-            if (!doc || !doc.getElementById("c")) {
+            var canvas = doc && doc.getElementById("c");
+            var bad = !doc || !canvas || (canvas.offsetWidth < 2 && canvas.clientWidth < 2);
+            if (bad) {
               idleLoadedTheme = null;
               loadIdleFrame(true);
+            } else if (doc.defaultView && doc.defaultView.fitCanvasPublic) {
+              try { doc.defaultView.fitCanvasPublic(); } catch (eF) {}
             }
           } catch (eCross) {
-            /* cross-origin (old hub URL) — force local */
             idleLoadedTheme = null;
             loadIdleFrame(true);
           }
-        }, 2500);
+        }, 2800);
       }
 
       function bumpIdle() {
@@ -1469,11 +1496,13 @@
       }
 
       function refreshLivingClient() {
-        if (!GC) return;
-        var wEl = document.getElementById("lvWeatherVal");
-        if (wEl && (!wEl.textContent || wEl.textContent.indexOf("…") !== -1 || wEl.textContent.indexOf("нет") !== -1)) {
-          wEl.textContent = "загрузка…";
+        if (!GC) {
+          var w0 = document.getElementById("lvWeatherVal");
+          if (w0) w0.textContent = "нет core";
+          return;
         }
+        var wEl = document.getElementById("lvWeatherVal");
+        if (wEl) wEl.textContent = "загрузка…";
         GC.fetchLivingBundle(function (living) {
           renderLiving(living);
         });
@@ -1651,23 +1680,18 @@
           syncRadioUI();
         };
         try {
-          el.removeAttribute("src");
           while (el.firstChild) el.removeChild(el.firstChild);
-          var src = document.createElement("source");
-          src.src = url;
-          src.type = "audio/mpeg";
-          el.appendChild(src);
-          el.src = url;
-        } catch (e1) {
-          el.src = url;
-        }
+          el.removeAttribute("src");
+        } catch (eClr) {}
+        el.src = url;
+        try { el.load(); } catch (e1) {}
         var p = el.play();
         if (p && typeof p.then === "function") {
           p.then(function () {
             radioPlaying = true;
             syncRadioUI();
             toast("radio · on");
-          }).catch(function (err) {
+          }).catch(function () {
             radioTryIdx++;
             if (radioTryIdx < radioTryList.length) {
               playRadioUrl(radioTryList[radioTryIdx]);
@@ -1678,9 +1702,13 @@
             }
           });
         } else {
-          radioPlaying = true;
-          syncRadioUI();
-          toast("radio · on");
+          setTimeout(function () {
+            if (el && !el.paused) {
+              radioPlaying = true;
+              syncRadioUI();
+              toast("radio · on");
+            }
+          }, 400);
         }
       }
 
