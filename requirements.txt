@@ -1,0 +1,7 @@
+pycaw>=20240210
+comtypes>=1.4.0
+winrt-runtime>=2.3.0
+winrt-Windows.Media.Control>=2.3.0
+winrt-Windows.Media>=2.3.0
+winrt-Windows.Foundation>=2.3.0
+winrt-Windows.Storage.Streams>=2.3.0

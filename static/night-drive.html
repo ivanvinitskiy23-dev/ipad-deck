@@ -1,0 +1,759 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+  <title>Night Drive</title>
+  <style>
+    html, body { margin: 0; height: 100%; overflow: hidden; background: #000; font-family: Helvetica, Arial, sans-serif; }
+
+    #stage {
+      height: 100%; width: 100%;
+      display: -webkit-box; display: -webkit-flex; display: flex;
+      -webkit-box-orient: vertical; -webkit-flex-direction: column; flex-direction: column;
+      -webkit-box-sizing: border-box; box-sizing: border-box;
+    }
+
+    #hud {
+      position: relative; z-index: 6;
+      padding: 36px 12px 8px;
+      -webkit-box-sizing: border-box; box-sizing: border-box;
+      display: -webkit-box; display: -webkit-flex; display: flex;
+      -webkit-box-pack: center; -webkit-justify-content: center; justify-content: center;
+      -webkit-box-align: stretch; -webkit-align-items: stretch; align-items: stretch;
+      -webkit-flex-shrink: 0; flex-shrink: 0;
+    }
+    #hud .card {
+      border: 1px solid #333;
+      background: rgba(8,8,10,0.9);
+      padding: 0 10px;
+      min-width: 0;
+      height: 58px; min-height: 58px; max-height: 58px;
+      -webkit-box-sizing: border-box; box-sizing: border-box;
+      display: -webkit-box; display: -webkit-flex; display: flex;
+      -webkit-box-orient: vertical; -webkit-flex-direction: column; flex-direction: column;
+      -webkit-box-pack: center; -webkit-justify-content: center; justify-content: center;
+      overflow: hidden;
+    }
+    #hud .lv-weather, #hud .lv-alert {
+      -webkit-flex-shrink: 0; flex-shrink: 0;
+      color: #ccc; font-size: 11px; line-height: 1.2;
+    }
+    #hud .lv-weather { width: 150px; margin-right: 6px; text-align: left; }
+    #hud .lv-alert {
+      width: 118px; margin-left: 6px; text-align: center;
+      font-weight: 700; letter-spacing: 0.1em;
+      color: #6B6B6B; border-color: #333 !important;
+      background: rgba(20,20,24,0.92) !important;
+    }
+    #hud .lv-k {
+      display: block; font-size: 8px; letter-spacing: 0.12em;
+      text-transform: uppercase; opacity: 0.5; margin-bottom: 3px;
+    }
+    #hud .lv-v { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    #hud .lv-alert .lv-v { font-size: 13px; }
+    #hud .lv-sub {
+      display: block; margin-top: 2px; font-size: 9px; font-weight: 500;
+      opacity: 0.65; text-transform: none; letter-spacing: 0;
+    }
+    #hud .lv-alert.on {
+      border-color: #FF4D6D !important;
+      background: rgba(48,8,16,0.95) !important;
+      color: #FF4D6D;
+      -webkit-box-shadow: 0 0 16px rgba(255,77,109,0.55);
+      box-shadow: 0 0 16px rgba(255,77,109,0.55);
+    }
+
+    #hud .hud-player {
+      width: 300px; max-width: 46%;
+      -webkit-box-orient: horizontal; -webkit-flex-direction: row; flex-direction: row;
+      -webkit-box-align: center; -webkit-align-items: center; align-items: center;
+      color: #ddd;
+    }
+    #hud #art {
+      display: none; width: 40px; height: 40px; margin-right: 8px;
+      border: 1px solid #333; background: #111; object-fit: cover;
+      -webkit-flex-shrink: 0; flex-shrink: 0;
+    }
+    #hud #art.on { display: block; }
+    #hud .hud-meta { min-width: 0; -webkit-box-flex: 1; -webkit-flex: 1; flex: 1; }
+    #hud .cap {
+      margin: 0; font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    #hud .src {
+      margin-top: 2px; font-size: 10px; letter-spacing: 0.08em;
+      text-transform: uppercase; color: #888;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    #hud #eq {
+      margin: 4px 0 0; height: 12px;
+      display: -webkit-box; display: -webkit-flex; display: flex;
+      -webkit-box-align: end; -webkit-align-items: flex-end; align-items: flex-end;
+    }
+    #hud #eq span {
+      display: block; width: 3px; margin: 0 1px; height: 3px; background: #4CC9F0;
+    }
+
+    #wrap {
+      position: relative;
+      -webkit-box-flex: 1; -webkit-flex: 1; flex: 1;
+      min-height: 0;
+      margin: 0 8px 4px;
+      display: -webkit-box; display: -webkit-flex; display: flex;
+      -webkit-box-align: center; -webkit-align-items: center; align-items: center;
+      -webkit-box-pack: center; -webkit-justify-content: center; justify-content: center;
+      background: #000;
+    }
+    /* NEVER stretch canvas — aspect kept by JS integer scale */
+    canvas {
+      image-rendering: -webkit-optimize-contrast;
+      image-rendering: pixelated;
+      image-rendering: crisp-edges;
+      border: 2px solid #222;
+      background: #000;
+      -webkit-box-sizing: border-box; box-sizing: border-box;
+      -webkit-transform: translateZ(0);
+      display: block;
+    }
+
+    #ticker {
+      position: relative;
+      -webkit-flex-shrink: 0; flex-shrink: 0;
+      height: 26px;
+      overflow: hidden; background: rgba(0,0,0,0.88); border-top: 1px solid #222; z-index: 5;
+    }
+    #ticker .ticker-clip { overflow: hidden; height: 24px; width: 100%; white-space: nowrap; }
+    #ticker .ticker-track {
+      display: inline-block; white-space: nowrap; padding-top: 4px;
+      font-size: 11px; color: #C8B84A;
+      -webkit-transform: translateX(0); transform: translateX(0);
+    }
+    #ticker .ticker-track span { display: inline-block; padding: 0 14px; }
+    #ticker .ticker-track .sep { opacity: 0.45; padding: 0 2px; }
+
+    /* Background fill under dock: scene only, cover the void */
+    body.fill #hud,
+    body.fill #ticker { display: none !important; }
+    body.fill #wrap {
+      margin: 0;
+      -webkit-box-flex: 1; -webkit-flex: 1; flex: 1;
+      min-height: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: #000;
+    }
+    body.fill #stage {
+      height: 100%;
+    }
+    body.fill canvas {
+      border: 0;
+    }
+  </style>
+</head>
+<body>
+  <div id="stage">
+    <div id="hud">
+      <div class="card lv-weather">
+        <span class="lv-k">Weather</span>
+        <span class="lv-v" id="lvWeatherVal">Kyiv · …</span>
+      </div>
+      <div class="card hud-player">
+        <img id="art" alt="" width="40" height="40" />
+        <div class="hud-meta">
+          <div class="cap" id="cap">neo-tokyo night drive</div>
+          <div class="src" id="src"></div>
+          <div id="eq"></div>
+        </div>
+      </div>
+      <div class="card lv-alert" id="lvAlert">
+        <span class="lv-k">Alert</span>
+        <span class="lv-v" id="lvAlertVal">…</span>
+        <span class="lv-sub" id="lvAlertSub">Kyiv</span>
+      </div>
+    </div>
+
+    <div id="wrap"><canvas id="c" width="320" height="180"></canvas></div>
+
+    <div id="ticker">
+      <div class="ticker-clip">
+        <div class="ticker-track" id="tickerTrack"><span>лента…</span></div>
+      </div>
+    </div>
+  </div>
+
+  <script src="gadget-core.js?v=20"></script>
+  <script>
+    (function () {
+      function param(name) {
+        var q = window.location.search || "";
+        var m = q.match(new RegExp("[?&]" + name + "=([^&]*)"));
+        return m ? decodeURIComponent(m[1]) : "";
+      }
+
+      var GC = window.GadgetCore;
+      var hubParam = param("hub");
+      if (hubParam && GC) {
+        try { GC.setHubBase(hubParam); } catch (e) {}
+      }
+      function hubPath(path) {
+        return GC ? GC.apiUrl(path) : path;
+      }
+
+      var theme = (param("theme") || "C").toUpperCase();
+      if (theme !== "B" && theme !== "C" && theme !== "D") theme = "C";
+      var fillMode = param("fill") === "1";
+      var pageMode = param("mode") || "deck";
+      if (fillMode) {
+        document.body.className = (document.body.className ? document.body.className + " " : "") + "fill";
+      }
+
+      var palettes = {
+        B: {
+          sky0: "#0B0E16", sky1: "#141A28", sky2: "#1A2233",
+          road: "#12151C", curb: "#2A3142", line: "#5EEAD4",
+          build: ["#151A24", "#1B2230", "#202838", "#171D28"],
+          neon: ["#5EEAD4", "#2DD4BF", "#99F6E4"],
+          winOn: "#D9F99D", winOff: "#252B38",
+          car: "#E2E8F0", carDark: "#64748B", carMid: "#94A3B8", light: "#ECFDF5",
+          rain: 4, caption: "pixel tatami · cruise",
+          border: "#2A3142", capColor: "#5EEAD4", eq: "#5EEAD4",
+          cardBg: "rgba(16,18,24,0.94)", ticker: "#A8D8D0"
+        },
+        C: {
+          sky0: "#05060F", sky1: "#0C1020", sky2: "#161028",
+          road: "#0E0C16", curb: "#2A2038", line: "#FFD60A",
+          build: ["#12101C", "#181426", "#1E1630", "#151220"],
+          neon: ["#FF4D6D", "#4CC9F0", "#C77DFF"],
+          winOn: "#FFE08A", winOff: "#2A2438",
+          car: "#E85D4C", carDark: "#8A2F28", carMid: "#C44A3C", light: "#FFF1A8",
+          rain: 14, caption: "shibuya rain · night drive",
+          border: "#3A2A55", capColor: "#FF4D6D", eq: "#4CC9F0",
+          cardBg: "rgba(10,12,20,0.94)", ticker: "#C8A0E8"
+        },
+        D: {
+          sky0: "#050505", sky1: "#0A0A0A", sky2: "#121212",
+          road: "#0C0C0C", curb: "#262626", line: "#FFD21A",
+          build: ["#101010", "#141414", "#181818", "#1C1C1C"],
+          neon: ["#FFD21A", "#E8C547"],
+          winOn: "#FFD21A", winOff: "#1A1A1A",
+          car: "#F5F5F0", carDark: "#3A3A3A", carMid: "#C8C8C0", light: "#FFF8D6",
+          rain: 0, caption: "wabi console · silence",
+          border: "#262626", capColor: "#E8C547", eq: "#E8C547",
+          cardBg: "rgba(12,12,12,0.95)", ticker: "#E0C83A"
+        }
+      };
+
+      var P = palettes[theme];
+      document.body.style.background = P.sky0;
+      document.getElementById("cap").style.color = P.capColor;
+      document.getElementById("c").style.borderColor = P.border;
+      document.getElementById("ticker").style.borderTopColor = P.border;
+      document.getElementById("tickerTrack").style.color = P.ticker;
+
+      var cards = document.querySelectorAll("#hud .card");
+      for (var i = 0; i < cards.length; i++) {
+        cards[i].style.borderColor = P.border;
+        cards[i].style.background = P.cardBg;
+      }
+      var st = document.createElement("style");
+      st.textContent =
+        "#hud .lv-weather .lv-v{color:" + P.eq + "}" +
+        "#hud .lv-alert.on{border-color:#FF4D6D!important;background:rgba(48,8,16,0.95)!important;color:#FF4D6D;" +
+        "-webkit-box-shadow:0 0 16px rgba(255,77,109,0.55);box-shadow:0 0 16px rgba(255,77,109,0.55)}" +
+        "#hud #eq span{background:" + P.eq + "}";
+      document.head.appendChild(st);
+
+      var eqNodes = [];
+      var eq = document.getElementById("eq");
+      for (var e = 0; e < 12; e++) {
+        var sp = document.createElement("span");
+        eq.appendChild(sp);
+        eqNodes.push(sp);
+      }
+
+      var canvas = document.getElementById("c");
+      var wrap = document.getElementById("wrap");
+      var ctx = canvas.getContext("2d");
+      // Logical resolution — integer CSS scale keeps pixels crisp (no stretch blob).
+      var LW = 320, LH = 180;
+      var W = LW, H = LH, t = 0;
+      var HORIZON = 118;
+      var media = { playing: false, title: "", artist: "" };
+
+      var lastFitKey = "";
+      function fitCanvas() {
+        var tw = wrap.clientWidth || (window.innerWidth || 640);
+        var th = wrap.clientHeight || (window.innerHeight || 360);
+        if (tw < 2) tw = window.innerWidth || 640;
+        if (th < 2) th = window.innerHeight || 360;
+        var key = tw + "x" + th + (fillMode ? "f" : "c");
+        if (key === lastFitKey && canvas.width === LW) return;
+        lastFitKey = key;
+        canvas.width = LW;
+        canvas.height = LH;
+        if (fillMode) {
+          var sx = tw / LW;
+          var sy = th / LH;
+          var scale = Math.max(sx, sy);
+          if (!(scale > 0)) scale = 1;
+          canvas.style.width = Math.round(LW * scale) + "px";
+          canvas.style.height = Math.round(LH * scale) + "px";
+        } else {
+          var isx = Math.floor(tw / LW);
+          var isy = Math.floor(th / LH);
+          var iscale = Math.max(1, Math.min(isx, isy));
+          if (iscale < 2 && th >= LH * 1.5) iscale = 2;
+          canvas.style.width = (LW * iscale) + "px";
+          canvas.style.height = (LH * iscale) + "px";
+        }
+        W = LW;
+        H = LH;
+      }
+
+      function rnd(n) { return (Math.random() * n) | 0; }
+      function px(x, y, c) {
+        ctx.fillStyle = c;
+        ctx.fillRect(x | 0, y | 0, 1, 1);
+      }
+      function rect(x, y, w, h, c) {
+        ctx.fillStyle = c;
+        ctx.fillRect(x | 0, y | 0, w | 0, h | 0);
+      }
+      function wrapX(x, span) {
+        var m = x % span;
+        if (m < 0) m += span;
+        return m;
+      }
+
+      var buildings = [];
+      var CITY_SPAN = 0;
+      function buildCity() {
+        buildings = [];
+        var x = 0;
+        var n = 0;
+        while (x < LW * 5) {
+          var bw = 16 + rnd(28);
+          var bh = 36 + rnd(70);
+          buildings.push({
+            x: x, w: bw, h: bh,
+            c: P.build[rnd(P.build.length)],
+            neon: P.neon[rnd(P.neon.length)],
+            // Stable lit windows — no time flicker
+            seed: n * 17 + bw,
+            // Billboard only when building fits text (23px) + pads
+            banner: (n % 4 === 1) && bw >= 34
+          });
+          x += bw + 2 + rnd(6);
+          n++;
+        }
+        CITY_SPAN = x;
+      }
+      buildCity();
+
+      var stars = [];
+      for (var s = 0; s < 48; s++) stars.push({ x: rnd(LW), y: rnd(50), a: 0.2 + Math.random() * 0.6 });
+
+      var carColors = {
+        body: P.car,
+        dark: P.carDark,
+        glass: (theme === "D" ? "#1A1A14" : "#1A2840"),
+        glassLite: P.light,
+        tire: "#111111",
+        rim: "#C8C8C0",
+        tail: "#FF2D55",
+        head: "#FFF6C0",
+        shadow: "#050505",
+        mid: P.carMid
+      };
+
+      /**
+       * Procedural coupe — readable silhouette at any integer scale.
+       * Unit grid ~24 wide × 11 tall, then multiplied by `s`.
+       */
+      function drawCarShape(ox, oy, s) {
+        function fr(ux, uy, uw, uh, c) {
+          ctx.fillStyle = c;
+          ctx.fillRect(ox + ux * s, oy + uy * s, uw * s, uh * s);
+        }
+        function wheel(ux, uy) {
+          fr(ux, uy, 5, 4, carColors.tire);
+          fr(ux + 1, uy + 1, 3, 2, carColors.rim);
+          fr(ux + 2, uy + 1, 1, 2, carColors.shadow);
+        }
+
+        // ground shadow
+        fr(2, 10, 20, 1, carColors.shadow);
+
+        // —— chassis / lower body (continuous rocker with arch gaps) ——
+        fr(1, 5, 22, 3, carColors.body);
+        fr(1, 7, 22, 1, carColors.dark);
+
+        // cut wheel arches (paint road color over body)
+        fr(3, 6, 5, 2, P.road);
+        fr(16, 6, 5, 2, P.road);
+
+        // —— trunk (left) ——
+        fr(1, 3, 5, 3, carColors.body);
+        fr(1, 3, 5, 1, carColors.dark);
+        fr(0, 4, 1, 2, carColors.dark);           // rear bumper
+        fr(0, 3, 1, 2, carColors.tail);            // taillight stack
+        fr(0, 5, 1, 1, "#FF6B81");
+
+        // —— cabin ——
+        fr(5, 1, 8, 1, carColors.dark);            // roof line
+        fr(5, 2, 8, 3, carColors.body);
+        // side window
+        fr(6, 2, 6, 2, carColors.glass);
+        fr(7, 2, 4, 1, carColors.glassLite);       // highlight
+        // door crease
+        fr(10, 4, 1, 2, carColors.mid);
+
+        // —— windshield steps (rake toward nose/right) ——
+        fr(12, 1, 1, 1, carColors.dark);
+        fr(12, 2, 2, 2, carColors.glass);
+        fr(13, 3, 2, 1, carColors.glass);
+        fr(14, 3, 1, 1, carColors.mid);
+        fr(13, 4, 3, 2, carColors.body);
+
+        // —— hood ——
+        fr(15, 4, 7, 2, carColors.body);
+        fr(16, 4, 5, 1, carColors.mid);
+        fr(20, 5, 3, 2, carColors.dark);           // front bumper
+        fr(21, 4, 2, 1, carColors.head);           // headlight
+        fr(22, 4, 1, 1, "#FFFFFF");
+
+        // —— wheels (clearance below body) ——
+        wheel(3, 7);
+        wheel(16, 7);
+
+        // headlight beam
+        ctx.globalAlpha = 0.22;
+        fr(23, 4, 10, 1, carColors.head);
+        ctx.globalAlpha = 0.08;
+        fr(24, 3, 16, 3, carColors.head);
+        ctx.globalAlpha = 1;
+
+        // taillight glow
+        ctx.globalAlpha = 0.3;
+        fr(-1, 3, 2, 3, carColors.tail);
+        ctx.globalAlpha = 1;
+      }
+
+      function drawSky() {
+        rect(0, 0, W, 40, P.sky0);
+        rect(0, 40, W, 40, P.sky1);
+        rect(0, 80, W, HORIZON - 80, P.sky2);
+        if (theme !== "D") {
+          for (var i = 0; i < stars.length; i++) {
+            var st = stars[i];
+            // Stable stars — no blink
+            ctx.globalAlpha = st.a;
+            px(st.x, st.y, "#ffffff");
+          }
+          ctx.globalAlpha = 1;
+        }
+      }
+
+      // 4-row glyphs stay inside neon frame (inner height = 5)
+      var BANNER_GLYPHS = {
+        Q: { w: 4, g: ["0110", "1001", "1001", "0111"] },
+        w: { w: 5, g: ["10001", "10001", "10101", "01010"] },
+        i: { w: 1, g: ["1", "0", "1", "1"] },
+        q: { w: 3, g: ["010", "101", "111", "001"] },
+        l: { w: 2, g: ["10", "10", "10", "11"] },
+        y: { w: 3, g: ["101", "101", "010", "010"] }
+      };
+      var BANNER_LABEL = "Qwiqly";
+      var BANNER_TEXT_W = (function () {
+        var tw = 0;
+        for (var i = 0; i < BANNER_LABEL.length; i++) {
+          var ch = BANNER_GLYPHS[BANNER_LABEL.charAt(i)];
+          if (!ch) continue;
+          tw += ch.w;
+          if (i < BANNER_LABEL.length - 1) tw += 1;
+        }
+        return tw;
+      })();
+      var BANNER_PAD = 2; // side inset from neon frame
+
+      function drawBannerText(x, y, w, color) {
+        var innerW = w - BANNER_PAD * 2;
+        if (innerW < BANNER_TEXT_W) return;
+        var gx = (x + BANNER_PAD + ((innerW - BANNER_TEXT_W) / 2) | 0) | 0;
+        var gy = y | 0;
+        var xMin = x + BANNER_PAD;
+        var xMax = x + w - BANNER_PAD;
+        for (var ci = 0; ci < BANNER_LABEL.length; ci++) {
+          var spec = BANNER_GLYPHS[BANNER_LABEL.charAt(ci)];
+          if (!spec) continue;
+          for (var ry = 0; ry < spec.g.length; ry++) {
+            var row = spec.g[ry];
+            for (var rx = 0; rx < spec.w; rx++) {
+              if (row.charAt(rx) !== "1") continue;
+              var pxX = gx + rx;
+              if (pxX < xMin || pxX >= xMax) continue;
+              px(pxX, gy + ry, color);
+            }
+          }
+          gx += spec.w + 1;
+        }
+      }
+
+      function drawCity() {
+        var shift = (t * 1.6) | 0;
+        for (var i = 0; i < buildings.length; i++) {
+          var b = buildings[i];
+          var x = wrapX(b.x - shift, CITY_SPAN) - 24;
+          if (x > W || x + b.w < -2) continue;
+          var y = HORIZON - b.h;
+          rect(x, y, b.w, b.h, b.c);
+
+          var banW = b.w - 4;
+          var showBanner = b.banner && banW >= BANNER_TEXT_W + BANNER_PAD * 2 + 2;
+          // neon frame: 1px top + 4px text + 1px gap + 1px bottom = 7
+          var banY = y + 3;
+          var banH = 7;
+          var winStartY = showBanner ? (banY + banH + 2) : (y + 4);
+
+          for (var wy = winStartY; wy < HORIZON - 3; wy += 6) {
+            for (var wx = x + 3; wx < x + b.w - 3; wx += 5) {
+              var lit = ((wx * 7 + wy * 5 + b.seed) % 9) < 4;
+              rect(wx, wy, 2, 2, lit ? P.winOn : P.winOff);
+            }
+          }
+
+          if (showBanner) {
+            rect(x + 2, banY, banW, banH, "#0A0A0A");
+            rect(x + 2, banY, banW, 1, b.neon);           // top rail
+            rect(x + 2, banY + banH - 1, banW, 1, b.neon); // bottom rail
+            // text in rows banY+1 .. banY+4 (between rails)
+            drawBannerText(x + 2, banY + 1, banW, b.neon);
+          } else {
+            rect(x + 1, y - 2, b.w - 2, 2, b.neon);
+          }
+        }
+        rect(0, HORIZON - 1, W, 1, P.curb);
+      }
+
+      function drawRoad() {
+        rect(0, HORIZON, W, H - HORIZON, P.road);
+        rect(0, HORIZON, W, 3, P.curb);
+        var lx = -wrapX((t * 5) | 0, 18);
+        for (; lx < W; lx += 18) rect(lx, HORIZON + 28, 10, 3, P.line);
+        rect(0, H - 5, W, 5, P.curb);
+      }
+
+      function drawCar() {
+        // scale 4 → ~96×44 px car on 320×180 — clearly readable on iPad
+        var s = 4;
+        var ox = 70;
+        var oy = HORIZON + 8;
+        drawCarShape(ox, oy, s);
+      }
+
+      function drawRain() {
+        if (!P.rain) return;
+        ctx.fillStyle = "rgba(190,210,255,0.35)";
+        for (var i = 0; i < P.rain; i++) {
+          var rx = (i * 41 + t * 3) % W;
+          var ry = (i * 17 + t * 5) % H;
+          ctx.fillRect(rx, ry, 1, 5);
+        }
+      }
+
+      function tickEq() {
+        for (var i = 0; i < eqNodes.length; i++) {
+          var h = media.playing ? (3 + rnd(10)) : (2 + (i % 3));
+          eqNodes[i].style.height = h + "px";
+        }
+      }
+
+      function frame() {
+        t++;
+        ctx.fillStyle = P.sky0;
+        ctx.fillRect(0, 0, W, H);
+        drawSky();
+        drawCity();
+        drawRoad();
+        drawCar();
+        drawRain();
+        if ((t % 3) === 0) tickEq();
+      }
+
+      var artRev = -1;
+      var artEl = document.getElementById("art");
+      var srcEl = document.getElementById("src");
+      var tickerSig = "";
+      var tickerOffset = 0;
+      var tickerHalf = 0;
+      var tickerTimer = null;
+
+      function escHtml(s) {
+        return String(s || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+      }
+
+      function tickScroll() {
+        var track = document.getElementById("tickerTrack");
+        if (!track) return;
+        if (tickerHalf < 20) {
+          tickerHalf = (track.offsetWidth / 2) | 0;
+          if (tickerHalf < 20) return;
+        }
+        tickerOffset -= 1;
+        if (-tickerOffset >= tickerHalf) tickerOffset = 0;
+        track.style.webkitTransform = "translateX(" + tickerOffset + "px)";
+        track.style.transform = "translateX(" + tickerOffset + "px)";
+      }
+
+      function startTickerScroll() {
+        if (!tickerTimer) tickerTimer = setInterval(tickScroll, 28);
+      }
+
+      function renderTicker(ticker) {
+        if (!ticker || !ticker.items || !ticker.items.length) return;
+        var parts = [];
+        for (var i = 0; i < ticker.items.length; i++) {
+          var tx = escHtml(ticker.items[i].text || "");
+          if (tx) parts.push("<span>" + tx + "</span>");
+        }
+        if (!parts.length) return;
+        var sig = parts.join("|");
+        if (sig === tickerSig) { startTickerScroll(); return; }
+        tickerSig = sig;
+        var html = parts.join('<span class="sep"> · </span>');
+        var track = document.getElementById("tickerTrack");
+        track.innerHTML = html + '<span class="sep"> · </span>' + html;
+        tickerOffset = 0; tickerHalf = 0;
+        track.style.webkitTransform = "translateX(0)";
+        track.style.transform = "translateX(0)";
+        setTimeout(function () {
+          tickerHalf = (track.offsetWidth / 2) | 0;
+          startTickerScroll();
+        }, 40);
+      }
+
+      function fetchTicker() {
+        if (GC) {
+          GC.fetchNews(function (ticker) { renderTicker(ticker); });
+          return;
+        }
+        var xhr = new XMLHttpRequest();
+        xhr.open("GET", hubPath("/api/ticker"), true);
+        xhr.timeout = 4000;
+        xhr.onreadystatechange = function () {
+          if (xhr.readyState === 4 && xhr.status === 200) {
+            try { renderTicker(JSON.parse(xhr.responseText)); } catch (e) {}
+          }
+        };
+        xhr.send(null);
+      }
+
+      function renderLiving(living) {
+        if (!living) return;
+        var w = living.weather, a = living.alert;
+        var wEl = document.getElementById("lvWeatherVal");
+        var aEl = document.getElementById("lvAlert");
+        if (w && (w.temp_c != null)) {
+          wEl.textContent = w.temp_c + "° · " + (w.label || "");
+        } else if (w && w.text) {
+          wEl.textContent = w.text;
+        } else {
+          wEl.textContent = "Kyiv · …";
+        }
+        if (a) {
+          document.getElementById("lvAlertVal").textContent = a.label || "…";
+          document.getElementById("lvAlertSub").textContent = a.place || "Kyiv";
+          aEl.className = a.alert ? "card lv-alert on" : "card lv-alert";
+        }
+      }
+
+      function fetchLiving() {
+        if (GC) {
+          GC.fetchLivingBundle(function (living) { renderLiving(living); });
+          return;
+        }
+        var xhr = new XMLHttpRequest();
+        xhr.open("GET", hubPath("/api/living"), true);
+        xhr.timeout = 4000;
+        xhr.onreadystatechange = function () {
+          if (xhr.readyState === 4 && xhr.status === 200) {
+            try { renderLiving(JSON.parse(xhr.responseText)); } catch (e) {}
+          }
+        };
+        xhr.send(null);
+      }
+
+      function fetchMedia() {
+        if (pageMode === "solo") {
+          media.playing = false;
+          media.title = "";
+          media.artist = "";
+          document.getElementById("cap").textContent = P.caption;
+          srcEl.textContent = "standalone";
+          artEl.className = "";
+          artEl.removeAttribute("src");
+          return;
+        }
+        var xhr = new XMLHttpRequest();
+        xhr.open("GET", hubPath("/api/nowplaying"), true);
+        xhr.timeout = 3000;
+        xhr.onreadystatechange = function () {
+          if (xhr.readyState !== 4 || xhr.status !== 200) return;
+          try {
+            var d = JSON.parse(xhr.responseText);
+            media.playing = !!d.playing;
+            media.title = d.title || "";
+            media.artist = d.artist || "";
+            var cap = document.getElementById("cap");
+            cap.textContent = media.title
+              ? ((media.playing ? "▶ " : "❚❚ ") + media.title)
+              : P.caption;
+            var sub = media.artist || "";
+            if (d.app_label || d.app) sub = sub ? (sub + " · " + (d.app_label || d.app)) : (d.app_label || d.app);
+            srcEl.textContent = sub;
+            if (d.has_art && d.art_rev) {
+              if (artRev !== d.art_rev) {
+                artRev = d.art_rev;
+                artEl.src = hubPath("/api/cover?r=" + artRev);
+              }
+              artEl.className = "on";
+            } else {
+              artRev = -1;
+              artEl.removeAttribute("src");
+              artEl.className = "";
+            }
+          } catch (e) {}
+        };
+        xhr.send(null);
+      }
+
+      fitCanvas();
+      setTimeout(fitCanvas, 80);
+      setTimeout(fitCanvas, 400);
+      if (window.addEventListener) {
+        window.addEventListener("resize", fitCanvas, false);
+        window.addEventListener("orientationchange", function () {
+          lastFitKey = "";
+          setTimeout(fitCanvas, 200);
+        }, false);
+        window.addEventListener("pageshow", function () {
+          lastFitKey = "";
+          setTimeout(fitCanvas, 50);
+        }, false);
+      }
+
+      setInterval(frame, 80);
+      // Living/ticker always from client APIs; media only when hub deck mode
+      setInterval(fetchTicker, 60000);
+      setInterval(fetchLiving, 45000);
+      fetchTicker();
+      fetchLiving();
+      if (!fillMode) {
+        setInterval(fetchMedia, 1500);
+        fetchMedia();
+      }
+      frame();
+    })();
+  </script>
+</body>
+</html>
