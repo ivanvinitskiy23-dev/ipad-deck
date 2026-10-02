@@ -5,11 +5,11 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-  <meta name="apple-mobile-web-app-title" content="Gadget v33" />
+  <meta name="apple-mobile-web-app-title" content="Gadget v34" />
   <meta name="mobile-web-app-capable" content="yes" />
   <meta http-equiv="Cache-Control" content="no-store, no-cache, must-revalidate" />
   <meta http-equiv="Pragma" content="no-cache" />
-  <title>Kissaten Gadget v33</title>
+  <title>Kissaten Gadget v34</title>
   <style>
     * { -webkit-tap-highlight-color: transparent; box-sizing: border-box; }
     html, body {
@@ -941,7 +941,7 @@
       <div class="drawer-section">Hub PC</div>
       <div class="side-brand" id="mediaBrand">Wabi · Console</div>
       <div class="meta" id="meta">подключение…</div>
-      <div class="meta" id="buildMeta">build v33</div>
+      <div class="meta" id="buildMeta">build v34</div>
       <div class="toast" id="toast"></div>
       <input class="hub-field" id="hubInput" type="text" placeholder="http://192.168.0.247:8787" />
       <button class="drawer-btn" id="hubSave" type="button">Save hub URL</button>
@@ -961,18 +961,18 @@
     <br><b>Поделиться → На экран «Домой»</b>
     <br>открой ярлык — без строки Safari.
     <br>    <br>Важно: добавляй URL с версией:
-    <br><b id="tipUrl">http://192.168.0.247:8787/?v=33</b>
+    <br><b id="tipUrl">http://192.168.0.247:8787/?v=34</b>
     <br>(старый ярлык без ?v= кэширует старый UI)
     <br><br>Для старта без ПК — GitHub Pages URL из README.
     <button type="button" id="tipOk">Понятно</button>
   </div>
 
-  <script src="gadget-core.js?v=33"></script>
+  <script src="gadget-core.js?v=34"></script>
   <script>
     (function () {
       var IDLE_MS = 45000;
-      var DRIVE_VER = 33;
-      var APP_VER = 33;
+      var DRIVE_VER = 34;
+      var APP_VER = 34;
       var THEME_KEY = "kissaten_deck_theme";
       var GC = window.GadgetCore;
       // Drop obsolete night-mode flag from older builds
@@ -990,7 +990,19 @@
       var failCount = 0;
       var hubQuietUntil = 0;
       var hubDownNoted = false;
-      var mode = (GC && (GC.getHubBase() || GC.isLikelyHubOrigin())) ? "deck" : "solo"; // deck | solo
+      var HUB_HOLD_KEY = "kissaten_hub_hold";
+      function readHubHold() {
+        try { return localStorage.getItem(HUB_HOLD_KEY) === "1"; } catch (e) { return false; }
+      }
+      function writeHubHold(on) {
+        try {
+          if (on) localStorage.setItem(HUB_HOLD_KEY, "1");
+          else localStorage.removeItem(HUB_HOLD_KEY);
+        } catch (e) {}
+      }
+      var hubHeld = readHubHold();
+      if (hubHeld) hubQuietUntil = 8640000000000000;
+      var mode = hubHeld ? "solo" : ((GC && (GC.getHubBase() || GC.isLikelyHubOrigin())) ? "deck" : "solo"); // deck | solo
       var modeLock = null; // null=auto, "deck"|"solo"=manual from MENU
       var artRev = -1;
       var livingTimer = null;
@@ -1209,7 +1221,6 @@
       function pickMode(next) {
         modeLock = next;
         failCount = 0;
-        hubQuietUntil = 0;
         hubDownNoted = false;
         if (next === "deck") {
           /* HTTPS Pages cannot XHR to HTTP LAN hub (mixed content) — jump to hub UI */
@@ -1217,14 +1228,20 @@
             goToHubDeck();
             return;
           }
+          writeHubHold(false);
+          hubQuietUntil = 0;
+          hubHeld = false;
           setMode("deck");
           toast("DECK");
           heartbeat();
           refreshStatus();
         } else {
+          writeHubHold(true);
+          hubQuietUntil = 8640000000000000;
+          hubHeld = true;
           setMode("solo");
           toast("STANDALONE");
-          setMeta("<b>standalone</b><br>ручной режим");
+          setMeta("<b>standalone</b><br>к ПК не подключаюсь");
         }
       }
       document.getElementById("modeDeckBtn").onclick = function () { pickMode("deck"); };
@@ -1503,19 +1520,21 @@
 
       function markHubDown() {
         failCount++;
-        if (failCount < 2) return;
         setMode("solo", { auto: true });
-        /* Stay quiet until the user taps DECK — no timed retry, no iOS dialog */
+        writeHubHold(true);
+        hubHeld = true;
         hubQuietUntil = 8640000000000000;
         if (!hubDownNoted) {
           hubDownNoted = true;
-          setMeta("<b>ПК выключен</b><br>standalone · запросы к хабу остановлены");
+          setMeta("<b>ПК выключен</b><br>standalone · к хабу больше не стучусь");
         }
       }
 
       function markHubUp() {
         var wasQuiet = hubIsQuiet() || failCount > 0 || mode === "solo";
         failCount = 0;
+        writeHubHold(false);
+        hubHeld = false;
         hubQuietUntil = 0;
         hubDownNoted = false;
         setMode("deck", { auto: true });
@@ -2158,9 +2177,14 @@
       setInterval(refreshLivingClient, 30000);
       setTimeout(refreshLivingClient, 3000);
       setTimeout(refreshLivingClient, 10000);
-      heartbeat();
+      if (!hubHeld) {
+        heartbeat();
+        refreshStatus();
+      } else {
+        setMode("solo", { auto: true });
+        setMeta("<b>standalone</b><br>ПК был выключен · DECK когда включишь");
+      }
       setInterval(heartbeat, 8000);
-      refreshStatus();
       setInterval(refreshStatus, 8000);
     })();
   </script>
