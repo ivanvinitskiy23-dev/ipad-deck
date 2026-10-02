@@ -33,20 +33,27 @@
     "iz.ru", "gazeta.ru", "kommersant.ru", "vedomosti.ru", "aif.ru", "mk.ru"
   ];
 
-  /* Verified HTML5-playable HTTPS streams (SomaFM ice/ICY fails in many browsers). */
+  /* HTTPS MP3/AAC that start with a real frame (no ICY metadata block). Each URL is a different mount. */
   var RADIO_STATIONS = [
     { id: "chillout", name: "0n Chillout", url: "https://0n-chillout.radionetz.de/0n-chillout.mp3" },
-    { id: "lounge", name: "0n Lounge", url: "https://0n-lounge.radionetz.de/0n-lounge.mp3" },
-    { id: "smooth", name: "0n Smooth Jazz", url: "https://0n-smoothjazz.radionetz.de/0n-smoothjazz.mp3" },
-    { id: "chillhop", name: "I Love Chillhop", url: "https://streams.ilovemusic.de/iloveradio17.mp3" },
-    { id: "ilove2", name: "I Love Dance", url: "https://streams.ilovemusic.de/iloveradio21.mp3" },
-    { id: "ilove3", name: "I Love Hits", url: "https://streams.ilovemusic.de/iloveradio14.mp3" },
+    { id: "jazz", name: "0n Jazz", url: "https://0n-jazz.radionetz.de/0n-jazz.mp3" },
+    { id: "dance", name: "I Love Dance", url: "https://streams.ilovemusic.de/iloveradio2.mp3" },
+    { id: "hiphop", name: "I Love Hip Hop", url: "https://streams.ilovemusic.de/iloveradio3.mp3" },
+    { id: "rock", name: "I Love Rock", url: "https://streams.ilovemusic.de/iloveradio4.mp3" },
     { id: "lofi", name: "Lofi Radio", url: "https://play.streamafrica.net/lofiradio" },
-    { id: "asp", name: "Ambient Sleeping Pill", url: "https://radio.stereoscenic.com/asp-h" },
-    { id: "rp", name: "Radio Paradise", url: "https://stream.radioparadise.com/mp3-128", url2: "https://stream.radioparadise.com/aac-128" },
-    { id: "smoothuk", name: "Smooth London", url: "https://media-ssl.musicradio.com/SmoothLondonMP3" },
-    { id: "zenolofi", name: "Zeno Lofi", url: "https://stream.zeno.fm/0r0xa792kwzuv" }
+    { id: "rp", name: "Radio Paradise", url: "https://stream.radioparadise.com/mp3-128", url2: "https://stream.radioparadise.com/aac-128" }
   ];
+
+  /* Retired ids → closest current station. Dead SomaFM ice ids used to all become chillout. */
+  var RADIO_ID_ALIAS = {
+    fluid: "chillout", groove: "chillout", gsclassic: "chillout", drone: "chillout",
+    space: "chillout", beat: "chillout", cliqhop: "chillout", lush: "chillout", soma: "chillout",
+    lounge: "chillout", asp: "chillout",
+    smooth: "jazz", smoothuk: "jazz",
+    ilove2: "dance",
+    ilove3: "hiphop",
+    chillhop: "lofi", zenolofi: "lofi"
+  };
 
   function trimSlash(s) {
     return String(s || "").replace(/\/+$/, "");
@@ -583,17 +590,21 @@
     }
   }
 
+  function canonicalRadioId(id) {
+    if (!id) return RADIO_STATIONS[0].id;
+    if (RADIO_ID_ALIAS[id]) id = RADIO_ID_ALIAS[id];
+    for (var i = 0; i < RADIO_STATIONS.length; i++) {
+      if (RADIO_STATIONS[i].id === id) return id;
+    }
+    return RADIO_STATIONS[0].id;
+  }
+
   function getRadioId() {
     try {
-      var id = localStorage.getItem(RADIO_KEY) || "chillout";
-      /* migrate away from dead SomaFM ice ids */
-      if (id === "fluid" || id === "groove" || id === "gsclassic" || id === "drone" ||
-          id === "space" || id === "beat" || id === "cliqhop" || id === "lush" || id === "soma") {
-        id = "chillout";
-        try { localStorage.setItem(RADIO_KEY, id); } catch (e2) {}
-      }
+      var id = canonicalRadioId(localStorage.getItem(RADIO_KEY) || "chillout");
+      try { localStorage.setItem(RADIO_KEY, id); } catch (e2) {}
       return id;
-    } catch (e) { return "chillout"; }
+    } catch (e) { return RADIO_STATIONS[0].id; }
   }
 
   function setRadioId(id) {

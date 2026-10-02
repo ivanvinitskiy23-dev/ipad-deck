@@ -5,11 +5,11 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-  <meta name="apple-mobile-web-app-title" content="Gadget v36" />
+  <meta name="apple-mobile-web-app-title" content="Gadget v37" />
   <meta name="mobile-web-app-capable" content="yes" />
   <meta http-equiv="Cache-Control" content="no-store, no-cache, must-revalidate" />
   <meta http-equiv="Pragma" content="no-cache" />
-  <title>Kissaten Gadget v36</title>
+  <title>Kissaten Gadget v37</title>
   <style>
     * { -webkit-tap-highlight-color: transparent; box-sizing: border-box; }
     html, body {
@@ -941,7 +941,7 @@
       <div class="drawer-section">Hub PC</div>
       <div class="side-brand" id="mediaBrand">Wabi · Console</div>
       <div class="meta" id="meta">подключение…</div>
-      <div class="meta" id="buildMeta">build v36</div>
+      <div class="meta" id="buildMeta">build v37</div>
       <div class="toast" id="toast"></div>
       <input class="hub-field" id="hubInput" type="text" placeholder="http://192.168.0.247:8787" />
       <button class="drawer-btn" id="hubSave" type="button">Save hub URL</button>
@@ -961,18 +961,18 @@
     <br><b>Поделиться → На экран «Домой»</b>
     <br>открой ярлык — без строки Safari.
     <br>    <br>Важно: добавляй URL с версией:
-    <br><b id="tipUrl">http://192.168.0.247:8787/?v=36</b>
+    <br><b id="tipUrl">http://192.168.0.247:8787/?v=37</b>
     <br>(старый ярлык без ?v= кэширует старый UI)
     <br><br>Для старта без ПК — GitHub Pages URL из README.
     <button type="button" id="tipOk">Понятно</button>
   </div>
 
-  <script src="gadget-core.js?v=36"></script>
+  <script src="gadget-core.js?v=37"></script>
   <script>
     (function () {
       var IDLE_MS = 45000;
-      var DRIVE_VER = 36;
-      var APP_VER = 36;
+      var DRIVE_VER = 37;
+      var APP_VER = 37;
       var THEME_KEY = "kissaten_deck_theme";
       var GC = window.GadgetCore;
       // Drop obsolete night-mode flag from older builds
@@ -1894,11 +1894,23 @@
 
       var radioTryList = [];
       var radioTryIdx = 0;
+      var radioPlayGen = 0;
 
       function playRadioUrl(url) {
         var el = ensureRadioAudio();
+        var gen = ++radioPlayGen;
+        el.onerror = null;
+        el.onplaying = null;
         try { el.pause(); } catch (e0) {}
+        /* Clear the previous src before attaching onerror, or the abort
+           counts as a failure and every station falls through to one URL. */
+        try {
+          while (el.firstChild) el.removeChild(el.firstChild);
+          el.removeAttribute("src");
+          el.load();
+        } catch (eClr) {}
         el.onerror = function () {
+          if (gen !== radioPlayGen) return;
           radioTryIdx++;
           if (radioTryIdx < radioTryList.length) {
             toast("radio retry…");
@@ -1910,22 +1922,21 @@
           }
         };
         el.onplaying = function () {
+          if (gen !== radioPlayGen) return;
           radioPlaying = true;
           syncRadioUI();
         };
-        try {
-          while (el.firstChild) el.removeChild(el.firstChild);
-          el.removeAttribute("src");
-        } catch (eClr) {}
         el.src = url;
         try { el.load(); } catch (e1) {}
         var p = el.play();
         if (p && typeof p.then === "function") {
           p.then(function () {
+            if (gen !== radioPlayGen) return;
             radioPlaying = true;
             syncRadioUI();
             toast("radio · on");
           }).catch(function () {
+            if (gen !== radioPlayGen) return;
             radioTryIdx++;
             if (radioTryIdx < radioTryList.length) {
               playRadioUrl(radioTryList[radioTryIdx]);
@@ -1937,6 +1948,7 @@
           });
         } else {
           setTimeout(function () {
+            if (gen !== radioPlayGen) return;
             if (el && !el.paused) {
               radioPlaying = true;
               syncRadioUI();
@@ -1951,11 +1963,14 @@
         var st = GC.stationById(GC.getRadioId());
         radioTryList = [];
         if (st.url) radioTryList.push(st.url);
-        if (st.url2) radioTryList.push(st.url2);
-        /* hard fallbacks that we verified play in browsers */
-        radioTryList.push("https://0n-chillout.radionetz.de/0n-chillout.mp3");
-        radioTryList.push("https://streams.ilovemusic.de/iloveradio17.mp3");
-        radioTryList.push("https://stream.radioparadise.com/mp3-128");
+        /* Same station, other codec only — never a different station. */
+        if (st.url2 && st.url2 !== st.url) radioTryList.push(st.url2);
+        if (!radioTryList.length) {
+          radioPlaying = false;
+          syncRadioUI();
+          toast("radio fail");
+          return;
+        }
         radioTryIdx = 0;
         playRadioUrl(radioTryList[0]);
       }
