@@ -9,7 +9,7 @@
   <meta name="mobile-web-app-capable" content="yes" />
   <meta http-equiv="Cache-Control" content="no-store, no-cache, must-revalidate" />
   <meta http-equiv="Pragma" content="no-cache" />
-  <title>Kissaten Gadget v20</title>
+  <title>Kissaten Gadget v25</title>
   <style>
     * { -webkit-tap-highlight-color: transparent; box-sizing: border-box; }
     html, body {
@@ -200,6 +200,15 @@
     #mediaControlsRadio .media-btn {
       -webkit-box-flex: 1; -webkit-flex: 1 1 33%; flex: 1 1 33%;
       width: auto;
+    }
+    .radio-native {
+      display: none;
+      width: 100%;
+      height: 28px;
+      margin-top: 4px;
+    }
+    body.mode-solo .radio-native {
+      display: block;
     }
     .media-btn:active { opacity: 0.8; }
     .fs-btn, .drawer-btn {
@@ -803,6 +812,7 @@
               <button type="button" class="media-btn" id="radioPlayBtn">Play</button>
               <button type="button" class="media-btn" id="radioNextBtn">Next</button>
             </div>
+            <audio id="radioNative" class="radio-only radio-native" preload="auto" playsinline webkit-playsinline></audio>
           </div>
           <div id="living">
             <div class="lv-weather" id="lvWeather">
@@ -906,7 +916,7 @@
       <div class="drawer-section">Hub PC</div>
       <div class="side-brand" id="mediaBrand">Wabi · Console</div>
       <div class="meta" id="meta">подключение…</div>
-      <div class="meta" id="buildMeta">build v24</div>
+      <div class="meta" id="buildMeta">build v25</div>
       <div class="toast" id="toast"></div>
       <input class="hub-field" id="hubInput" type="text" placeholder="http://192.168.0.247:8787" />
       <button class="drawer-btn" id="hubSave" type="button">Save hub URL</button>
@@ -926,18 +936,18 @@
     <br><b>Поделиться → На экран «Домой»</b>
     <br>открой ярлык — без строки Safari.
     <br>    <br>Важно: добавляй URL с версией:
-    <br><b id="tipUrl">http://192.168.0.247:8787/?v=24</b>
+    <br><b id="tipUrl">http://192.168.0.247:8787/?v=25</b>
     <br>(старый ярлык без ?v= кэширует старый UI)
     <br><br>Для старта без ПК — GitHub Pages URL из README.
     <button type="button" id="tipOk">Понятно</button>
   </div>
 
-  <script src="gadget-core.js?v=24"></script>
+  <script src="gadget-core.js?v=25"></script>
   <script>
     (function () {
-      var IDLE_MS = 90000;
-      var DRIVE_VER = 24;
-      var APP_VER = 24;
+      var IDLE_MS = 60000;
+      var DRIVE_VER = 25;
+      var APP_VER = 25;
       var THEME_KEY = "kissaten_deck_theme";
       var GC = window.GadgetCore;
       // Drop obsolete night-mode flag from older builds
@@ -1460,6 +1470,10 @@
 
       function refreshLivingClient() {
         if (!GC) return;
+        var wEl = document.getElementById("lvWeatherVal");
+        if (wEl && (!wEl.textContent || wEl.textContent.indexOf("…") !== -1 || wEl.textContent.indexOf("нет") !== -1)) {
+          wEl.textContent = "загрузка…";
+        }
         GC.fetchLivingBundle(function (living) {
           renderLiving(living);
         });
@@ -1538,12 +1552,19 @@
       var radioAudioEl = null;
 
       function ensureRadioAudio() {
+        var el = document.getElementById("radioNative");
+        if (el) {
+          radioAudioEl = el;
+          radioAudio = el;
+          return el;
+        }
         if (radioAudioEl) return radioAudioEl;
         radioAudioEl = document.createElement("audio");
         radioAudioEl.setAttribute("playsinline", "true");
         radioAudioEl.setAttribute("webkit-playsinline", "true");
-        radioAudioEl.preload = "none";
-        radioAudioEl.style.display = "none";
+        radioAudioEl.preload = "auto";
+        /* iOS: display:none can block audio — keep off-screen instead */
+        radioAudioEl.style.cssText = "position:fixed;left:-100px;top:-100px;width:1px;height:1px;opacity:0.01;";
         document.body.appendChild(radioAudioEl);
         radioAudio = radioAudioEl;
         return radioAudioEl;
@@ -1595,7 +1616,7 @@
             btn.type = "button";
             btn.className = st.id === cur ? "radio-chip on" : "radio-chip";
             btn.setAttribute("data-id", st.id);
-            btn.textContent = st.name.replace(/^SomaFM\s+/, "");
+            btn.textContent = st.name;
             btn.onclick = function () {
               GC.setRadioId(st.id);
               syncRadioUI();
@@ -1608,20 +1629,48 @@
         syncRadioUI();
       }
 
-      function playRadioUrl(url, fallback) {
+      var radioTryList = [];
+      var radioTryIdx = 0;
+
+      function playRadioUrl(url) {
         var el = ensureRadioAudio();
         try { el.pause(); } catch (e0) {}
-        el.src = url;
-        try { el.load(); } catch (e1) {}
+        el.onerror = function () {
+          radioTryIdx++;
+          if (radioTryIdx < radioTryList.length) {
+            toast("radio retry…");
+            playRadioUrl(radioTryList[radioTryIdx]);
+          } else {
+            radioPlaying = false;
+            syncRadioUI();
+            toast("radio fail · другая станция");
+          }
+        };
+        el.onplaying = function () {
+          radioPlaying = true;
+          syncRadioUI();
+        };
+        try {
+          el.removeAttribute("src");
+          while (el.firstChild) el.removeChild(el.firstChild);
+          var src = document.createElement("source");
+          src.src = url;
+          src.type = "audio/mpeg";
+          el.appendChild(src);
+          el.src = url;
+        } catch (e1) {
+          el.src = url;
+        }
         var p = el.play();
         if (p && typeof p.then === "function") {
           p.then(function () {
             radioPlaying = true;
             syncRadioUI();
             toast("radio · on");
-          }).catch(function () {
-            if (fallback && fallback !== url) {
-              playRadioUrl(fallback, null);
+          }).catch(function (err) {
+            radioTryIdx++;
+            if (radioTryIdx < radioTryList.length) {
+              playRadioUrl(radioTryList[radioTryIdx]);
             } else {
               radioPlaying = false;
               syncRadioUI();
@@ -1638,7 +1687,15 @@
       function playRadio() {
         if (!GC) return;
         var st = GC.stationById(GC.getRadioId());
-        playRadioUrl(st.url, st.url2 || null);
+        radioTryList = [];
+        if (st.url) radioTryList.push(st.url);
+        if (st.url2) radioTryList.push(st.url2);
+        /* hard fallbacks that we verified play in browsers */
+        radioTryList.push("https://0n-chillout.radionetz.de/0n-chillout.mp3");
+        radioTryList.push("https://streams.ilovemusic.de/iloveradio17.mp3");
+        radioTryList.push("https://stream.radioparadise.com/mp3-128");
+        radioTryIdx = 0;
+        playRadioUrl(radioTryList[0]);
       }
 
       function stopRadio() {
@@ -1646,6 +1703,7 @@
           var el = ensureRadioAudio();
           el.pause();
           el.removeAttribute("src");
+          while (el.firstChild) el.removeChild(el.firstChild);
           try { el.load(); } catch (e2) {}
         } catch (e) {}
         radioPlaying = false;
@@ -1844,7 +1902,9 @@
       tickClock();
       setInterval(tickClock, 1000);
       refreshLivingClient();
-      setInterval(refreshLivingClient, 60000);
+      setInterval(refreshLivingClient, 30000);
+      setTimeout(refreshLivingClient, 3000);
+      setTimeout(refreshLivingClient, 10000);
       heartbeat();
       setInterval(heartbeat, 1500);
       refreshStatus();
