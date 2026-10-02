@@ -5,6 +5,7 @@
  */
 (function (global) {
   var HUB_KEY = "kissaten_hub_base";
+  var LIVING_CACHE_KEY = "kissaten_living_cache";
   var ALARM_KEY = "kissaten_alarm";
   var RADIO_KEY = "kissaten_radio";
 
@@ -504,6 +505,22 @@
     }
   }
 
+  function readLivingCache() {
+    try {
+      var raw = localStorage.getItem(LIVING_CACHE_KEY);
+      if (!raw) return null;
+      var data = JSON.parse(raw);
+      if (!data || !data.weather) return null;
+      return data;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  function writeLivingCache(bundle) {
+    try { localStorage.setItem(LIVING_CACHE_KEY, JSON.stringify(bundle)); } catch (e) {}
+  }
+
   function fetchLivingBundle(cb) {
     var weather = null;
     var alert = null;
@@ -513,7 +530,12 @@
     function maybeSend() {
       if (sent || !weatherDone || !alertDone) return;
       sent = true;
-      cb({ ok: true, weather: weather, alert: alert });
+      var cached = readLivingCache();
+      if ((!weather || weather.temp_c == null) && cached && cached.weather) weather = cached.weather;
+      if ((!alert || !alert.ok) && cached && cached.alert && cached.alert.ok) alert = cached.alert;
+      var bundle = { ok: true, weather: weather, alert: alert };
+      if (weather && weather.temp_c != null) writeLivingCache(bundle);
+      cb(bundle);
     }
     fetchWeather(function (w) {
       if (weatherDone) return;
@@ -611,6 +633,7 @@
     fetchAlert: fetchAlert,
     fetchNews: fetchNews,
     fetchLivingBundle: fetchLivingBundle,
+    readLivingCache: readLivingCache,
     getAlarm: getAlarm,
     setAlarm: setAlarm,
     getRadioId: getRadioId,

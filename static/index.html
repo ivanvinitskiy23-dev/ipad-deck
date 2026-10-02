@@ -5,11 +5,11 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-  <meta name="apple-mobile-web-app-title" content="Gadget v34" />
+  <meta name="apple-mobile-web-app-title" content="Gadget v35" />
   <meta name="mobile-web-app-capable" content="yes" />
   <meta http-equiv="Cache-Control" content="no-store, no-cache, must-revalidate" />
   <meta http-equiv="Pragma" content="no-cache" />
-  <title>Kissaten Gadget v34</title>
+  <title>Kissaten Gadget v35</title>
   <style>
     * { -webkit-tap-highlight-color: transparent; box-sizing: border-box; }
     html, body {
@@ -941,7 +941,7 @@
       <div class="drawer-section">Hub PC</div>
       <div class="side-brand" id="mediaBrand">Wabi · Console</div>
       <div class="meta" id="meta">подключение…</div>
-      <div class="meta" id="buildMeta">build v34</div>
+      <div class="meta" id="buildMeta">build v35</div>
       <div class="toast" id="toast"></div>
       <input class="hub-field" id="hubInput" type="text" placeholder="http://192.168.0.247:8787" />
       <button class="drawer-btn" id="hubSave" type="button">Save hub URL</button>
@@ -961,18 +961,18 @@
     <br><b>Поделиться → На экран «Домой»</b>
     <br>открой ярлык — без строки Safari.
     <br>    <br>Важно: добавляй URL с версией:
-    <br><b id="tipUrl">http://192.168.0.247:8787/?v=34</b>
+    <br><b id="tipUrl">http://192.168.0.247:8787/?v=35</b>
     <br>(старый ярлык без ?v= кэширует старый UI)
     <br><br>Для старта без ПК — GitHub Pages URL из README.
     <button type="button" id="tipOk">Понятно</button>
   </div>
 
-  <script src="gadget-core.js?v=34"></script>
+  <script src="gadget-core.js?v=35"></script>
   <script>
     (function () {
       var IDLE_MS = 45000;
-      var DRIVE_VER = 34;
-      var APP_VER = 34;
+      var DRIVE_VER = 35;
+      var APP_VER = 35;
       var THEME_KEY = "kissaten_deck_theme";
       var GC = window.GadgetCore;
       // Drop obsolete night-mode flag from older builds
@@ -1007,6 +1007,7 @@
       var artRev = -1;
       var livingTimer = null;
       var newsTimer = null;
+      var livingGen = 0;
       var alarmFiredKey = "";
       var alarmUnlocked = false;
       var alarmCtx = null;
@@ -1137,8 +1138,7 @@
         var q = "theme=" + theme +
           "&v=" + DRIVE_VER +
           "&t=" + (new Date().getTime()) +
-          "&mode=" + mode +
-          "&fill=1";
+          "&mode=" + mode;
         if (hub) q += "&hub=" + encodeURIComponent(hub);
         /* Always same-origin — never hubPath (HTTPS Pages cannot iframe HTTP hub) */
         return "night-drive.html?" + q;
@@ -1267,7 +1267,7 @@
       }, false);
 
       function loadIdleFrame(forceReload) {
-        var idleKey = theme + "|v" + DRIVE_VER + "|fill";
+        var idleKey = theme + "|v" + DRIVE_VER;
         if (forceReload || idleLoadedTheme !== idleKey) {
           idleFrame.src = driveUrl();
           idleLoadedTheme = idleKey;
@@ -1612,12 +1612,19 @@
           if (w0) w0.textContent = "нет core";
           return;
         }
-        var wEl = document.getElementById("lvWeatherVal");
-        if (wEl) wEl.textContent = "загрузка…";
+        var gen = ++livingGen;
+        var cached = GC.readLivingCache ? GC.readLivingCache() : null;
+        if (cached) renderLiving(cached);
+        else {
+          var wEl = document.getElementById("lvWeatherVal");
+          if (wEl) wEl.textContent = "загрузка…";
+        }
         GC.fetchLivingBundle(function (living) {
+          if (gen !== livingGen) return;
           renderLiving(living);
         });
         GC.fetchNews(function (ticker) {
+          if (gen !== livingGen) return;
           renderTicker(ticker);
         });
       }

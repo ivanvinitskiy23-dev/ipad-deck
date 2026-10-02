@@ -185,7 +185,7 @@
     </div>
   </div>
 
-  <script src="gadget-core.js?v=34"></script>
+  <script src="gadget-core.js?v=35"></script>
   <script>
     (function () {
       function param(name) {
@@ -680,6 +680,10 @@
       }
 
       function fetchLiving() {
+        if (GC && GC.readLivingCache) {
+          var cached = GC.readLivingCache();
+          if (cached) renderLiving(cached);
+        }
         if (GC) {
           GC.fetchLivingBundle(function (living) { renderLiving(living); });
           return;
@@ -695,7 +699,9 @@
         xhr.send(null);
       }
 
+      var mediaQuiet = false;
       function fetchMedia() {
+        if (mediaQuiet) return;
         if (pageMode === "solo") {
           var rn = GC && GC.readRadioNow ? GC.readRadioNow() : { playing: false };
           media.playing = !!rn.playing;
@@ -713,7 +719,8 @@
         xhr.open("GET", hubPath("/api/nowplaying"), true);
         xhr.timeout = 3000;
         xhr.onreadystatechange = function () {
-          if (xhr.readyState !== 4 || xhr.status !== 200) return;
+          if (xhr.readyState !== 4) return;
+          if (xhr.status !== 200) { mediaQuiet = true; return; }
           try {
             var d = JSON.parse(xhr.responseText);
             media.playing = !!d.playing;
@@ -739,6 +746,8 @@
             }
           } catch (e) {}
         };
+        xhr.onerror = function () { mediaQuiet = true; };
+        xhr.ontimeout = function () { mediaQuiet = true; };
         xhr.send(null);
       }
 
