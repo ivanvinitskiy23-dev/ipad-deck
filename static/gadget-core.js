@@ -32,20 +32,20 @@
     "iz.ru", "gazeta.ru", "kommersant.ru", "vedomosti.ru", "aif.ru", "mk.ru"
   ];
 
-  /* HTTPS-only streams — HTTP ice cast is blocked as mixed content from GitHub Pages */
+  /* HTTPS MP3 streams, commercial-free / chill vibe (iOS-friendly) */
   var RADIO_STATIONS = [
-    { id: "groove", name: "SomaFM Groove Salad", url: "https://ice1.somafm.com/groovesalad-128-mp3" },
-    { id: "drone", name: "SomaFM Drone Zone", url: "https://ice1.somafm.com/dronezone-128-mp3" },
-    { id: "space", name: "SomaFM Space Station", url: "https://ice1.somafm.com/spacestation-128-mp3" },
-    { id: "beat", name: "SomaFM Beat Blender", url: "https://ice1.somafm.com/beatblender-128-mp3" },
-    { id: "defcon", name: "SomaFM Def Con", url: "https://ice1.somafm.com/defcon-128-mp3" },
-    { id: "indie", name: "SomaFM Indie Pop", url: "https://ice1.somafm.com/indiepop-128-mp3" },
-    { id: "lush", name: "SomaFM Lush", url: "https://ice1.somafm.com/lush-128-mp3" },
-    { id: "metal", name: "SomaFM Metal Detector", url: "https://ice1.somafm.com/metal-128-mp3" },
-    { id: "rp", name: "Radio Paradise", url: "https://stream.radioparadise.com/aac-128" },
-    { id: "fip", name: "FIP", url: "https://icecast.radiofrance.fr/fip-midfi.mp3" },
-    { id: "franceinter", name: "France Inter", url: "https://icecast.radiofrance.fr/franceinter-midfi.mp3" },
-    { id: "npr", name: "NPR News", url: "https://npr-ice.streamguys1.com/live.mp3" }
+    { id: "fluid", name: "SomaFM Fluid · chill hop", url: "https://ice5.somafm.com/fluid-128-mp3", url2: "https://ice6.somafm.com/fluid-128-mp3" },
+    { id: "groove", name: "SomaFM Groove Salad", url: "https://ice5.somafm.com/groovesalad-128-mp3", url2: "https://ice6.somafm.com/groovesalad-128-mp3" },
+    { id: "gsclassic", name: "SomaFM Groove Classic", url: "https://ice5.somafm.com/gsclassic-128-mp3", url2: "https://ice6.somafm.com/gsclassic-128-mp3" },
+    { id: "drone", name: "SomaFM Drone Zone", url: "https://ice5.somafm.com/dronezone-128-mp3", url2: "https://ice6.somafm.com/dronezone-128-mp3" },
+    { id: "space", name: "SomaFM Deep Space One", url: "https://ice5.somafm.com/deepspaceone-128-mp3", url2: "https://ice6.somafm.com/deepspaceone-128-mp3" },
+    { id: "beat", name: "SomaFM Beat Blender", url: "https://ice5.somafm.com/beatblender-128-mp3", url2: "https://ice6.somafm.com/beatblender-128-mp3" },
+    { id: "cliqhop", name: "SomaFM cliqhop", url: "https://ice5.somafm.com/cliqhop-128-mp3", url2: "https://ice2.somafm.com/cliqhop-128-mp3" },
+    { id: "lush", name: "SomaFM Lush", url: "https://ice5.somafm.com/lush-128-mp3", url2: "https://ice6.somafm.com/lush-128-mp3" },
+    { id: "asp", name: "Ambient Sleeping Pill", url: "https://radio.stereoscenic.com/asp-h" },
+    { id: "chillhop", name: "I Love Chillhop", url: "https://streams.ilovemusic.de/iloveradio17.mp3" },
+    { id: "lofi", name: "Lofi Radio", url: "https://play.streamafrica.net/lofiradio" },
+    { id: "rp", name: "Radio Paradise", url: "https://stream.radioparadise.com/mp3-128" }
   ];
 
   function trimSlash(s) {
@@ -132,50 +132,92 @@
     return "https://api.rss2json.com/v1/api.json?rss_url=" + encodeURIComponent(feedUrl);
   }
 
+  function weatherObj(tempI, label, windI) {
+    var short = "Киев " + tempI + "° · " + label;
+    return {
+      ok: true,
+      city: "Киев",
+      temp_c: tempI,
+      label: label,
+      wind_kmh: windI,
+      text: short,
+      text_full: windI == null ? short : (short + " · ветер " + windI + " км/ч"),
+      updated: Math.floor(Date.now() / 1000)
+    };
+  }
+
+  function parseOpenMeteo(txt) {
+    try {
+      var data = JSON.parse(txt);
+      var cur = data.current || data.current_weather || {};
+      var temp = cur.temperature_2m != null ? cur.temperature_2m : cur.temperature;
+      if (temp == null) return null;
+      var code = parseInt(cur.weather_code != null ? cur.weather_code : cur.weathercode, 10) || 0;
+      var label = WMO_RU[code] || "погода";
+      var tempI = Math.round(Number(temp));
+      var windI = null;
+      if (cur.wind_speed_10m != null) windI = Math.round(Number(cur.wind_speed_10m));
+      else if (cur.windspeed != null) windI = Math.round(Number(cur.windspeed));
+      return weatherObj(tempI, label, windI);
+    } catch (e) {
+      return null;
+    }
+  }
+
+  function parseWttr(txt) {
+    try {
+      var data = JSON.parse(txt);
+      var cur = (data.current_condition && data.current_condition[0]) || null;
+      if (!cur || cur.temp_C == null) return null;
+      var desc = "";
+      if (cur.weatherDesc && cur.weatherDesc[0] && cur.weatherDesc[0].value) {
+        desc = String(cur.weatherDesc[0].value).toLowerCase();
+      }
+      var map = {
+        "clear": "ясно", "sunny": "ясно", "partly cloudy": "переменная облачность",
+        "cloudy": "облачно", "overcast": "облачно", "mist": "туман", "fog": "туман",
+        "light rain": "дождь", "rain": "дождь", "heavy rain": "сильный дождь",
+        "light snow": "снег", "snow": "снег", "thunderstorm": "гроза"
+      };
+      var label = map[desc] || desc || "погода";
+      var windI = cur.windspeedKmph != null ? Math.round(Number(cur.windspeedKmph)) : null;
+      return weatherObj(Math.round(Number(cur.temp_C)), label, windI);
+    } catch (e) {
+      return null;
+    }
+  }
+
   function fetchWeather(cb) {
-    var url =
+    var meteoNew =
       "https://api.open-meteo.com/v1/forecast" +
       "?latitude=50.4501&longitude=30.5234" +
       "&current=temperature_2m,weather_code,wind_speed_10m" +
-      "&timezone=Europe%2FKyiv";
-    function parseWeather(txt) {
-      try {
-        var data = JSON.parse(txt);
-        var cur = data.current || data.current_weather || {};
-        var temp = cur.temperature_2m != null ? cur.temperature_2m : cur.temperature;
-        if (temp == null) return null;
-        var code = parseInt(cur.weather_code != null ? cur.weather_code : cur.weathercode, 10) || 0;
-        var label = WMO_RU[code] || "погода";
-        var tempI = Math.round(Number(temp));
-        var windI = null;
-        if (cur.wind_speed_10m != null) windI = Math.round(Number(cur.wind_speed_10m));
-        else if (cur.windspeed != null) windI = Math.round(Number(cur.windspeed));
-        var short = "Киев " + tempI + "° · " + label;
-        return {
-          ok: true,
-          city: "Киев",
-          temp_c: tempI,
-          label: label,
-          wind_kmh: windI,
-          text: short,
-          text_full: windI == null ? short : (short + " · ветер " + windI + " км/ч"),
-          updated: Math.floor(Date.now() / 1000)
-        };
-      } catch (e) {
-        return null;
-      }
+      "&timezone=auto";
+    var meteoOld =
+      "https://api.open-meteo.com/v1/forecast" +
+      "?latitude=50.45&longitude=30.52&current_weather=true";
+    var wttr = "https://wttr.in/Kyiv?format=j1";
+
+    function tryWttr() {
+      xhrGet(wttr, 9000, function (txt) {
+        var w = parseWttr(txt);
+        cb(w);
+      }, function () { cb(null); });
     }
-    xhrGet(url, 8000, function (txt) {
-      var w = parseWeather(txt);
+
+    function tryOld() {
+      xhrGet(meteoOld, 8000, function (txt) {
+        var w = parseOpenMeteo(txt);
+        if (w) { cb(w); return; }
+        tryWttr();
+      }, function () { tryWttr(); });
+    }
+
+    xhrGet(meteoNew, 8000, function (txt) {
+      var w = parseOpenMeteo(txt);
       if (w) { cb(w); return; }
-      xhrGet(corsProxy(url), 10000, function (txt2) {
-        cb(parseWeather(txt2));
-      }, function () { cb(null); });
-    }, function () {
-      xhrGet(corsProxy(url), 10000, function (txt2) {
-        cb(parseWeather(txt2));
-      }, function () { cb(null); });
-    });
+      tryOld();
+    }, function () { tryOld(); });
   }
 
   function emptyAlert() {
@@ -418,7 +460,7 @@
   }
 
   function getRadioId() {
-    try { return localStorage.getItem(RADIO_KEY) || "groove"; } catch (e) { return "groove"; }
+    try { return localStorage.getItem(RADIO_KEY) || "fluid"; } catch (e) { return "fluid"; }
   }
 
   function setRadioId(id) {
@@ -430,6 +472,20 @@
       if (RADIO_STATIONS[i].id === id) return RADIO_STATIONS[i];
     }
     return RADIO_STATIONS[0];
+  }
+
+  function stationIndex(id) {
+    for (var i = 0; i < RADIO_STATIONS.length; i++) {
+      if (RADIO_STATIONS[i].id === id) return i;
+    }
+    return 0;
+  }
+
+  function nextStationId(id, delta) {
+    var i = stationIndex(id) + (delta || 1);
+    var n = RADIO_STATIONS.length;
+    i = ((i % n) + n) % n;
+    return RADIO_STATIONS[i].id;
   }
 
   global.GadgetCore = {
@@ -449,6 +505,8 @@
     getRadioId: getRadioId,
     setRadioId: setRadioId,
     stationById: stationById,
+    stationIndex: stationIndex,
+    nextStationId: nextStationId,
     RADIO_STATIONS: RADIO_STATIONS
   };
 })(this);
