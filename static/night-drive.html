@@ -107,21 +107,16 @@
       background: #000;
       overflow: hidden;
     }
-    #wrap img.scene-gif {
+    #sceneGif {
       display: block;
-      visibility: hidden;
-      position: absolute;
-      left: 0;
-      right: 0;
-      top: 0;
-      bottom: 0;
-      margin: auto;
+      visibility: visible;
+      position: fixed;
+      z-index: 4;
+      margin: 0;
+      background: #000;
       image-rendering: -webkit-optimize-contrast;
       image-rendering: pixelated;
       image-rendering: crisp-edges;
-    }
-    #wrap img.scene-gif.on {
-      visibility: visible;
     }
     canvas {
       image-rendering: -webkit-optimize-contrast;
@@ -199,7 +194,7 @@
     </div>
   </div>
 
-  <script src="gadget-core.js?v=51"></script>
+  <script src="gadget-core.js?v=52"></script>
   <script>
     (function () {
       function param(name) {
@@ -230,8 +225,8 @@
       var gifOn = false;
 
       function sceneFile(name, th) {
-        if (name === "ramen") return "art/pack-ramen.gif?v=51";
-        return "art/scene-" + name + "-" + th + ".gif?v=51";
+        if (name === "ramen") return "art/pack-ramen.gif?v=52";
+        return "art/scene-" + name + "-" + th + ".gif?v=52";
       }
 
       window.swapScene = function (next, nextTheme) {
@@ -438,22 +433,32 @@
         if (boxH < 2) boxH = Math.max(160, (window.innerHeight || 360) - 160);
         var tw = boxW;
         var th = boxH;
-        if (gifOn) {
-          var GW = sceneGif.naturalWidth || 480;
-          var GH = sceneGif.naturalHeight || 270;
-          var gs = Math.min(tw / GW, th / GH);
+        if (sceneGif) {
+          var vw = window.innerWidth || document.documentElement.clientWidth || 320;
+          var vh = window.innerHeight || document.documentElement.clientHeight || 480;
+          if (vw < 2) vw = 320;
+          if (vh < 2) vh = 480;
+          var hudEl = document.getElementById("hud");
+          var tickEl = document.getElementById("ticker");
+          var top = (hudEl && hudEl.offsetHeight > 20) ? hudEl.offsetHeight : 0;
+          var bot = (tickEl && tickEl.offsetHeight > 10) ? tickEl.offsetHeight : 0;
+          var availH = vh - top - bot;
+          if (availH < 120) availH = vh;
+          var GW = (sceneGif.naturalWidth > 2) ? sceneGif.naturalWidth : 480;
+          var GH = (sceneGif.naturalHeight > 2) ? sceneGif.naturalHeight : 270;
+          var gs = Math.min(vw / GW, availH / GH);
           if (!(gs > 0)) gs = 1;
-          sceneGif.style.position = "absolute";
-          sceneGif.style.left = "0";
-          sceneGif.style.right = "0";
-          sceneGif.style.top = "0";
-          sceneGif.style.bottom = "0";
-          sceneGif.style.marginLeft = "auto";
-          sceneGif.style.marginRight = "auto";
-          sceneGif.style.marginTop = "auto";
-          sceneGif.style.marginBottom = "auto";
-          sceneGif.style.width = Math.round(GW * gs) + "px";
-          sceneGif.style.height = Math.round(GH * gs) + "px";
+          var dw = Math.round(GW * gs);
+          var dh = Math.round(GH * gs);
+          sceneGif.style.position = "fixed";
+          sceneGif.style.zIndex = "4";
+          sceneGif.style.visibility = "visible";
+          sceneGif.style.display = "block";
+          sceneGif.style.margin = "0";
+          sceneGif.style.width = dw + "px";
+          sceneGif.style.height = dh + "px";
+          sceneGif.style.left = Math.max(0, Math.round((vw - dw) / 2)) + "px";
+          sceneGif.style.top = (top + Math.max(0, Math.round((availH - dh) / 2))) + "px";
           return;
         }
         if (bmpReady && bmp.width) {
