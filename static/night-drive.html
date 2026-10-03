@@ -190,7 +190,7 @@
     </div>
   </div>
 
-  <script src="gadget-core.js?v=47"></script>
+  <script src="gadget-core.js?v=48"></script>
   <script>
     (function () {
       function param(name) {
@@ -216,6 +216,29 @@
       if (theme !== "B" && theme !== "C" && theme !== "D") theme = "C";
       var scene = param("scene") || "drive";
       if (scene !== "rain" && scene !== "vinyl" && scene !== "ramen") scene = "drive";
+      var canvas = null;
+      var sceneGif = null;
+      var gifOn = false;
+
+      function sceneFile(name, th) {
+        if (name === "ramen") return "art/pack-ramen.gif?v=48";
+        return "art/scene-" + name + "-" + th + ".gif?v=48";
+      }
+
+      window.swapScene = function (next, nextTheme) {
+        if (nextTheme === "B" || nextTheme === "C" || nextTheme === "D") theme = nextTheme;
+        if (next !== "rain" && next !== "vinyl" && next !== "ramen") next = "drive";
+        if (next === scene && gifOn) {
+          try { fitCanvas(); } catch (e0) {}
+          return;
+        }
+        scene = next;
+        gifOn = false;
+        if (sceneGif) {
+          sceneGif.className = "scene-gif";
+          sceneGif.src = sceneFile(scene, theme);
+        }
+      };
       var bmp = new Image();
       var bmpReady = false;
       var themed = null;
@@ -379,7 +402,7 @@
 
       var canvas = document.getElementById("c");
       var sceneGif = document.getElementById("sceneGif");
-      var gifOn = false;
+      canvas.style.display = "none";
       var wrap = document.getElementById("wrap");
       var ctx = canvas.getContext("2d");
       // Logical resolution — integer CSS scale keeps pixels crisp (no stretch blob).
@@ -952,36 +975,6 @@
 
       function frame() {
         t++;
-        if (gifOn) {
-          if ((t % 3) === 0) tickEq();
-          return;
-        }
-        if (bmpReady && bmp.width) {
-          if (canvas.width !== bmp.width) fitCanvas();
-          try {
-            ctx.imageSmoothingEnabled = false;
-            ctx.webkitImageSmoothingEnabled = false;
-            ctx.mozImageSmoothingEnabled = false;
-          } catch (eS) {}
-          ctx.drawImage(themed || bmp, 0, 0);
-          moveScene();
-        } else {
-          ctx.fillStyle = P.sky0;
-          ctx.fillRect(0, 0, W, H);
-          if (scene === "cafe") drawCafe();
-          else if (scene === "rain") drawRainWindow();
-          else if (scene === "roofs") drawRoofs();
-          else if (scene === "train") drawTrain();
-          else if (scene === "vinyl") drawVinyl();
-          else if (scene === "pier") drawPier();
-          else {
-            drawSky();
-            drawCity();
-            drawRoad();
-            drawRain();
-            drawCar();
-          }
-        }
         if ((t % 3) === 0) tickEq();
       }
 
@@ -1144,6 +1137,14 @@
         xhr.send(null);
       }
 
+      var warm = ["drive", "rain", "vinyl", "ramen"];
+      var wi;
+      for (wi = 0; wi < warm.length; wi++) {
+        (function (name) {
+          var pre = new Image();
+          pre.src = sceneFile(name, theme);
+        })(warm[wi]);
+      }
       sceneGif.onload = function () {
         gifOn = true;
         sceneGif.className = "scene-gif on";
@@ -1151,9 +1152,7 @@
         lastFitKey = "";
         try { fitCanvas(); } catch (eG) {}
       };
-      sceneGif.src = scene === "ramen"
-        ? "art/pack-ramen.gif?v=47"
-        : ("art/scene-" + scene + "-" + theme + ".gif?v=47");
+      sceneGif.src = sceneFile(scene, theme);
       fitCanvas();
       setTimeout(fitCanvas, 80);
       setTimeout(fitCanvas, 400);

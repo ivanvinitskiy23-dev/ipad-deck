@@ -5,11 +5,11 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-  <meta name="apple-mobile-web-app-title" content="Gadget v47" />
+  <meta name="apple-mobile-web-app-title" content="Gadget v48" />
   <meta name="mobile-web-app-capable" content="yes" />
   <meta http-equiv="Cache-Control" content="no-store, no-cache, must-revalidate" />
   <meta http-equiv="Pragma" content="no-cache" />
-  <title>Kissaten Gadget v47</title>
+  <title>Kissaten Gadget v48</title>
   <style>
     * { -webkit-tap-highlight-color: transparent; box-sizing: border-box; }
     html, body {
@@ -942,7 +942,7 @@
       <div class="drawer-section">Hub PC</div>
       <div class="side-brand" id="mediaBrand">Wabi · Console</div>
       <div class="meta" id="meta">подключение…</div>
-      <div class="meta" id="buildMeta">build v47</div>
+      <div class="meta" id="buildMeta">build v48</div>
       <div class="toast" id="toast"></div>
       <input class="hub-field" id="hubInput" type="text" placeholder="http://192.168.0.247:8787" />
       <button class="drawer-btn" id="hubSave" type="button">Save hub URL</button>
@@ -964,18 +964,18 @@
     <br><b>Поделиться → На экран «Домой»</b>
     <br>открой ярлык — без строки Safari.
     <br>    <br>Важно: добавляй URL с версией:
-    <br><b id="tipUrl">http://192.168.0.247:8787/?v=47</b>
+    <br><b id="tipUrl">http://192.168.0.247:8787/?v=48</b>
     <br>(старый ярлык без ?v= кэширует старый UI)
     <br><br>Для старта без ПК — GitHub Pages URL из README.
     <button type="button" id="tipOk">Понятно</button>
   </div>
 
-  <script src="gadget-core.js?v=47"></script>
+  <script src="gadget-core.js?v=48"></script>
   <script>
     (function () {
       var IDLE_MS = 45000;
-      var DRIVE_VER = 47;
-      var APP_VER = 47;
+      var DRIVE_VER = 48;
+      var APP_VER = 48;
       var THEME_KEY = "kissaten_deck_theme";
       var SCENE_KEY = "kissaten_idle_scene";
       var SCENES = [
@@ -1148,7 +1148,6 @@
         var q = "theme=" + theme +
           "&scene=" + readScene() +
           "&v=" + DRIVE_VER +
-          "&t=" + (new Date().getTime()) +
           "&mode=" + mode;
         if (hub) q += "&hub=" + encodeURIComponent(hub);
         /* Always same-origin — never hubPath (HTTPS Pages cannot iframe HTTP hub) */
@@ -1327,16 +1326,25 @@
 
       function loadIdleFrame(forceReload) {
         var idleKey = theme + "|v" + DRIVE_VER + "|" + readScene();
-        if (forceReload || idleLoadedTheme !== idleKey) {
-          idleFrame.src = driveUrl();
-          idleLoadedTheme = idleKey;
-        } else {
+        var swap = null;
+        try { swap = idleFrame.contentWindow && idleFrame.contentWindow.swapScene; } catch (eSw) {}
+        if (swap && !forceReload) {
+          try {
+            idleFrame.contentWindow.swapScene(readScene(), theme);
+            idleLoadedTheme = idleKey;
+            return;
+          } catch (eCall) {}
+        }
+        if (!forceReload && idleLoadedTheme === idleKey) {
           try {
             if (idleFrame.contentWindow && idleFrame.contentWindow.fitCanvasPublic) {
               idleFrame.contentWindow.fitCanvasPublic();
             }
           } catch (eFit) {}
+          return;
         }
+        idleFrame.src = driveUrl();
+        idleLoadedTheme = idleKey;
       }
 
       function showIdle(forced) {
@@ -1346,7 +1354,7 @@
         idleEl.className = "on";
         if (idleFailTimer) clearTimeout(idleFailTimer);
         setTimeout(function () {
-          loadIdleFrame(true);
+          loadIdleFrame(false);
         }, 100);
         setTimeout(function () {
           try {
@@ -1366,8 +1374,8 @@
           if (idleEl.className !== "on") return;
           try {
             var doc = idleFrame.contentDocument;
-            var canvas = doc && doc.getElementById("c");
-            var bad = !doc || !canvas || (canvas.offsetWidth < 2 && canvas.clientWidth < 2);
+            var gif = doc && doc.getElementById("sceneGif");
+            var bad = !doc || !gif || !gif.getAttribute("src");
             if (bad) {
               idleLoadedTheme = null;
               loadIdleFrame(true);
