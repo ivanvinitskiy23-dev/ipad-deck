@@ -108,19 +108,20 @@
       overflow: hidden;
     }
     #wrap img.scene-gif {
-      display: none;
-      image-rendering: -webkit-optimize-contrast;
-      image-rendering: pixelated;
-      image-rendering: crisp-edges;
-    }
-    #wrap img.scene-gif.on {
       display: block;
+      visibility: hidden;
       position: absolute;
       left: 0;
       right: 0;
       top: 0;
       bottom: 0;
       margin: auto;
+      image-rendering: -webkit-optimize-contrast;
+      image-rendering: pixelated;
+      image-rendering: crisp-edges;
+    }
+    #wrap img.scene-gif.on {
+      visibility: visible;
     }
     canvas {
       image-rendering: -webkit-optimize-contrast;
@@ -198,7 +199,7 @@
     </div>
   </div>
 
-  <script src="gadget-core.js?v=50"></script>
+  <script src="gadget-core.js?v=51"></script>
   <script>
     (function () {
       function param(name) {
@@ -229,8 +230,8 @@
       var gifOn = false;
 
       function sceneFile(name, th) {
-        if (name === "ramen") return "art/pack-ramen.gif?v=50";
-        return "art/scene-" + name + "-" + th + ".gif?v=50";
+        if (name === "ramen") return "art/pack-ramen.gif?v=51";
+        return "art/scene-" + name + "-" + th + ".gif?v=51";
       }
 
       window.swapScene = function (next, nextTheme) {
@@ -243,7 +244,7 @@
         scene = next;
         gifOn = false;
         if (sceneGif) {
-          sceneGif.className = "scene-gif";
+          sceneGif.className = "scene-gif on";
           sceneGif.src = sceneFile(scene, theme);
         }
       };
@@ -1161,21 +1162,13 @@
         xhr.send(null);
       }
 
-      var warm = ["drive", "rain", "vinyl", "ramen"];
-      var wi;
-      for (wi = 0; wi < warm.length; wi++) {
-        (function (name) {
-          var pre = new Image();
-          pre.src = sceneFile(name, theme);
-        })(warm[wi]);
-      }
       sceneGif.onload = function () {
         gifOn = true;
         sceneGif.className = "scene-gif on";
-        canvas.style.display = "none";
         lastFitKey = "";
         try { fitCanvas(); } catch (eG) {}
       };
+      sceneGif.className = "scene-gif on";
       sceneGif.src = sceneFile(scene, theme);
       fitCanvas();
       setTimeout(fitCanvas, 80);
