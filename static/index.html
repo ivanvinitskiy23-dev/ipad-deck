@@ -5,11 +5,11 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-  <meta name="apple-mobile-web-app-title" content="Gadget v55" />
+  <meta name="apple-mobile-web-app-title" content="Gadget v56" />
   <meta name="mobile-web-app-capable" content="yes" />
   <meta http-equiv="Cache-Control" content="no-store, no-cache, must-revalidate" />
   <meta http-equiv="Pragma" content="no-cache" />
-  <title>Kissaten Gadget v55</title>
+  <title>Kissaten Gadget v56</title>
   <style>
     * { -webkit-tap-highlight-color: transparent; box-sizing: border-box; }
     html, body {
@@ -524,18 +524,31 @@
       z-index: 5;
     }
 
-    /* Hard tablet / phone adaptation */
-    @media screen and (max-width: 900px) {
+    /* Hard tablet layout: iPad landscape is often wider than 900px */
+    @media screen and (max-width: 1280px) {
       header { padding: 28px 8px 4px; }
-      body.standalone header { padding-top: 34px; }
-      .menu-chip { width: 76px; min-height: 98px; }
-      .media-col { max-width: none; -webkit-flex: 1 1 180px; flex: 1 1 180px; }
-      #living .lv-weather { width: 136px; min-width: 120px; min-height: 98px; }
-      #living .lv-alert { width: 108px; min-height: 98px; }
-      .grid { max-width: 100%; padding: 0 0 8px; }
-      button.pad { min-height: 54px; font-size: 13px; }
-      .vol-preset, .scene-btn { min-height: 40px; font-size: 12px; }
-      .theme-bar { max-width: 100%; padding-bottom: 16px; }
+      body.standalone header { padding-top: 36px; }
+      .header-row { max-width: 100%; }
+      .menu-chip { width: 72px; min-height: 88px; }
+      .media-col { max-width: none; -webkit-flex: 1 1 160px; flex: 1 1 160px; }
+      #living .lv-weather { width: 128px; min-width: 108px; min-height: 88px; }
+      #living .lv-alert { width: 104px; min-width: 96px; min-height: 88px; }
+      .grid { max-width: 100%; padding: 0 6px 8px; }
+      button.pad { min-height: 52px; font-size: 14px; }
+      .vol-preset, .scene-btn, .media-btn { min-height: 44px; font-size: 13px; }
+      .theme-bar { max-width: 100%; padding-bottom: 18px; }
+      #idleHud { left: 6px; right: 6px; top: 6px; }
+      #idleHud .card { min-height: 64px; font-size: 15px; padding: 8px; }
+      #radioNative {
+        position: static !important;
+        left: auto !important;
+        top: auto !important;
+        display: block !important;
+        width: 100% !important;
+        height: 40px !important;
+        opacity: 1 !important;
+        margin: 6px 0 0;
+      }
     }
     @media screen and (max-width: 600px) {
       .header-row {
@@ -922,7 +935,7 @@
               <button type="button" class="media-btn" id="radioPlayBtn">Play</button>
               <button type="button" class="media-btn" id="radioNextBtn">Next</button>
             </div>
-            <audio id="radioNative" class="radio-native" preload="auto" playsinline webkit-playsinline></audio>
+            <audio id="radioNative" class="radio-native" preload="none" controls playsinline webkit-playsinline></audio>
           </div>
           <div id="living">
             <div class="lv-weather" id="lvWeather">
@@ -1026,7 +1039,7 @@
       <div class="drawer-section">Hub PC</div>
       <div class="side-brand" id="mediaBrand">Wabi · Console</div>
       <div class="meta" id="meta">подключение…</div>
-      <div class="meta" id="buildMeta">build v55</div>
+      <div class="meta" id="buildMeta">build v56</div>
       <div class="toast" id="toast"></div>
       <input class="hub-field" id="hubInput" type="text" placeholder="http://192.168.0.247:8787" />
       <button class="drawer-btn" id="hubSave" type="button">Save hub URL</button>
@@ -1055,18 +1068,18 @@
     <br><b>Поделиться → На экран «Домой»</b>
     <br>открой ярлык — без строки Safari.
     <br>    <br>Важно: добавляй URL с версией:
-    <br><b id="tipUrl">http://192.168.0.247:8787/?v=55</b>
+    <br><b id="tipUrl">http://192.168.0.247:8787/?v=56</b>
     <br>(старый ярлык без ?v= кэширует старый UI)
     <br><br>Для старта без ПК — GitHub Pages URL из README.
     <button type="button" id="tipOk">Понятно</button>
   </div>
 
-  <script src="gadget-core.js?v=55"></script>
+  <script src="gadget-core.js?v=56"></script>
   <script>
     (function () {
       var IDLE_MS = 45000;
-      var DRIVE_VER = 55;
-      var APP_VER = 55;
+      var DRIVE_VER = 56;
+      var APP_VER = 56;
       var THEME_KEY = "kissaten_deck_theme";
       var SCENE_KEY = "kissaten_idle_scene";
       var SCENES = [
@@ -1437,9 +1450,9 @@
       function idleArtUrl() {
         var s = readScene();
         var t = readTheme();
-        if (s === "ramen") return "art/pack-ramen.gif?v=55";
+        if (s === "ramen") return "art/pack-ramen.gif?v=56";
         if (s !== "rain" && s !== "vinyl") s = "drive";
-        return "art/scene-" + s + "-" + t + ".gif?v=55";
+        return "art/scene-" + s + "-" + t + ".gif?v=56";
       }
 
       function paintIdleChrome() {
@@ -2034,7 +2047,8 @@
         }
         el.setAttribute("playsinline", "true");
         el.setAttribute("webkit-playsinline", "true");
-        el.preload = "auto";
+        el.setAttribute("controls", "controls");
+        el.preload = "none";
         try { el.style.setProperty("display", "block", "important"); } catch (eD) { el.style.display = "block"; }
         el.style.position = "fixed";
         el.style.left = "0";
@@ -2117,7 +2131,6 @@
         el.onerror = null;
         try { el.pause(); } catch (e0) {}
         el.src = url;
-        try { el.load(); } catch (e1) {}
         el.onerror = function () {
           if (gen !== radioPlayGen) return;
           radioTryIdx++;
