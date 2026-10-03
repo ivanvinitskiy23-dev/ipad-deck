@@ -5,11 +5,11 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-  <meta name="apple-mobile-web-app-title" content="Gadget v52" />
+  <meta name="apple-mobile-web-app-title" content="Gadget v53" />
   <meta name="mobile-web-app-capable" content="yes" />
   <meta http-equiv="Cache-Control" content="no-store, no-cache, must-revalidate" />
   <meta http-equiv="Pragma" content="no-cache" />
-  <title>Kissaten Gadget v52</title>
+  <title>Kissaten Gadget v53</title>
   <style>
     * { -webkit-tap-highlight-color: transparent; box-sizing: border-box; }
     html, body {
@@ -598,14 +598,17 @@
       width: 100%; height: 100%;
       z-index: 100;
       background: #000;
-      -webkit-transform: translateZ(0);
-      transform: translateZ(0);
     }
     #idle.on { display: block; }
-    #idle iframe {
-      position: absolute; left: 0; top: 0;
-      border: 0; width: 100%; height: 100%;
-      pointer-events: none; background: #000;
+    #idle iframe { display: none; }
+    #idlePic {
+      position: absolute;
+      display: block;
+      margin: 0;
+      background: #000;
+      image-rendering: -webkit-optimize-contrast;
+      image-rendering: pixelated;
+      image-rendering: crisp-edges;
     }
     #idle .catch {
       position: absolute; left: 0; right: 0; top: 0; bottom: 0;
@@ -942,7 +945,7 @@
       <div class="drawer-section">Hub PC</div>
       <div class="side-brand" id="mediaBrand">Wabi · Console</div>
       <div class="meta" id="meta">подключение…</div>
-      <div class="meta" id="buildMeta">build v52</div>
+      <div class="meta" id="buildMeta">build v53</div>
       <div class="toast" id="toast"></div>
       <input class="hub-field" id="hubInput" type="text" placeholder="http://192.168.0.247:8787" />
       <button class="drawer-btn" id="hubSave" type="button">Save hub URL</button>
@@ -955,6 +958,7 @@
   </div>
 
   <div id="idle">
+    <img id="idlePic" alt="" />
     <iframe id="idleFrame" src="about:blank"></iframe>
     <div class="catch" id="idleCatch"></div>
   </div>
@@ -964,18 +968,18 @@
     <br><b>Поделиться → На экран «Домой»</b>
     <br>открой ярлык — без строки Safari.
     <br>    <br>Важно: добавляй URL с версией:
-    <br><b id="tipUrl">http://192.168.0.247:8787/?v=52</b>
+    <br><b id="tipUrl">http://192.168.0.247:8787/?v=53</b>
     <br>(старый ярлык без ?v= кэширует старый UI)
     <br><br>Для старта без ПК — GitHub Pages URL из README.
     <button type="button" id="tipOk">Понятно</button>
   </div>
 
-  <script src="gadget-core.js?v=52"></script>
+  <script src="gadget-core.js?v=53"></script>
   <script>
     (function () {
       var IDLE_MS = 45000;
-      var DRIVE_VER = 52;
-      var APP_VER = 52;
+      var DRIVE_VER = 53;
+      var APP_VER = 53;
       var THEME_KEY = "kissaten_deck_theme";
       var SCENE_KEY = "kissaten_idle_scene";
       var SCENES = [
@@ -1343,27 +1347,44 @@
         if (dx < 0) closeDrawer();
       }, false);
 
+      function idleArtUrl() {
+        var s = readScene();
+        var t = readTheme();
+        if (s === "ramen") return "art/pack-ramen.gif?v=53";
+        if (s !== "rain" && s !== "vinyl") s = "drive";
+        return "art/scene-" + s + "-" + t + ".gif?v=53";
+      }
+
+      function placeIdlePic() {
+        var img = document.getElementById("idlePic");
+        if (!img) return;
+        var vw = window.innerWidth || document.documentElement.clientWidth || 320;
+        var vh = window.innerHeight || document.documentElement.clientHeight || 480;
+        if (vw < 2) vw = 320;
+        if (vh < 2) vh = 480;
+        var GW = (img.naturalWidth > 2) ? img.naturalWidth : 480;
+        var GH = (img.naturalHeight > 2) ? img.naturalHeight : 270;
+        var gs = Math.min(vw / GW, vh / GH);
+        if (!(gs > 0)) gs = 1;
+        var dw = Math.round(GW * gs);
+        var dh = Math.round(GH * gs);
+        img.style.width = dw + "px";
+        img.style.height = dh + "px";
+        img.style.left = Math.max(0, Math.round((vw - dw) / 2)) + "px";
+        img.style.top = Math.max(0, Math.round((vh - dh) / 2)) + "px";
+      }
+
       function loadIdleFrame(forceReload) {
-        var idleKey = theme + "|v" + DRIVE_VER + "|" + readScene();
-        var swap = null;
-        try { swap = idleFrame.contentWindow && idleFrame.contentWindow.swapScene; } catch (eSw) {}
-        if (swap && !forceReload) {
-          try {
-            idleFrame.contentWindow.swapScene(readScene(), theme);
-            idleLoadedTheme = idleKey;
-            return;
-          } catch (eCall) {}
+        var img = document.getElementById("idlePic");
+        var url = idleArtUrl();
+        if (!img) return;
+        if (forceReload || img.getAttribute("data-on") !== url) {
+          img.onload = function () { placeIdlePic(); };
+          img.src = url;
+          img.setAttribute("data-on", url);
         }
-        if (!forceReload && idleLoadedTheme === idleKey) {
-          try {
-            if (idleFrame.contentWindow && idleFrame.contentWindow.fitCanvasPublic) {
-              idleFrame.contentWindow.fitCanvasPublic();
-            }
-          } catch (eFit) {}
-          return;
-        }
-        idleFrame.src = driveUrl();
-        idleLoadedTheme = idleKey;
+        placeIdlePic();
+        idleLoadedTheme = theme + "|v" + DRIVE_VER + "|" + readScene();
       }
 
       function showIdle(forced) {
@@ -1374,38 +1395,17 @@
         if (idleFailTimer) clearTimeout(idleFailTimer);
         setTimeout(function () {
           loadIdleFrame(false);
-        }, 100);
-        setTimeout(function () {
-          try {
-            if (idleFrame.contentWindow && idleFrame.contentWindow.fitCanvasPublic) {
-              idleFrame.contentWindow.fitCanvasPublic();
-            }
-          } catch (e1) {}
-        }, 500);
-        setTimeout(function () {
-          try {
-            if (idleFrame.contentWindow && idleFrame.contentWindow.fitCanvasPublic) {
-              idleFrame.contentWindow.fitCanvasPublic();
-            }
-          } catch (e2) {}
-        }, 1200);
-        idleFailTimer = setTimeout(function () {
-          if (idleEl.className !== "on") return;
-          try {
-            var doc = idleFrame.contentDocument;
-            var gif = doc && doc.getElementById("sceneGif");
-            var bad = !doc || !gif || !gif.getAttribute("src");
-            if (bad) {
-              idleLoadedTheme = null;
-              loadIdleFrame(true);
-            } else if (doc.defaultView && doc.defaultView.fitCanvasPublic) {
-              try { doc.defaultView.fitCanvasPublic(); } catch (eF) {}
-            }
-          } catch (eCross) {
-            idleLoadedTheme = null;
-            loadIdleFrame(true);
-          }
-        }, 3500);
+          placeIdlePic();
+        }, 30);
+        setTimeout(placeIdlePic, 400);
+        idleFailTimer = null;
+      }
+
+      if (window.addEventListener) {
+        window.addEventListener("resize", placeIdlePic, false);
+        window.addEventListener("orientationchange", function () {
+          setTimeout(placeIdlePic, 250);
+        }, false);
       }
 
       function bumpIdle(e, opts) {
