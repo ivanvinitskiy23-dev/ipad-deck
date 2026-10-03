@@ -5,11 +5,11 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-  <meta name="apple-mobile-web-app-title" content="Gadget v53" />
+  <meta name="apple-mobile-web-app-title" content="Gadget v54" />
   <meta name="mobile-web-app-capable" content="yes" />
   <meta http-equiv="Cache-Control" content="no-store, no-cache, must-revalidate" />
   <meta http-equiv="Pragma" content="no-cache" />
-  <title>Kissaten Gadget v53</title>
+  <title>Kissaten Gadget v54</title>
   <style>
     * { -webkit-tap-highlight-color: transparent; box-sizing: border-box; }
     html, body {
@@ -605,14 +605,77 @@
       position: absolute;
       display: block;
       margin: 0;
+      z-index: 1;
       background: #000;
       image-rendering: -webkit-optimize-contrast;
       image-rendering: pixelated;
       image-rendering: crisp-edges;
     }
+    #idleHud {
+      position: absolute;
+      left: 8px;
+      right: 8px;
+      top: 8px;
+      z-index: 4;
+      pointer-events: none;
+      display: -webkit-box;
+      display: -webkit-flex;
+      display: flex;
+      -webkit-box-pack: center;
+      -webkit-justify-content: center;
+      justify-content: center;
+    }
+    #idleHud .card {
+      margin: 0 4px;
+      min-width: 0;
+      -webkit-box-flex: 1;
+      -webkit-flex: 1;
+      flex: 1;
+      padding: 8px 10px;
+      min-height: 54px;
+      border: 1px solid rgba(255,255,255,0.28);
+      background: rgba(0,0,0,0.78);
+      color: #eee;
+      font-size: 16px;
+      line-height: 1.25;
+    }
+    #idleHud .k {
+      display: block;
+      font-size: 8px;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      opacity: 0.55;
+    }
+    #idleHud .v {
+      display: block;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    #idleHud .sub { display: block; font-size: 10px; opacity: 0.7; }
+    #idleAl.on { border-color: #FF4D6D; color: #FF4D6D; }
+    #idleTicker {
+      position: absolute;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      height: 28px;
+      z-index: 4;
+      pointer-events: none;
+      overflow: hidden;
+      background: rgba(0,0,0,0.82);
+      border-top: 1px solid rgba(255,255,255,0.15);
+      color: #E8C547;
+      font-size: 14px;
+    }
+    #idleTickerTrack {
+      display: inline-block;
+      white-space: nowrap;
+      padding-top: 5px;
+    }
     #idle .catch {
       position: absolute; left: 0; right: 0; top: 0; bottom: 0;
-      z-index: 2;
+      z-index: 5;
     }
     #tip {
       display: none; position: absolute; left: 12px; right: 12px; bottom: 24px; z-index: 50;
@@ -945,7 +1008,7 @@
       <div class="drawer-section">Hub PC</div>
       <div class="side-brand" id="mediaBrand">Wabi · Console</div>
       <div class="meta" id="meta">подключение…</div>
-      <div class="meta" id="buildMeta">build v53</div>
+      <div class="meta" id="buildMeta">build v54</div>
       <div class="toast" id="toast"></div>
       <input class="hub-field" id="hubInput" type="text" placeholder="http://192.168.0.247:8787" />
       <button class="drawer-btn" id="hubSave" type="button">Save hub URL</button>
@@ -959,6 +1022,12 @@
 
   <div id="idle">
     <img id="idlePic" alt="" />
+    <div id="idleHud">
+      <div class="card" id="idleWx"><span class="k">Weather</span><span class="v" id="idleWxVal">…</span></div>
+      <div class="card" id="idlePl"><span class="k">Player</span><span class="v" id="idlePlay">…</span><span class="sub" id="idlePlaySub"></span></div>
+      <div class="card" id="idleAl"><span class="k">Alert</span><span class="v" id="idleAlVal">…</span><span class="sub" id="idleAlSub">Kyiv</span></div>
+    </div>
+    <div id="idleTicker"><div id="idleTickerTrack"><span>лента…</span></div></div>
     <iframe id="idleFrame" src="about:blank"></iframe>
     <div class="catch" id="idleCatch"></div>
   </div>
@@ -968,18 +1037,18 @@
     <br><b>Поделиться → На экран «Домой»</b>
     <br>открой ярлык — без строки Safari.
     <br>    <br>Важно: добавляй URL с версией:
-    <br><b id="tipUrl">http://192.168.0.247:8787/?v=53</b>
+    <br><b id="tipUrl">http://192.168.0.247:8787/?v=54</b>
     <br>(старый ярлык без ?v= кэширует старый UI)
     <br><br>Для старта без ПК — GitHub Pages URL из README.
     <button type="button" id="tipOk">Понятно</button>
   </div>
 
-  <script src="gadget-core.js?v=53"></script>
+  <script src="gadget-core.js?v=54"></script>
   <script>
     (function () {
       var IDLE_MS = 45000;
-      var DRIVE_VER = 53;
-      var APP_VER = 53;
+      var DRIVE_VER = 54;
+      var APP_VER = 54;
       var THEME_KEY = "kissaten_deck_theme";
       var SCENE_KEY = "kissaten_idle_scene";
       var SCENES = [
@@ -1350,9 +1419,35 @@
       function idleArtUrl() {
         var s = readScene();
         var t = readTheme();
-        if (s === "ramen") return "art/pack-ramen.gif?v=53";
+        if (s === "ramen") return "art/pack-ramen.gif?v=54";
         if (s !== "rain" && s !== "vinyl") s = "drive";
-        return "art/scene-" + s + "-" + t + ".gif?v=53";
+        return "art/scene-" + s + "-" + t + ".gif?v=54";
+      }
+
+      function paintIdleChrome() {
+        var w = document.getElementById("lvWeatherVal");
+        var iw = document.getElementById("idleWxVal");
+        if (w && iw) iw.textContent = w.textContent;
+        var a = document.getElementById("lvAlertVal");
+        var ia = document.getElementById("idleAlVal");
+        if (a && ia) ia.textContent = a.textContent;
+        var asub = document.getElementById("lvAlertSub");
+        var ias = document.getElementById("idleAlSub");
+        if (asub && ias) ias.textContent = asub.textContent;
+        var al = document.getElementById("lvAlert");
+        var ial = document.getElementById("idleAl");
+        if (al && ial) ial.className = (al.className.indexOf(" on") >= 0 || al.className === "lv-alert on") ? "on" : "";
+        var title = document.getElementById("nowTitle");
+        var it = document.getElementById("idlePlay");
+        if (title && it) it.textContent = title.textContent;
+        var artist = document.getElementById("nowArtist");
+        var isub = document.getElementById("idlePlaySub");
+        if (artist && isub) isub.textContent = artist.textContent;
+        var mainTrack = document.getElementById("tickerTrack");
+        var idleTrack = document.getElementById("idleTickerTrack");
+        if (mainTrack && idleTrack && idleTrack.innerHTML.length < 20 && mainTrack.innerHTML.length > 20) {
+          idleTrack.innerHTML = mainTrack.innerHTML;
+        }
       }
 
       function placeIdlePic() {
@@ -1384,6 +1479,7 @@
           img.setAttribute("data-on", url);
         }
         placeIdlePic();
+        paintIdleChrome();
         idleLoadedTheme = theme + "|v" + DRIVE_VER + "|" + readScene();
       }
 
@@ -1492,6 +1588,7 @@
           nowArt.removeAttribute("src");
           nowArt.className = "now-art";
         }
+        paintIdleChrome();
       }
 
       function syncAudioUI(audio) {
@@ -1532,8 +1629,14 @@
         }
         tickerOffset -= 1;
         if (-tickerOffset >= tickerHalf) tickerOffset = 0;
-        track.style.webkitTransform = "translateX(" + tickerOffset + "px)";
-        track.style.transform = "translateX(" + tickerOffset + "px)";
+        var shift = "translateX(" + tickerOffset + "px)";
+        track.style.webkitTransform = shift;
+        track.style.transform = shift;
+        var idleTrack = document.getElementById("idleTickerTrack");
+        if (idleTrack) {
+          idleTrack.style.webkitTransform = shift;
+          idleTrack.style.transform = shift;
+        }
       }
 
       function startTickerScroll() {
@@ -1562,8 +1665,11 @@
         }
         tickerSig = sig;
         var html = parts.join('<span class="sep"> · </span>');
+        var doubled = html + '<span class="sep"> · </span>' + html;
         var track = document.getElementById("tickerTrack");
-        track.innerHTML = html + '<span class="sep"> · </span>' + html;
+        track.innerHTML = doubled;
+        var idleTrack = document.getElementById("idleTickerTrack");
+        if (idleTrack) idleTrack.innerHTML = doubled;
         tickerOffset = 0;
         tickerHalf = 0;
         track.style.webkitTransform = "translateX(0)";
@@ -1598,6 +1704,7 @@
           aSub.textContent = "Kyiv";
           aEl.className = "lv-alert";
         }
+        paintIdleChrome();
       }
 
       function hubIsQuiet() {
@@ -1928,6 +2035,7 @@
         nowApp.textContent = "RADIO";
         nowArt.className = "now-art";
         nowArt.removeAttribute("src");
+        paintIdleChrome();
         var playBtn = document.getElementById("radioPlayBtn");
         if (playBtn) playBtn.textContent = radioPlaying ? "Stop" : "Play";
         if (GC.publishRadioNow) {
