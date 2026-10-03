@@ -5,11 +5,11 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-  <meta name="apple-mobile-web-app-title" content="Gadget v54" />
+  <meta name="apple-mobile-web-app-title" content="Gadget v55" />
   <meta name="mobile-web-app-capable" content="yes" />
   <meta http-equiv="Cache-Control" content="no-store, no-cache, must-revalidate" />
   <meta http-equiv="Pragma" content="no-cache" />
-  <title>Kissaten Gadget v54</title>
+  <title>Kissaten Gadget v55</title>
   <style>
     * { -webkit-tap-highlight-color: transparent; box-sizing: border-box; }
     html, body {
@@ -201,23 +201,19 @@
       -webkit-box-flex: 1; -webkit-flex: 1 1 33%; flex: 1 1 33%;
       width: auto;
     }
-    .radio-native {
+    #radioNative {
+      display: block !important;
       position: fixed;
-      left: -120px;
-      top: -120px;
+      left: 0;
+      top: 0;
       width: 1px;
       height: 1px;
-      opacity: 0.01;
-      /* never display:none — breaks iOS audio */
+      opacity: 0.02;
     }
-    body.mode-solo .radio-native {
-      position: static;
-      left: auto;
-      top: auto;
-      width: 100%;
-      height: 28px;
-      opacity: 1;
-      margin-top: 4px;
+    body.mode-deck #mediaControlsRadio {
+      display: -webkit-box !important;
+      display: -webkit-flex !important;
+      display: flex !important;
     }
     .media-btn:active { opacity: 0.8; }
     .fs-btn, .drawer-btn {
@@ -653,7 +649,29 @@
       text-overflow: ellipsis;
     }
     #idleHud .sub { display: block; font-size: 10px; opacity: 0.7; }
-    #idleAl.on { border-color: #FF4D6D; color: #FF4D6D; }
+    body.theme-B #idleHud .card {
+      border-color: #2A3142; background: #181C26; color: #F2F4F8; border-radius: 8px;
+    }
+    body.theme-B #idleWx .v { color: #5EEAD4; }
+    body.theme-B #idleAl { border-color: #3A4254; background: #151922; color: #7A8498; }
+    body.theme-B #idleAl.on { border-color: #F87171; background: #2A1218; color: #FECACA; }
+    body.theme-B #idleTicker { color: #A8D8D0; background: #0C0E14; border-top-color: #2A3142; }
+    body.theme-C #idleHud .card {
+      border-color: rgba(255,255,255,0.14); background: rgba(8,10,20,0.9); color: #E8EEF8; border-radius: 12px;
+    }
+    body.theme-C #idleWx .v { color: #4CC9F0; }
+    body.theme-C #idlePlay .v { color: #FFFFFF; }
+    body.theme-C #idleAl { color: #9AA8C7; }
+    body.theme-C #idleAl.on { border-color: #FF4D6D; background: #2A1218; color: #FFD0D8; }
+    body.theme-C #idleTicker { color: #C8A0E8; background: rgba(5,7,13,0.94); border-top-color: rgba(255,255,255,0.1); }
+    body.theme-D #idleHud .card {
+      border-color: #333; background: #141414; color: #E8E8E0; border-radius: 4px;
+      font-family: "Courier New", Courier, monospace;
+    }
+    body.theme-D #idleWx .v { color: #E8C547; }
+    body.theme-D #idleAl { color: #6A6A62; }
+    body.theme-D #idleAl.on { border-color: #C44; background: #1A0E0E; color: #E8A0A0; }
+    body.theme-D #idleTicker { color: #E0C83A; background: #0A0A0A; border-top-color: #262626; }
     #idleTicker {
       position: absolute;
       left: 0;
@@ -904,7 +922,7 @@
               <button type="button" class="media-btn" id="radioPlayBtn">Play</button>
               <button type="button" class="media-btn" id="radioNextBtn">Next</button>
             </div>
-            <audio id="radioNative" class="radio-only radio-native" preload="auto" playsinline webkit-playsinline></audio>
+            <audio id="radioNative" class="radio-native" preload="auto" playsinline webkit-playsinline></audio>
           </div>
           <div id="living">
             <div class="lv-weather" id="lvWeather">
@@ -1008,7 +1026,7 @@
       <div class="drawer-section">Hub PC</div>
       <div class="side-brand" id="mediaBrand">Wabi · Console</div>
       <div class="meta" id="meta">подключение…</div>
-      <div class="meta" id="buildMeta">build v54</div>
+      <div class="meta" id="buildMeta">build v55</div>
       <div class="toast" id="toast"></div>
       <input class="hub-field" id="hubInput" type="text" placeholder="http://192.168.0.247:8787" />
       <button class="drawer-btn" id="hubSave" type="button">Save hub URL</button>
@@ -1037,18 +1055,18 @@
     <br><b>Поделиться → На экран «Домой»</b>
     <br>открой ярлык — без строки Safari.
     <br>    <br>Важно: добавляй URL с версией:
-    <br><b id="tipUrl">http://192.168.0.247:8787/?v=54</b>
+    <br><b id="tipUrl">http://192.168.0.247:8787/?v=55</b>
     <br>(старый ярлык без ?v= кэширует старый UI)
     <br><br>Для старта без ПК — GitHub Pages URL из README.
     <button type="button" id="tipOk">Понятно</button>
   </div>
 
-  <script src="gadget-core.js?v=54"></script>
+  <script src="gadget-core.js?v=55"></script>
   <script>
     (function () {
       var IDLE_MS = 45000;
-      var DRIVE_VER = 54;
-      var APP_VER = 54;
+      var DRIVE_VER = 55;
+      var APP_VER = 55;
       var THEME_KEY = "kissaten_deck_theme";
       var SCENE_KEY = "kissaten_idle_scene";
       var SCENES = [
@@ -1419,9 +1437,9 @@
       function idleArtUrl() {
         var s = readScene();
         var t = readTheme();
-        if (s === "ramen") return "art/pack-ramen.gif?v=54";
+        if (s === "ramen") return "art/pack-ramen.gif?v=55";
         if (s !== "rain" && s !== "vinyl") s = "drive";
-        return "art/scene-" + s + "-" + t + ".gif?v=54";
+        return "art/scene-" + s + "-" + t + ".gif?v=55";
       }
 
       function paintIdleChrome() {
@@ -2009,21 +2027,24 @@
 
       function ensureRadioAudio() {
         var el = document.getElementById("radioNative");
-        if (el) {
-          radioAudioEl = el;
-          radioAudio = el;
-          return el;
+        if (!el) {
+          el = document.createElement("audio");
+          el.id = "radioNative";
+          document.body.appendChild(el);
         }
-        if (radioAudioEl) return radioAudioEl;
-        radioAudioEl = document.createElement("audio");
-        radioAudioEl.setAttribute("playsinline", "true");
-        radioAudioEl.setAttribute("webkit-playsinline", "true");
-        radioAudioEl.preload = "auto";
-        /* iOS: display:none can block audio — keep off-screen instead */
-        radioAudioEl.style.cssText = "position:fixed;left:-100px;top:-100px;width:1px;height:1px;opacity:0.01;";
-        document.body.appendChild(radioAudioEl);
-        radioAudio = radioAudioEl;
-        return radioAudioEl;
+        el.setAttribute("playsinline", "true");
+        el.setAttribute("webkit-playsinline", "true");
+        el.preload = "auto";
+        try { el.style.setProperty("display", "block", "important"); } catch (eD) { el.style.display = "block"; }
+        el.style.position = "fixed";
+        el.style.left = "0";
+        el.style.top = "0";
+        el.style.width = "1px";
+        el.style.height = "1px";
+        el.style.opacity = "0.02";
+        radioAudioEl = el;
+        radioAudio = el;
+        return el;
       }
 
       function syncRadioNowPlaying() {
@@ -2094,15 +2115,9 @@
         var el = ensureRadioAudio();
         var gen = ++radioPlayGen;
         el.onerror = null;
-        el.onplaying = null;
         try { el.pause(); } catch (e0) {}
-        /* Clear the previous src before attaching onerror, or the abort
-           counts as a failure and every station falls through to one URL. */
-        try {
-          while (el.firstChild) el.removeChild(el.firstChild);
-          el.removeAttribute("src");
-          el.load();
-        } catch (eClr) {}
+        el.src = url;
+        try { el.load(); } catch (e1) {}
         el.onerror = function () {
           if (gen !== radioPlayGen) return;
           radioTryIdx++;
@@ -2112,17 +2127,11 @@
           } else {
             radioPlaying = false;
             syncRadioUI();
-            toast("radio fail · другая станция");
+            toast("radio fail");
           }
         };
-        el.onplaying = function () {
-          if (gen !== radioPlayGen) return;
-          radioPlaying = true;
-          syncRadioUI();
-        };
-        el.src = url;
-        try { el.load(); } catch (e1) {}
-        var p = el.play();
+        var p = null;
+        try { p = el.play(); } catch (e2) { p = null; }
         if (p && typeof p.then === "function") {
           p.then(function () {
             if (gen !== radioPlayGen) return;
@@ -2132,23 +2141,17 @@
           }).catch(function () {
             if (gen !== radioPlayGen) return;
             radioTryIdx++;
-            if (radioTryIdx < radioTryList.length) {
-              playRadioUrl(radioTryList[radioTryIdx]);
-            } else {
+            if (radioTryIdx < radioTryList.length) playRadioUrl(radioTryList[radioTryIdx]);
+            else {
               radioPlaying = false;
               syncRadioUI();
               toast("radio fail");
             }
           });
         } else {
-          setTimeout(function () {
-            if (gen !== radioPlayGen) return;
-            if (el && !el.paused) {
-              radioPlaying = true;
-              syncRadioUI();
-              toast("radio · on");
-            }
-          }, 400);
+          radioPlaying = true;
+          syncRadioUI();
+          toast("radio · on");
         }
       }
 
