@@ -113,7 +113,15 @@
       image-rendering: pixelated;
       image-rendering: crisp-edges;
     }
-    #wrap img.scene-gif.on { display: block; }
+    #wrap img.scene-gif.on {
+      display: block;
+      position: absolute;
+      left: 0;
+      right: 0;
+      top: 0;
+      bottom: 0;
+      margin: auto;
+    }
     canvas {
       image-rendering: -webkit-optimize-contrast;
       image-rendering: pixelated;
@@ -190,7 +198,7 @@
     </div>
   </div>
 
-  <script src="gadget-core.js?v=48"></script>
+  <script src="gadget-core.js?v=49"></script>
   <script>
     (function () {
       function param(name) {
@@ -221,8 +229,8 @@
       var gifOn = false;
 
       function sceneFile(name, th) {
-        if (name === "ramen") return "art/pack-ramen.gif?v=48";
-        return "art/scene-" + name + "-" + th + ".gif?v=48";
+        if (name === "ramen") return "art/pack-ramen.gif?v=49";
+        return "art/scene-" + name + "-" + th + ".gif?v=49";
       }
 
       window.swapScene = function (next, nextTheme) {
@@ -413,22 +421,38 @@
 
       var lastFitKey = "";
       function fitCanvas() {
-        var tw = wrap.clientWidth || document.documentElement.clientWidth || (window.innerWidth || 640);
-        var th = wrap.clientHeight || document.documentElement.clientHeight || (window.innerHeight || 360);
-        if (tw < 2) tw = window.innerWidth || 640;
-        if (th < 2) th = Math.max(180, (window.innerHeight || 360) - 140);
+        var boxW = wrap.clientWidth;
+        var boxH = wrap.clientHeight;
+        var stage = document.getElementById("stage");
+        var hud = document.getElementById("hud");
+        var ticker = document.getElementById("ticker");
+        if (stage && hud && ticker) {
+          var fitH = stage.clientHeight - hud.offsetHeight - ticker.offsetHeight - 8;
+          if (fitH > 80) {
+            wrap.style.height = fitH + "px";
+            boxH = fitH;
+          }
+        }
+        if (boxW < 2) boxW = window.innerWidth || 640;
+        if (boxH < 2) boxH = Math.max(160, (window.innerHeight || 360) - 160);
+        var tw = boxW;
+        var th = boxH;
         if (gifOn) {
           var GW = sceneGif.naturalWidth || 480;
           var GH = sceneGif.naturalHeight || 270;
-          var gs = Math.max(tw / GW, th / GH);
+          var gs = Math.min(tw / GW, th / GH);
           if (!(gs > 0)) gs = 1;
           sceneGif.style.position = "absolute";
-          sceneGif.style.left = "50%";
-          sceneGif.style.top = "50%";
+          sceneGif.style.left = "0";
+          sceneGif.style.right = "0";
+          sceneGif.style.top = "0";
+          sceneGif.style.bottom = "0";
+          sceneGif.style.marginLeft = "auto";
+          sceneGif.style.marginRight = "auto";
+          sceneGif.style.marginTop = "auto";
+          sceneGif.style.marginBottom = "auto";
           sceneGif.style.width = Math.round(GW * gs) + "px";
           sceneGif.style.height = Math.round(GH * gs) + "px";
-          sceneGif.style.marginLeft = Math.round(-GW * gs / 2) + "px";
-          sceneGif.style.marginTop = Math.round(-GH * gs / 2) + "px";
           return;
         }
         if (bmpReady && bmp.width) {
