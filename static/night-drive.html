@@ -100,7 +100,6 @@
       -webkit-box-flex: 1; -webkit-flex: 1 1 auto; flex: 1 1 auto;
       /* iOS iframe: min-height:0 collapses stage to black — keep real height */
       min-height: 180px;
-      height: 55%;
       margin: 0 8px 4px;
       display: -webkit-box; display: -webkit-flex; display: flex;
       -webkit-box-align: center; -webkit-align-items: center; align-items: center;
@@ -108,7 +107,13 @@
       background: #000;
       overflow: hidden;
     }
-    /* NEVER stretch canvas — aspect kept by JS integer scale */
+    #wrap img.scene-gif {
+      display: none;
+      image-rendering: -webkit-optimize-contrast;
+      image-rendering: pixelated;
+      image-rendering: crisp-edges;
+    }
+    #wrap img.scene-gif.on { display: block; }
     canvas {
       image-rendering: -webkit-optimize-contrast;
       image-rendering: pixelated;
@@ -176,7 +181,7 @@
       </div>
     </div>
 
-    <div id="wrap"><canvas id="c" width="320" height="180"></canvas></div>
+    <div id="wrap"><img id="sceneGif" class="scene-gif" alt="" /><canvas id="c" width="320" height="180"></canvas></div>
 
     <div id="ticker">
       <div class="ticker-clip">
@@ -185,7 +190,7 @@
     </div>
   </div>
 
-  <script src="gadget-core.js?v=37"></script>
+  <script src="gadget-core.js?v=47"></script>
   <script>
     (function () {
       function param(name) {
@@ -209,6 +214,99 @@
 
       var theme = (param("theme") || "C").toUpperCase();
       if (theme !== "B" && theme !== "C" && theme !== "D") theme = "C";
+      var scene = param("scene") || "drive";
+      if (scene !== "rain" && scene !== "vinyl" && scene !== "ramen") scene = "drive";
+      var bmp = new Image();
+      var bmpReady = false;
+      var themed = null;
+      function hueLerp(a, b, k) {
+        var d = b - a;
+        if (d > 180) d -= 360;
+        if (d < -180) d += 360;
+        var h = a + d * k;
+        if (h < 0) h += 360;
+        if (h >= 360) h -= 360;
+        return h;
+      }
+      function rgb2hsl(r, g, b) {
+        r /= 255; g /= 255; b /= 255;
+        var max = r, min = r;
+        if (g > max) max = g;
+        if (b > max) max = b;
+        if (g < min) min = g;
+        if (b < min) min = b;
+        var h = 0, s = 0, l = (max + min) / 2, d = max - min;
+        if (d > 0.001) {
+          s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+          if (max === r) h = ((g - b) / d) % 6;
+          else if (max === g) h = (b - r) / d + 2;
+          else h = (r - g) / d + 4;
+          h *= 60;
+          if (h < 0) h += 360;
+        }
+        return [h, s, l];
+      }
+      function hsl2rgb(h, s, l) {
+        var c = (1 - Math.abs(2 * l - 1)) * s;
+        var hp = h / 60;
+        var x = c * (1 - Math.abs((hp % 2) - 1));
+        var r = 0, g = 0, b = 0;
+        if (hp < 1) { r = c; g = x; }
+        else if (hp < 2) { r = x; g = c; }
+        else if (hp < 3) { g = c; b = x; }
+        else if (hp < 4) { g = x; b = c; }
+        else if (hp < 5) { r = x; b = c; }
+        else { r = c; b = x; }
+        var m = l - c / 2;
+        return [((r + m) * 255 + 0.5) | 0, ((g + m) * 255 + 0.5) | 0, ((b + m) * 255 + 0.5) | 0];
+      }
+      function paintTheme(data) {
+        var i, r, g, b, hsl, h, s, l, out, red;
+        for (i = 0; i < data.length; i += 4) {
+          r = data[i]; g = data[i + 1]; b = data[i + 2];
+          hsl = rgb2hsl(r, g, b);
+          h = hsl[0]; s = hsl[1]; l = hsl[2];
+          red = (h < 22 || h > 344) && s > 0.28;
+          if (!red && s > 0.1) {
+            if (theme === "B") {
+              h = hueLerp(h, 172, 0.72);
+              s = s * 0.9;
+            } else if (theme === "D") {
+              h = hueLerp(h, 44, 0.78);
+              s = s * 0.42;
+            } else if (h >= 180 && h <= 265) {
+              h = hueLerp(h, 188, 0.55);
+            } else if (h > 265 && h < 344) {
+              h = hueLerp(h, 332, 0.5);
+            }
+          }
+          out = hsl2rgb(h, s, l);
+          data[i] = out[0];
+          data[i + 1] = out[1];
+          data[i + 2] = out[2];
+        }
+      }
+      function buildThemed() {
+        try {
+          var c = document.createElement("canvas");
+          c.width = bmp.width;
+          c.height = bmp.height;
+          var gx = c.getContext("2d");
+          gx.drawImage(bmp, 0, 0);
+          var im = gx.getImageData(0, 0, c.width, c.height);
+          paintTheme(im.data);
+          gx.putImageData(im, 0, 0);
+          themed = c;
+        } catch (eT) {
+          themed = null;
+        }
+      }
+      bmp.onload = function () {
+        bmpReady = true;
+        buildThemed();
+        lastFitKey = "";
+        try { fitCanvas(); } catch (eFit) {}
+      };
       var fillMode = param("fill") === "1";
       var pageMode = param("mode") || "deck";
       if (fillMode) {
@@ -280,6 +378,8 @@
       }
 
       var canvas = document.getElementById("c");
+      var sceneGif = document.getElementById("sceneGif");
+      var gifOn = false;
       var wrap = document.getElementById("wrap");
       var ctx = canvas.getContext("2d");
       // Logical resolution — integer CSS scale keeps pixels crisp (no stretch blob).
@@ -294,6 +394,36 @@
         var th = wrap.clientHeight || document.documentElement.clientHeight || (window.innerHeight || 360);
         if (tw < 2) tw = window.innerWidth || 640;
         if (th < 2) th = Math.max(180, (window.innerHeight || 360) - 140);
+        if (gifOn) {
+          var GW = sceneGif.naturalWidth || 480;
+          var GH = sceneGif.naturalHeight || 270;
+          var gs = Math.max(tw / GW, th / GH);
+          if (!(gs > 0)) gs = 1;
+          sceneGif.style.position = "absolute";
+          sceneGif.style.left = "50%";
+          sceneGif.style.top = "50%";
+          sceneGif.style.width = Math.round(GW * gs) + "px";
+          sceneGif.style.height = Math.round(GH * gs) + "px";
+          sceneGif.style.marginLeft = Math.round(-GW * gs / 2) + "px";
+          sceneGif.style.marginTop = Math.round(-GH * gs / 2) + "px";
+          return;
+        }
+        if (bmpReady && bmp.width) {
+          var IW = bmp.width;
+          var IH = bmp.height;
+          var keyB = "b" + tw + "x" + th + ":" + IW;
+          if (canvas.width !== IW || canvas.height !== IH) {
+            canvas.width = IW;
+            canvas.height = IH;
+          }
+          if (keyB === lastFitKey) return;
+          lastFitKey = keyB;
+          var s = Math.min(tw / IW, th / IH);
+          if (!(s > 0)) s = 1;
+          canvas.style.width = Math.round(IW * s) + "px";
+          canvas.style.height = Math.round(IH * s) + "px";
+          return;
+        }
         var key = tw + "x" + th + (fillMode ? "f" : "c");
         if (key === lastFitKey && canvas.width === LW) return;
         lastFitKey = key;
@@ -582,15 +712,276 @@
         }
       }
 
-      function frame() {
-        t++;
-        ctx.fillStyle = P.sky0;
-        ctx.fillRect(0, 0, W, H);
+      function sign(x, y, color) {
+        drawBannerText(x, y, BANNER_TEXT_W + BANNER_PAD * 2, color);
+      }
+
+      function clipCall(x, y, w, h, fn) {
+        ctx.save();
+        ctx.beginPath();
+        ctx.rect(x, y, w, h);
+        ctx.clip();
+        fn();
+        ctx.restore();
+      }
+
+      function paintCity(dy) {
+        ctx.save();
+        if (dy) ctx.translate(0, dy);
+        drawSky();
+        drawCity();
+        ctx.restore();
+      }
+
+      function linePx(x0, y0, x1, y1, color) {
+        ctx.fillStyle = color;
+        var dx = Math.abs(x1 - x0);
+        var dy = Math.abs(y1 - y0);
+        var sx = x0 < x1 ? 1 : -1;
+        var sy = y0 < y1 ? 1 : -1;
+        var err = dx - dy;
+        var guard = 0;
+        while (guard < 400) {
+          ctx.fillRect(x0, y0, 1, 1);
+          if (x0 === x1 && y0 === y1) break;
+          var e2 = err * 2;
+          if (e2 > -dy) { err -= dy; x0 += sx; }
+          if (e2 < dx) { err += dx; y0 += sy; }
+          guard++;
+        }
+      }
+
+      function ring(cx, cy, r, color) {
+        var x = r;
+        var y = 0;
+        var d = 1 - r;
+        ctx.fillStyle = color;
+        while (y <= x) {
+          ctx.fillRect(cx + x, cy + y, 1, 1);
+          ctx.fillRect(cx + y, cy + x, 1, 1);
+          ctx.fillRect(cx - y, cy + x, 1, 1);
+          ctx.fillRect(cx - x, cy + y, 1, 1);
+          ctx.fillRect(cx - x, cy - y, 1, 1);
+          ctx.fillRect(cx - y, cy - x, 1, 1);
+          ctx.fillRect(cx + y, cy - x, 1, 1);
+          ctx.fillRect(cx + x, cy - y, 1, 1);
+          y++;
+          if (d < 0) d += 2 * y + 1;
+          else { x--; d += 2 * (y - x) + 1; }
+        }
+      }
+
+      function neonPlate(x, y, w, h) {
+        rect(x - 2, y - 2, w + 4, h + 4, P.neon[0]);
+        rect(x, y, w, h, "#07070A");
+      }
+
+      function fillDisc(cx, cy, r, color) {
+        ctx.fillStyle = color;
+        var r2 = r * r;
+        for (var y = -r; y <= r; y++) {
+          var x0 = 0;
+          var span = 0;
+          var on = false;
+          for (var x = -r; x <= r; x++) {
+            if ((x * x + y * y) <= r2) {
+              if (!on) { x0 = x; on = true; span = 1; }
+              else span++;
+            } else if (on) {
+              ctx.fillRect(cx + x0, cy + y, span, 1);
+              on = false;
+            }
+          }
+          if (on) ctx.fillRect(cx + x0, cy + y, span, 1);
+        }
+      }
+
+      function paintDrive(dy) {
+        ctx.save();
+        if (dy) ctx.translate(0, dy);
         drawSky();
         drawCity();
         drawRoad();
         drawRain();
         drawCar();
+        ctx.restore();
+      }
+
+      function bezel(x, y, w, h, thick) {
+        rect(x, y, w, thick, P.carDark);
+        rect(x, y + h - thick, w, thick, P.carDark);
+        rect(x, y, thick, h, P.carDark);
+        rect(x + w - thick, y, thick, h, P.carDark);
+      }
+
+      function paneRain(x, y, w, h, n) {
+        var i;
+        for (i = 0; i < n; i++) {
+          var rx = x + ((i * 37) % (w - 4));
+          var ry = y + ((i * 19 + t) % (h - 6));
+          rect(rx, ry, 1, 5, P.light);
+        }
+      }
+
+      function drawCup(x, y) {
+        rect(x, y + 8, 26, 18, P.car);
+        rect(x + 3, y + 11, 20, 5, P.carDark);
+        rect(x + 24, y + 12, 7, 8, P.carMid);
+        fillDisc(x + 13, y + 8, 7, P.carDark);
+        fillDisc(x + 13, y + 8, 4, P.light);
+        var s = t % 14;
+        px(x + 10, y + 2 - s, P.light);
+        px(x + 16, y - ((s + 5) % 14), P.winOn);
+      }
+
+      function drawCafe() {
+        paintDrive(0);
+        rect(0, 0, W, 24, "#07080C");
+        neonPlate(108, 3, 104, 18);
+        sign(122, 6, P.neon[0]);
+        rect(0, 124, W, 56, P.road);
+        rect(0, 124, W, 3, P.line);
+        var i;
+        for (i = 0; i < 6; i++) rect(0, 134 + i * 7, W, 1, P.sky0);
+        drawCup(18, 98);
+        for (i = 0; i < 6; i++) {
+          rect(236 + i * 13, 102, 7, 22, P.neon[i % P.neon.length]);
+          rect(238 + i * 13, 104, 2, 7, P.light);
+        }
+        bezel(0, 24, W, 102, 4);
+      }
+
+      function drawRainWindow() {
+        paintDrive(0);
+        paneRain(10, 10, 300, 160, 26);
+        bezel(0, 0, W, H, 6);
+      }
+
+      function drawRoofs() {
+        paintDrive(0);
+        fillDisc(274, 22, 11, P.light);
+        fillDisc(278, 20, 9, P.sky0);
+        rect(0, 138, W, 42, "#07080C");
+        var i;
+        for (i = 0; i < 16; i++) rect(i * 20, 142, 16, 2, P.build[i % P.build.length]);
+        rect(0, 138, W, 3, P.curb);
+        rect(16, 114, 14, 28, P.build[0]);
+        rect(12, 110, 22, 5, P.carDark);
+        rect(300, 108, 2, 32, P.carMid);
+        px(301, 106, (t % 28) < 20 ? P.line : P.carDark);
+        neonPlate(200, 114, 96, 20);
+        sign(212, 118, P.neon[0]);
+      }
+
+      function drawSeat(x, y) {
+        rect(x, y, 58, 26, P.build[0]);
+        rect(x + 4, y + 4, 50, 8, P.carDark);
+        rect(x + 6, y + 6, 16, 3, P.curb);
+        rect(x, y + 20, 58, 6, P.carMid);
+      }
+
+      function drawTrain() {
+        rect(0, 0, W, H, "#07080C");
+        clipCall(10, 26, 300, 112, function () { paintDrive(8); });
+        bezel(6, 22, 308, 120, 5);
+        neonPlate(112, 3, 96, 16);
+        sign(124, 5, P.line);
+        rect(0, 146, W, 34, P.sky0);
+        drawSeat(14, 148);
+        drawSeat(248, 148);
+      }
+
+      function drawVinyl() {
+        paintDrive(0);
+        rect(0, 152, W, 28, "#07080C");
+        fillDisc(86, 100, 64, "#0A0A0A");
+        fillDisc(86, 100, 58, "#141414");
+        var gr;
+        for (gr = 20; gr <= 54; gr += 4) ring(86, 100, gr, "#2A2A2A");
+        fillDisc(86, 100, 16, P.neon[0]);
+        fillDisc(86, 100, 4, "#07080C");
+        linePx(86, 100, 86 + ((t % 30) - 15), 86, P.light);
+        linePx(162, 40, 112, 82, P.car);
+        linePx(163, 41, 113, 83, P.carMid);
+        fillDisc(162, 38, 5, P.light);
+        rect(188, 36, 118, 108, P.sky1);
+        rect(188, 36, 118, 3, P.neon[0]);
+        rect(188, 141, 118, 3, P.neon[0]);
+        clipCall(196, 44, 102, 36, function () { paintDrive(-30); });
+        neonPlate(196, 86, 100, 18);
+        sign(208, 89, P.neon[0]);
+        var k;
+        for (k = 0; k < 14; k++) {
+          var bh = 5 + ((t + k * 3) % 16);
+          rect(8 + k * 8, 150 - bh, 5, bh, P.eq);
+        }
+      }
+
+      function drawPier() {
+        paintDrive(-6);
+        fillDisc(34, 22, 10, P.light);
+        fillDisc(38, 20, 8, P.sky1);
+        rect(0, 112, W, 68, "#061018");
+        var row;
+        for (row = 0; row < 8; row++) {
+          var y = 116 + row * 6;
+          var x = -((t + row * 2) % 12);
+          for (; x < W; x += 12) rect(x, y, 6, 1, row % 2 ? P.sky2 : P.road);
+        }
+        var plank;
+        for (plank = 0; plank < 4; plank++) {
+          var py = 146 + plank * 8;
+          var inset = 36 - plank * 8;
+          if (inset < 4) inset = 4;
+          rect(inset, py, W - inset * 2, 6, P.build[plank % P.build.length]);
+          rect(inset, py, W - inset * 2, 1, P.line);
+        }
+        rect(286, 86, 4, 64, P.carDark);
+        neonPlate(186, 70, 96, 18);
+        sign(198, 73, P.neon[0]);
+      }
+      function moveScene() {
+        if (scene === "drive" && window.animDrive) animDrive(ctx, t, P);
+        else if (scene === "cafe" && window.animCafe) animCafe(ctx, t, P);
+        else if (scene === "rain" && window.animRain) animRain(ctx, t, P);
+        else if (scene === "roofs" && window.animRoofs) animRoofs(ctx, t, P);
+        else if (scene === "train" && window.animTrain) animTrain(ctx, t, P);
+        else if (scene === "vinyl" && window.animVinyl) animVinyl(ctx, t, P);
+        else if (scene === "pier" && window.animPier) animPier(ctx, t, P);
+      }
+
+      function frame() {
+        t++;
+        if (gifOn) {
+          if ((t % 3) === 0) tickEq();
+          return;
+        }
+        if (bmpReady && bmp.width) {
+          if (canvas.width !== bmp.width) fitCanvas();
+          try {
+            ctx.imageSmoothingEnabled = false;
+            ctx.webkitImageSmoothingEnabled = false;
+            ctx.mozImageSmoothingEnabled = false;
+          } catch (eS) {}
+          ctx.drawImage(themed || bmp, 0, 0);
+          moveScene();
+        } else {
+          ctx.fillStyle = P.sky0;
+          ctx.fillRect(0, 0, W, H);
+          if (scene === "cafe") drawCafe();
+          else if (scene === "rain") drawRainWindow();
+          else if (scene === "roofs") drawRoofs();
+          else if (scene === "train") drawTrain();
+          else if (scene === "vinyl") drawVinyl();
+          else if (scene === "pier") drawPier();
+          else {
+            drawSky();
+            drawCity();
+            drawRoad();
+            drawRain();
+            drawCar();
+          }
+        }
         if ((t % 3) === 0) tickEq();
       }
 
@@ -753,6 +1144,16 @@
         xhr.send(null);
       }
 
+      sceneGif.onload = function () {
+        gifOn = true;
+        sceneGif.className = "scene-gif on";
+        canvas.style.display = "none";
+        lastFitKey = "";
+        try { fitCanvas(); } catch (eG) {}
+      };
+      sceneGif.src = scene === "ramen"
+        ? "art/pack-ramen.gif?v=47"
+        : ("art/scene-" + scene + "-" + theme + ".gif?v=47");
       fitCanvas();
       setTimeout(fitCanvas, 80);
       setTimeout(fitCanvas, 400);

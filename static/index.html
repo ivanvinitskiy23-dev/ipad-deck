@@ -5,11 +5,11 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-  <meta name="apple-mobile-web-app-title" content="Gadget v37" />
+  <meta name="apple-mobile-web-app-title" content="Gadget v47" />
   <meta name="mobile-web-app-capable" content="yes" />
   <meta http-equiv="Cache-Control" content="no-store, no-cache, must-revalidate" />
   <meta http-equiv="Pragma" content="no-cache" />
-  <title>Kissaten Gadget v37</title>
+  <title>Kissaten Gadget v47</title>
   <style>
     * { -webkit-tap-highlight-color: transparent; box-sizing: border-box; }
     html, body {
@@ -225,6 +225,7 @@
       font-size: 10px; padding: 6px 8px; border-radius: 8px; min-height: 30px;
       margin-bottom: 6px; width: 100%;
     }
+    .drawer-btn.on { font-weight: 700; }
     .meta {
       margin: 4px 0 0; font-size: 10px; line-height: 1.4; opacity: 0.65; text-align: left;
     }
@@ -941,11 +942,13 @@
       <div class="drawer-section">Hub PC</div>
       <div class="side-brand" id="mediaBrand">Wabi · Console</div>
       <div class="meta" id="meta">подключение…</div>
-      <div class="meta" id="buildMeta">build v37</div>
+      <div class="meta" id="buildMeta">build v47</div>
       <div class="toast" id="toast"></div>
       <input class="hub-field" id="hubInput" type="text" placeholder="http://192.168.0.247:8787" />
       <button class="drawer-btn" id="hubSave" type="button">Save hub URL</button>
       <div class="drawer-section">Display</div>
+      <div class="drawer-section">Screensaver</div>
+      <div id="sceneList"></div>
       <button class="drawer-btn" id="cinemaBtn" type="button">Cinema</button>
       <button class="fs-btn" id="fsBtn" type="button">Fullscreen tip</button>
     </div>
@@ -961,19 +964,26 @@
     <br><b>Поделиться → На экран «Домой»</b>
     <br>открой ярлык — без строки Safari.
     <br>    <br>Важно: добавляй URL с версией:
-    <br><b id="tipUrl">http://192.168.0.247:8787/?v=37</b>
+    <br><b id="tipUrl">http://192.168.0.247:8787/?v=47</b>
     <br>(старый ярлык без ?v= кэширует старый UI)
     <br><br>Для старта без ПК — GitHub Pages URL из README.
     <button type="button" id="tipOk">Понятно</button>
   </div>
 
-  <script src="gadget-core.js?v=37"></script>
+  <script src="gadget-core.js?v=47"></script>
   <script>
     (function () {
       var IDLE_MS = 45000;
-      var DRIVE_VER = 37;
-      var APP_VER = 37;
+      var DRIVE_VER = 47;
+      var APP_VER = 47;
       var THEME_KEY = "kissaten_deck_theme";
+      var SCENE_KEY = "kissaten_idle_scene";
+      var SCENES = [
+        { id: "drive", name: "Ночная дорога" },
+        { id: "rain", name: "Окно в дождь" },
+        { id: "ramen", name: "Рамэн" },
+        { id: "vinyl", name: "Пластинка" }
+      ];
       var GC = window.GadgetCore;
       // Drop obsolete night-mode flag from older builds
       try { localStorage.removeItem("kissaten_deck_night"); } catch (e0) {}
@@ -1136,6 +1146,7 @@
       function driveUrl() {
         var hub = GC ? GC.getHubBase() : "";
         var q = "theme=" + theme +
+          "&scene=" + readScene() +
           "&v=" + DRIVE_VER +
           "&t=" + (new Date().getTime()) +
           "&mode=" + mode;
@@ -1144,8 +1155,56 @@
         return "night-drive.html?" + q;
       }
 
+      function readScene() {
+        try {
+          var s = localStorage.getItem(SCENE_KEY) || "drive";
+          for (var i = 0; i < SCENES.length; i++) {
+            if (SCENES[i].id === s) return s;
+          }
+        } catch (e) {}
+        return "drive";
+      }
+      function saveScene(id) {
+        try { localStorage.setItem(SCENE_KEY, id); } catch (e) {}
+      }
+      function syncSceneUI() {
+        var cur = readScene();
+        var nodes = document.querySelectorAll(".scene-pick");
+        for (var i = 0; i < nodes.length; i++) {
+          var on = nodes[i].getAttribute("data-scene") === cur;
+          nodes[i].className = on ? "drawer-btn scene-pick on" : "drawer-btn scene-pick";
+        }
+      }
+      function buildSceneList() {
+        var box = document.getElementById("sceneList");
+        if (!box) return;
+        box.innerHTML = "";
+        for (var i = 0; i < SCENES.length; i++) {
+          (function (sc) {
+            var b = document.createElement("button");
+            b.type = "button";
+            b.className = "drawer-btn scene-pick";
+            b.setAttribute("data-scene", sc.id);
+            b.textContent = sc.name;
+            b.onclick = function (ev) {
+              if (ev && ev.preventDefault) ev.preventDefault();
+              if (ev && ev.stopPropagation) ev.stopPropagation();
+              saveScene(sc.id);
+              syncSceneUI();
+              idleLoadedTheme = null;
+              closeDrawer();
+              ignoreBumpUntil = (new Date()).getTime() + 2800;
+              setTimeout(function () { showIdle(true); }, 50);
+              toast(sc.name);
+            };
+            box.appendChild(b);
+          })(SCENES[i]);
+        }
+        syncSceneUI();
+      }
       function openDrawer() {
         drawerEl.className = "on";
+        syncSceneUI();
         document.getElementById("hubInput").value = GC ? (GC.getHubBase() || location.origin) : location.origin;
       }
       function closeDrawer() {
@@ -1267,7 +1326,7 @@
       }, false);
 
       function loadIdleFrame(forceReload) {
-        var idleKey = theme + "|v" + DRIVE_VER;
+        var idleKey = theme + "|v" + DRIVE_VER + "|" + readScene();
         if (forceReload || idleLoadedTheme !== idleKey) {
           idleFrame.src = driveUrl();
           idleLoadedTheme = idleKey;
@@ -2182,6 +2241,7 @@
         bumpIdle(e, { dismiss: true });
       }, false);
 
+      buildSceneList();
       applyTheme(readTheme(), false);
       hideChrome();
       bumpIdle();
