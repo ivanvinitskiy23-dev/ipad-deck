@@ -1,8 +1,8 @@
 /* Textmode Deck app shell — ES5 */
 (function () {
       var IDLE_MS = 45000;
-      var DRIVE_VER = 60;
-      var APP_VER = 60;
+      var DRIVE_VER = 61;
+      var APP_VER = 61;
       var THEME_KEY = "kissaten_deck_theme";
       var SCENE_KEY = "kissaten_idle_scene";
       var SCENES = [
@@ -54,6 +54,7 @@
       var alarmAudio = null;
       var toastEl = document.getElementById("toast");
       var metaEl = document.getElementById("meta");
+      var hubStatsEl = document.getElementById("hubStats");
       var idleEl = document.getElementById("idle");
       var tipEl = document.getElementById("tip");
       var idleFrame = document.getElementById("idleFrame");
@@ -88,7 +89,17 @@
       }
 
       function setMeta(html) {
-        metaEl.innerHTML = html;
+        if (metaEl) metaEl.innerHTML = html || "";
+        /* Titlebar PC params (arrow spot) — one compact line */
+        if (hubStatsEl) {
+          var t = String(html || "")
+            .replace(/<br\s*\/?>/gi, " · ")
+            .replace(/<\/?b>/gi, "")
+            .replace(/<[^>]+>/g, "")
+            .replace(/\s+/g, " ")
+            .replace(/^\s+|\s+$/g, "");
+          hubStatsEl.textContent = t || "—";
+        }
       }
 
       function readTheme() {
@@ -722,11 +733,7 @@
             var disk = s.disk_free_gb != null ? s.disk_free_gb + " GB free" : "?";
             var ip = (s.ips && s.ips[0]) ? s.ips[0] : "—";
             var shortHost = (s.hostname || "").replace(/^DESKTOP-/, "");
-            setMeta(
-              "<b>" + shortHost + "</b><br>" +
-              disk + "<br>" +
-              ip
-            );
+            setMeta(shortHost + " · " + disk + " · " + ip);
             if (typeof s.volume === "number") syncVolumeUI(s.volume, s.muted);
             if (typeof s.muted === "boolean") isMuted = s.muted;
             if (s.now_playing) updateNowPlaying(s.now_playing);

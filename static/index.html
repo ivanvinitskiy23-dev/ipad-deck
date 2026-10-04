@@ -5,11 +5,11 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-  <meta name="apple-mobile-web-app-title" content="Textmode Deck v60" />
+  <meta name="apple-mobile-web-app-title" content="Qwiqly Deck v61" />
   <meta name="mobile-web-app-capable" content="yes" />
   <meta http-equiv="Cache-Control" content="no-store, no-cache, must-revalidate" />
   <meta http-equiv="Pragma" content="no-cache" />
-  <title>Textmode Deck v60</title>
+  <title>Qwiqly Deck v61</title>
   <style>
 /* TEXTMODE DECK — full rebuild UI (CRT / phosphor) */
 * { -webkit-tap-highlight-color: transparent; box-sizing: border-box; }
@@ -98,20 +98,44 @@ body.theme-D {
   display: -webkit-box; display: -webkit-flex; display: flex;
   -webkit-box-align: center; -webkit-align-items: center; align-items: center;
   -webkit-box-pack: justify; -webkit-justify-content: space-between; justify-content: space-between;
-  padding: 6px 8px;
+  padding: 5px 8px;
   border-bottom: 1px solid var(--line);
-  font-size: 10px; letter-spacing: .18em; text-transform: uppercase;
+  font-size: 10px; letter-spacing: .14em; text-transform: uppercase;
   color: var(--accent); text-shadow: 0 0 8px var(--glow);
 }
-.crt-titlebar .brand { font-weight: 700; }
+.crt-titlebar .brand {
+  font-weight: 700; -webkit-flex-shrink: 0; flex-shrink: 0;
+}
 .crt-titlebar .brand:before { content: "█ "; }
-.crt-titlebar .ver { color: var(--dim); letter-spacing: .1em; }
+.crt-titlebar .hub-stats {
+  -webkit-box-flex: 1; -webkit-flex: 1; flex: 1;
+  min-width: 0; margin: 0 8px;
+  text-align: right; font-size: 9px; letter-spacing: .05em;
+  color: var(--ink); text-transform: none; font-weight: 600;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  text-shadow: none;
+}
+.crt-titlebar .ver {
+  color: var(--dim); letter-spacing: .08em;
+  -webkit-flex-shrink: 0; flex-shrink: 0; font-size: 9px;
+}
 
-.ascii-banner {
-  margin: 0; padding: 8px 10px 6px;
-  font-size: 12px; line-height: 1.2; letter-spacing: .14em;
-  color: var(--accent); white-space: nowrap; overflow: hidden;
-  text-shadow: 0 0 6px var(--glow); opacity: .9;
+/* Compact CRT wordmark — deck vs solo */
+.hero-mark {
+  margin: 0; padding: 6px 8px 2px;
+  text-align: center; font-weight: 900;
+  font-size: 34px; line-height: 1; letter-spacing: .22em;
+  color: var(--accent);
+  text-shadow:
+    0 0 10px var(--glow),
+    2px 2px 0 rgba(0,0,0,.85),
+    -1px 0 0 rgba(0,0,0,.4);
+  white-space: nowrap; overflow: hidden;
+}
+.hero-sub {
+  margin: 0; padding: 0 8px 6px;
+  text-align: center; font-size: 10px; letter-spacing: .28em;
+  text-transform: uppercase; color: var(--dim);
 }
 
 header {
@@ -548,13 +572,16 @@ button.pad.warn { color: var(--warn); border-color: var(--warn); background: var
 }
 
 @media screen and (max-width: 1280px) {
-  .ascii-banner { display: none !important; }
-  .crt-frame { margin: 6px 6px 0; }
-  .crt-titlebar { font-size: 11px; padding: 8px; }
+  .crt-frame { margin: 4px 6px 0; }
+  .crt-titlebar { font-size: 9px; padding: 4px 6px; }
+  .crt-titlebar .hub-stats { font-size: 8px; margin: 0 6px; }
+  .hero-mark { font-size: 22px; letter-spacing: .16em; padding: 4px 6px 0; }
+  .hero-sub { font-size: 9px; letter-spacing: .2em; padding: 0 6px 4px; }
   #deckStack { width: 100% !important; height: 100% !important; left: 0 !important; right: 0 !important; top: 0 !important; bottom: 0 !important; }
-  .solo-clock { font-size: 56px; }
+  .solo-clock { font-size: 48px; }
+  .solo-panel { margin-top: 6px; padding: 10px 10px 8px; }
   .theme-bar { margin-left: 6px; margin-right: 6px; }
-  header { padding-top: 4px; }
+  header { padding-top: 2px; }
   .header-row { max-width: 100%; min-height: 96px; }
   .menu-chip { width: 72px; min-height: 96px; }
   .media-col { max-width: none; -webkit-flex: 1 1 160px; flex: 1 1 160px; }
@@ -568,7 +595,7 @@ button.pad.warn { color: var(--warn); border-color: var(--warn); background: var
   .media-center { min-height: 56px; height: auto; max-height: none; }
 }
 @media screen and (max-width: 600px) {
-  .ascii-banner { display: none; }
+  .hero-mark { font-size: 18px; letter-spacing: .12em; }
   .header-row { -webkit-flex-wrap: wrap; flex-wrap: wrap; }
   .menu-chip { width: 100%; max-width: 120px; margin: 0 auto 6px; min-height: 48px; }
   .media-col { -webkit-flex: 1 1 100%; flex: 1 1 100%; max-width: 100%; margin: 0 0 6px; }
@@ -587,10 +614,15 @@ button.pad.warn { color: var(--warn); border-color: var(--warn); background: var
 
       <div class="crt-frame">
         <div class="crt-titlebar">
-          <span class="brand">TEXTMODE DECK</span>
-          <span class="ver">BUILD 60</span>
+          <span class="brand deck-only">QWIQLY</span>
+          <span class="brand solo-only">NIGHTWIRE</span>
+          <span class="hub-stats" id="hubStats">—</span>
+          <span class="ver">v61</span>
         </div>
-        <div class="ascii-banner" aria-hidden="true">TMDECK // TEXTMODE OVERLAY</div>
+        <div class="hero-mark deck-only" aria-hidden="true">QWIQLY</div>
+        <div class="hero-sub deck-only" aria-hidden="true">DECK</div>
+        <div class="hero-mark solo-only" aria-hidden="true">NIGHTWIRE</div>
+        <div class="hero-sub solo-only" aria-hidden="true">STANDALONE</div>
       </div>
 
       <header id="header">
@@ -648,7 +680,7 @@ button.pad.warn { color: var(--warn); border-color: var(--warn); background: var
       </div>
 
       <div class="solo-only solo-panel" id="soloPanel">
-        <div class="solo-title">STANDALONE NODE</div>
+        <div class="solo-title">NIGHTWIRE · CLOCK</div>
         <div class="solo-clock" id="soloClock">--:--</div>
         <div class="solo-date" id="soloDate">—</div>
         <div class="solo-block">
@@ -722,10 +754,10 @@ button.pad.warn { color: var(--warn); border-color: var(--warn); background: var
         <button type="button" class="mode-pill" id="modeSoloBtn" data-mode="solo">STANDALONE</button>
       </div>
       <div class="mode-badge" id="modeBadge">…</div>
-      <div class="drawer-section">Hub PC</div>
+      <div class="drawer-section">Hub URL</div>
       <div class="side-brand" id="mediaBrand">CRT · CYAN</div>
-      <div class="meta" id="meta">подключение…</div>
-      <div class="meta" id="buildMeta">build v60 · ipad radio/wx fix</div>
+      <div class="meta" id="meta" style="display:none">подключение…</div>
+      <div class="meta" id="buildMeta">build v61 · qwiqly</div>
       <div class="toast" id="toast"></div>
       <input class="hub-field" id="hubInput" type="text" placeholder="http://192.168.0.247:8787" />
       <button class="drawer-btn" id="hubSave" type="button">Save hub URL</button>
@@ -753,13 +785,13 @@ button.pad.warn { color: var(--warn); border-color: var(--warn); background: var
     <br><b>Поделиться → На экран «Домой»</b>
     <br>открой ярлык — без строки Safari.
     <br><br>Важно: добавляй URL с версией:
-    <br><b id="tipUrl">http://192.168.0.247:8787/?v=60</b>
+    <br><b id="tipUrl">http://192.168.0.247:8787/?v=61</b>
     <br>(старый ярлык без ?v= кэширует старый UI)
     <br><br>Для старта без ПК — GitHub Pages URL из README.
     <button type="button" id="tipOk">Понятно</button>
   </div>
 
-  <script src="gadget-core.js?v=60"></script>
-  <script src="deck-app.js?v=60"></script>
+  <script src="gadget-core.js?v=61"></script>
+  <script src="deck-app.js?v=61"></script>
 </body>
 </html>
