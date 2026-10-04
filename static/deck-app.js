@@ -1,8 +1,8 @@
 /* Textmode Deck app shell — ES5 */
 (function () {
       var IDLE_MS = 45000;
-      var DRIVE_VER = 61;
-      var APP_VER = 61;
+      var DRIVE_VER = 62;
+      var APP_VER = 62;
       var THEME_KEY = "kissaten_deck_theme";
       var SCENE_KEY = "kissaten_idle_scene";
       var SCENES = [
@@ -156,8 +156,7 @@
           syncRadioNowPlaying();
           setMeta("<b>standalone</b><br>ожидание хаба");
         } else {
-          /* Keep radio available in DECK — do not kill stream on mode switch */
-          if (radioPlaying) syncRadioNowPlaying();
+          try { if (radioPlaying) stopRadio(); } catch (eStop) {}
           toast("deck online");
         }
       }
@@ -1005,32 +1004,46 @@
 
       function ensureRadioAudio() {
         var el = document.getElementById("radioNative");
-        var dock = document.getElementById("radioDock");
         if (!el) {
           el = document.createElement("audio");
           el.id = "radioNative";
-          if (dock) dock.appendChild(el);
-          else document.body.appendChild(el);
-        } else if (dock && el.parentNode !== dock) {
-          dock.appendChild(el);
+          document.body.appendChild(el);
         }
         el.setAttribute("playsinline", "true");
         el.setAttribute("webkit-playsinline", "true");
+        /* Keep controls attr for old iOS unlock; CSS keeps the bar invisible */
         el.setAttribute("controls", "controls");
-        el.preload = "none";
-        /* Stay in the radio dock — never float a 1px/full-width bar over the header */
+        try { el.preload = "auto"; } catch (eP) {}
+        /* Do NOT set crossorigin — stream hosts often lack CORS and then iOS fails */
+        try { el.removeAttribute("crossorigin"); } catch (eC) {}
         try { el.style.setProperty("display", "block", "important"); } catch (eD) { el.style.display = "block"; }
-        el.style.position = "static";
-        el.style.left = "auto";
-        el.style.top = "auto";
-        el.style.width = "100%";
-        el.style.height = "36px";
-        el.style.opacity = "1";
-        el.style.margin = "6px 0 0";
-        try { el.volume = 1; } catch (eV) {}
+        el.style.position = "fixed";
+        el.style.left = "0";
+        el.style.top = "0";
+        el.style.width = "1px";
+        el.style.height = "1px";
+        el.style.opacity = "0.02";
+        el.style.margin = "0";
+        el.style.zIndex = "0";
+        el.style.pointerEvents = "none";
+        try { el.volume = 1; el.muted = false; } catch (eV) {}
         radioAudioEl = el;
         radioAudio = el;
         return el;
+      }
+
+      /* Resume WebAudio only — do not play/pause here or iOS loses the tap gesture */
+      function unlockRadioAudio() {
+        ensureRadioAudio();
+        try {
+          var AC = window.AudioContext || window.webkitAudioContext;
+          if (AC) {
+            if (!window._radioCtx) window._radioCtx = new AC();
+            if (window._radioCtx.state === "suspended" && window._radioCtx.resume) {
+              window._radioCtx.resume();
+            }
+          }
+        } catch (e1) {}
       }
 
       function syncRadioNowPlaying() {
@@ -1084,8 +1097,12 @@
             btn.onclick = function () {
               GC.setRadioId(st.id);
               syncRadioUI();
-              if (radioPlaying) playRadio();
-              else syncRadioNowPlaying();
+              if (radioPlaying) {
+                unlockRadioAudio();
+                playRadio();
+              } else {
+                syncRadioNowPlaying();
+              }
             };
             wrap.appendChild(btn);
           })(GC.RADIO_STATIONS[i]);
@@ -1101,8 +1118,12 @@
         var el = ensureRadioAudio();
         var gen = ++radioPlayGen;
         el.onerror = null;
+        el.onplaying = null;
         try { el.pause(); } catch (e0) {}
+        try { el.removeAttribute("src"); } catch (e1) {}
+        while (el.firstChild) el.removeChild(el.firstChild);
         el.src = url;
+        try { el.load(); } catch (eL) {}
         el.onerror = function () {
           if (gen !== radioPlayGen) return;
           radioTryIdx++;
@@ -1115,8 +1136,18 @@
             toast("radio fail");
           }
         };
+        el.onplaying = function () {
+          if (gen !== radioPlayGen) return;
+          radioPlaying = true;
+          syncRadioUI();
+          toast("radio · on");
+        };
         var p = null;
-        try { p = el.play(); } catch (e2) { p = null; }
+        try {
+          el.muted = false;
+          el.volume = 1;
+          p = el.play();
+        } catch (e2) { p = null; }
         if (p && typeof p.then === "function") {
           p.then(function () {
             if (gen !== radioPlayGen) return;
@@ -1130,7 +1161,7 @@
             else {
               radioPlaying = false;
               syncRadioUI();
-              toast("radio fail");
+              toast("radio fail · tap Play again");
             }
           });
         } else {
@@ -1142,6 +1173,11 @@
 
       function playRadio() {
         if (!GC) return;
+        if (mode !== "solo") {
+          toast("radio · только STANDALONE");
+          return;
+        }
+        unlockRadioAudio();
         var st = GC.stationById(GC.getRadioId());
         radioTryList = [];
         if (st.url) radioTryList.push(st.url);
@@ -1339,9 +1375,18 @@
         })(actionBtns[i]);
       }
 
-      document.getElementById("radioPlayBtn").onclick = toggleRadio;
-      document.getElementById("radioPrevBtn").onclick = function () { stepRadio(-1); };
-      document.getElementById("radioNextBtn").onclick = function () { stepRadio(1); };
+      document.getElementById("radioPlayBtn").onclick = function () {
+        unlockRadioAudio();
+        toggleRadio();
+      };
+      document.getElementById("radioPrevBtn").onclick = function () {
+        unlockRadioAudio();
+        stepRadio(-1);
+      };
+      document.getElementById("radioNextBtn").onclick = function () {
+        unlockRadioAudio();
+        stepRadio(1);
+      };
 
       var themePills = document.querySelectorAll(".theme-pill");
       for (var j = 0; j < themePills.length; j++) {

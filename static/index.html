@@ -5,11 +5,11 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-  <meta name="apple-mobile-web-app-title" content="Qwiqly Deck v61" />
+  <meta name="apple-mobile-web-app-title" content="Qwiqly Deck v62" />
   <meta name="mobile-web-app-capable" content="yes" />
   <meta http-equiv="Cache-Control" content="no-store, no-cache, must-revalidate" />
   <meta http-equiv="Pragma" content="no-cache" />
-  <title>Qwiqly Deck v61</title>
+  <title>Qwiqly Deck v62</title>
   <style>
 /* TEXTMODE DECK — full rebuild UI (CRT / phosphor) */
 * { -webkit-tap-highlight-color: transparent; box-sizing: border-box; }
@@ -232,35 +232,37 @@ body.standalone .media-col { height: 108px; }
 .media-btn:first-child { margin-left: 0; }
 .media-btn:last-child { margin-right: 0; }
 .media-btn:active { border-color: var(--accent); background: #000; }
-#mediaControlsRadio .media-btn { -webkit-flex: 1 1 33%; flex: 1 1 33%; }
-/* Keep native audio OUT of the header — old iPad paints a huge gray bar otherwise */
+#mediaControlsRadio .media-btn {
+  -webkit-flex: 0 0 auto; flex: 0 0 auto;
+  width: auto; min-width: 56px; min-height: 30px;
+  margin: 0 3px 0 0; font-size: 10px; padding: 0 8px;
+}
+/* Hidden unlock element for iOS — NEVER show the native gray bar */
 #radioNative {
-  display: block !important;
-  width: 100% !important;
-  height: 36px !important;
-  max-height: 40px;
-  margin: 6px 0 0;
-  opacity: 1 !important;
-  position: static !important;
-  -webkit-appearance: none;
+  position: fixed !important;
+  left: 0 !important;
+  top: 0 !important;
+  width: 1px !important;
+  height: 1px !important;
+  opacity: 0.02 !important;
+  margin: 0 !important;
+  z-index: 0;
+  pointer-events: none;
 }
 .radio-dock {
-  max-width: 1100px;
-  margin: 8px auto 0;
-  padding: 8px 10px;
+  margin: 0 0 10px;
+  padding: 8px;
   border: 1px solid var(--line);
   background: #000;
   -webkit-box-sizing: border-box; box-sizing: border-box;
 }
-.radio-dock .radio-dock-h {
-  font-size: 10px; letter-spacing: .16em; text-transform: uppercase;
-  color: var(--dim); margin-bottom: 6px;
-}
 .radio-dock .media-controls {
   display: -webkit-box; display: -webkit-flex; display: flex;
-  width: 100%; margin: 0 0 4px;
+  width: 100%; margin: 0 0 6px;
+  -webkit-box-pack: start; -webkit-justify-content: flex-start; justify-content: flex-start;
 }
-body.mode-deck #mediaControlsRadio,
+body.mode-deck .radio-dock,
+body.mode-deck #mediaControlsRadio { display: none !important; }
 body.mode-solo #mediaControlsRadio {
   display: -webkit-box !important; display: -webkit-flex !important; display: flex !important;
 }
@@ -320,21 +322,20 @@ body.mode-deck .solo-only { display: none !important; }
 body.mode-solo .media-col { max-width: none; -webkit-flex: 1 1 auto; flex: 1 1 auto; }
 body.mode-solo .media-center { min-height: 72px; height: auto; max-height: none; padding: 8px 10px; }
 body.mode-solo .deck-media-only { display: none !important; }
-/* Radio stays available in both modes */
-body.mode-deck .radio-only { display: -webkit-box !important; display: -webkit-flex !important; display: flex !important; }
+body.mode-deck .radio-only { display: none !important; }
 
 .radio-chip-bar {
-  max-width: 1100px; margin: 0; padding: 0 0 4px;
+  margin: 0; padding: 0;
   overflow-x: auto; -webkit-overflow-scrolling: touch; white-space: nowrap;
 }
 .radio-chip {
-  display: inline-block; margin: 0 6px 0 0; padding: 8px 12px;
+  display: inline-block; margin: 0 4px 0 0; padding: 5px 8px;
   border: 1px solid var(--line); background: #000; color: var(--dim);
-  font-family: inherit; font-size: 11px; border-radius: 0; letter-spacing: .04em;
+  font-family: inherit; font-size: 10px; border-radius: 0; letter-spacing: .03em;
 }
 .radio-chip.on {
   color: var(--accent); border-color: var(--accent); font-weight: 700;
-  text-shadow: 0 0 6px var(--glow); box-shadow: inset 0 0 12px rgba(0,0,0,.5);
+  text-shadow: 0 0 6px var(--glow);
 }
 
 .solo-panel {
@@ -591,8 +592,11 @@ button.pad.warn { color: var(--warn); border-color: var(--warn); background: var
   .vol-preset, .scene-btn, .media-btn { min-height: 44px; font-size: 13px; }
   #idleHud { left: 6px; right: 6px; top: 6px; }
   #idleHud .card { min-height: 64px; font-size: 15px; }
-  .radio-dock { margin-left: 6px; margin-right: 6px; max-width: none; }
   .media-center { min-height: 56px; height: auto; max-height: none; }
+  #radioNative {
+    position: fixed !important; width: 1px !important; height: 1px !important;
+    opacity: 0.02 !important; left: 0 !important; top: 0 !important;
+  }
 }
 @media screen and (max-width: 600px) {
   .hero-mark { font-size: 18px; letter-spacing: .12em; }
@@ -617,7 +621,7 @@ button.pad.warn { color: var(--warn); border-color: var(--warn); background: var
           <span class="brand deck-only">QWIQLY</span>
           <span class="brand solo-only">NIGHTWIRE</span>
           <span class="hub-stats" id="hubStats">—</span>
-          <span class="ver">v61</span>
+          <span class="ver">v62</span>
         </div>
         <div class="hero-mark deck-only" aria-hidden="true">QWIQLY</div>
         <div class="hero-sub deck-only" aria-hidden="true">DECK</div>
@@ -668,21 +672,21 @@ button.pad.warn { color: var(--warn); border-color: var(--warn); background: var
         </div>
       </div>
 
-      <div class="radio-dock" id="radioDock">
-        <div class="radio-dock-h">RADIO</div>
-        <div class="media-controls radio-only" id="mediaControlsRadio">
-          <button type="button" class="media-btn" id="radioPrevBtn">Prev</button>
-          <button type="button" class="media-btn" id="radioPlayBtn">Play</button>
-          <button type="button" class="media-btn" id="radioNextBtn">Next</button>
-        </div>
-        <div class="radio-chip-bar" id="radioChipBar"></div>
-        <audio id="radioNative" class="radio-native" preload="none" controls playsinline webkit-playsinline></audio>
-      </div>
-
       <div class="solo-only solo-panel" id="soloPanel">
         <div class="solo-title">NIGHTWIRE · CLOCK</div>
         <div class="solo-clock" id="soloClock">--:--</div>
         <div class="solo-date" id="soloDate">—</div>
+
+        <div class="radio-dock" id="radioDock">
+          <div class="media-controls" id="mediaControlsRadio">
+            <button type="button" class="media-btn" id="radioPrevBtn">Prev</button>
+            <button type="button" class="media-btn" id="radioPlayBtn">Play</button>
+            <button type="button" class="media-btn" id="radioNextBtn">Next</button>
+          </div>
+          <div class="radio-chip-bar" id="radioChipBar"></div>
+        </div>
+        <audio id="radioNative" class="radio-native" preload="auto" playsinline webkit-playsinline></audio>
+
         <div class="solo-block">
           <div class="solo-block-h">ALARM</div>
           <div class="solo-alarm-box">
@@ -757,7 +761,7 @@ button.pad.warn { color: var(--warn); border-color: var(--warn); background: var
       <div class="drawer-section">Hub URL</div>
       <div class="side-brand" id="mediaBrand">CRT · CYAN</div>
       <div class="meta" id="meta" style="display:none">подключение…</div>
-      <div class="meta" id="buildMeta">build v61 · qwiqly</div>
+      <div class="meta" id="buildMeta">build v62 · radio solo</div>
       <div class="toast" id="toast"></div>
       <input class="hub-field" id="hubInput" type="text" placeholder="http://192.168.0.247:8787" />
       <button class="drawer-btn" id="hubSave" type="button">Save hub URL</button>
@@ -785,13 +789,13 @@ button.pad.warn { color: var(--warn); border-color: var(--warn); background: var
     <br><b>Поделиться → На экран «Домой»</b>
     <br>открой ярлык — без строки Safari.
     <br><br>Важно: добавляй URL с версией:
-    <br><b id="tipUrl">http://192.168.0.247:8787/?v=61</b>
+    <br><b id="tipUrl">http://192.168.0.247:8787/?v=62</b>
     <br>(старый ярлык без ?v= кэширует старый UI)
     <br><br>Для старта без ПК — GitHub Pages URL из README.
     <button type="button" id="tipOk">Понятно</button>
   </div>
 
-  <script src="gadget-core.js?v=61"></script>
-  <script src="deck-app.js?v=61"></script>
+  <script src="gadget-core.js?v=62"></script>
+  <script src="deck-app.js?v=62"></script>
 </body>
 </html>
