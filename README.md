@@ -30,7 +30,7 @@ start.bat
 
 На iPad в той же Wi‑Fi:
 
-`http://192.168.x.x:8787/?v=58`
+`http://192.168.x.x:8787/?v=59`
 
 **Поделиться → На экран «Домой»** (URL обязательно с `?v=…`).
 
@@ -38,7 +38,7 @@ start.bat
 
 1. В GitHub: Settings → Pages → Source = **GitHub Actions**.
 2. Запушьте репо — workflow `.github/workflows/pages.yml` выложит папку `static/`.
-3. На iPad откройте `https://ivanvinitskiy23-dev.github.io/ipad-deck/?v=58` → на Home Screen.
+3. На iPad откройте `https://ivanvinitskiy23-dev.github.io/ipad-deck/?v=59` → на Home Screen.
 4. MENU → вставьте URL хаба, например `http://192.168.0.247:8787` → **Save hub URL**.
 5. Чтобы войти в **DECK** с Pages: MENU → **DECK** — страница откроет LAN-хаб  
    (браузер **блокирует** HTTPS→HTTP XHR / mixed content; поэтому с Pages нельзя «тихо» пинговать хаб).
