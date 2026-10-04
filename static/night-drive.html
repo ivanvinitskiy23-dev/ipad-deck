@@ -3,9 +3,9 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
-  <title>Night Drive</title>
+  <title>Textmode · Idle</title>
   <style>
-    html, body { margin: 0; height: 100%; overflow: hidden; background: #000; font-family: Helvetica, Arial, sans-serif; }
+    html, body { margin: 0; height: 100%; overflow: hidden; background: #000; font-family: "Courier New", Courier, monospace; color: #33ff99; }
 
     #stage {
       position: relative;
@@ -194,7 +194,7 @@
     </div>
   </div>
 
-  <script src="gadget-core.js?v=52"></script>
+  <script src="gadget-core.js?v=57"></script>
   <script>
     (function () {
       function param(name) {
@@ -225,8 +225,8 @@
       var gifOn = false;
 
       function sceneFile(name, th) {
-        if (name === "ramen") return "art/pack-ramen.gif?v=52";
-        return "art/scene-" + name + "-" + th + ".gif?v=52";
+        if (name === "ramen") return "art/pack-ramen.gif?v=57";
+        return "art/scene-" + name + "-" + th + ".gif?v=57";
       }
 
       window.swapScene = function (next, nextTheme) {

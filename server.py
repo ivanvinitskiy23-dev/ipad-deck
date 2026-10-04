@@ -1003,7 +1003,7 @@ def open_firewall_hint(port: int) -> None:
                 "firewall",
                 "add",
                 "rule",
-                "name=iPad Gadget Hub",
+                "name=Textmode Deck Hub",
                 "dir=in",
                 "action=allow",
                 "protocol=TCP",
@@ -1034,7 +1034,7 @@ def main() -> None:
     ips = lan_ips() or ["127.0.0.1"]
 
     print("=" * 48)
-    print("  iPad Gadget Hub")
+    print("  Textmode Deck Hub")
     print("=" * 48)
     print(f"  Local:   http://127.0.0.1:{PORT}/")
     for ip in ips:
