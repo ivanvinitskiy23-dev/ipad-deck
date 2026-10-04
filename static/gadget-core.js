@@ -540,9 +540,10 @@
       var cached = readLivingCache();
       if ((!weather || weather.temp_c == null) && cached && cached.weather) weather = cached.weather;
       if ((!alert || !alert.ok) && cached && cached.alert && cached.alert.ok) alert = cached.alert;
+      if (!alert) alert = emptyAlert();
       var bundle = { ok: true, weather: weather, alert: alert };
       if (weather && weather.temp_c != null) writeLivingCache(bundle);
-      cb(bundle);
+      try { cb(bundle); } catch (eCb) {}
     }
     fetchWeather(function (w) {
       if (weatherDone) return;
@@ -556,6 +557,18 @@
       alert = a;
       maybeSend();
     });
+    /* Old iPad / slow proxies: never block UI forever waiting on either call */
+    setTimeout(function () {
+      if (!weatherDone) {
+        weatherDone = true;
+        weather = null;
+      }
+      if (!alertDone) {
+        alertDone = true;
+        alert = emptyAlert();
+      }
+      maybeSend();
+    }, 10000);
   }
 
   function getAlarm() {

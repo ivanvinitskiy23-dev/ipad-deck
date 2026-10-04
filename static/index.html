@@ -5,11 +5,11 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-  <meta name="apple-mobile-web-app-title" content="Textmode Deck v59" />
+  <meta name="apple-mobile-web-app-title" content="Textmode Deck v60" />
   <meta name="mobile-web-app-capable" content="yes" />
   <meta http-equiv="Cache-Control" content="no-store, no-cache, must-revalidate" />
   <meta http-equiv="Pragma" content="no-cache" />
-  <title>Textmode Deck v59</title>
+  <title>Textmode Deck v60</title>
   <style>
 /* TEXTMODE DECK — full rebuild UI (CRT / phosphor) */
 * { -webkit-tap-highlight-color: transparent; box-sizing: border-box; }
@@ -209,11 +209,35 @@ body.standalone .media-col { height: 108px; }
 .media-btn:last-child { margin-right: 0; }
 .media-btn:active { border-color: var(--accent); background: #000; }
 #mediaControlsRadio .media-btn { -webkit-flex: 1 1 33%; flex: 1 1 33%; }
+/* Keep native audio OUT of the header — old iPad paints a huge gray bar otherwise */
 #radioNative {
-  display: block !important; position: fixed; left: 0; top: 0;
-  width: 1px; height: 1px; opacity: .02;
+  display: block !important;
+  width: 100% !important;
+  height: 36px !important;
+  max-height: 40px;
+  margin: 6px 0 0;
+  opacity: 1 !important;
+  position: static !important;
+  -webkit-appearance: none;
 }
-body.mode-deck #mediaControlsRadio {
+.radio-dock {
+  max-width: 1100px;
+  margin: 8px auto 0;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  background: #000;
+  -webkit-box-sizing: border-box; box-sizing: border-box;
+}
+.radio-dock .radio-dock-h {
+  font-size: 10px; letter-spacing: .16em; text-transform: uppercase;
+  color: var(--dim); margin-bottom: 6px;
+}
+.radio-dock .media-controls {
+  display: -webkit-box; display: -webkit-flex; display: flex;
+  width: 100%; margin: 0 0 4px;
+}
+body.mode-deck #mediaControlsRadio,
+body.mode-solo #mediaControlsRadio {
   display: -webkit-box !important; display: -webkit-flex !important; display: flex !important;
 }
 
@@ -271,11 +295,12 @@ body.mode-solo .deck-only { display: none !important; }
 body.mode-deck .solo-only { display: none !important; }
 body.mode-solo .media-col { max-width: none; -webkit-flex: 1 1 auto; flex: 1 1 auto; }
 body.mode-solo .media-center { min-height: 72px; height: auto; max-height: none; padding: 8px 10px; }
-body.mode-deck .radio-only { display: none !important; }
 body.mode-solo .deck-media-only { display: none !important; }
+/* Radio stays available in both modes */
+body.mode-deck .radio-only { display: -webkit-box !important; display: -webkit-flex !important; display: flex !important; }
 
 .radio-chip-bar {
-  max-width: 1100px; margin: 8px auto 0; padding: 0 10px;
+  max-width: 1100px; margin: 0; padding: 0 0 4px;
   overflow-x: auto; -webkit-overflow-scrolling: touch; white-space: nowrap;
 }
 .radio-chip {
@@ -539,11 +564,8 @@ button.pad.warn { color: var(--warn); border-color: var(--warn); background: var
   .vol-preset, .scene-btn, .media-btn { min-height: 44px; font-size: 13px; }
   #idleHud { left: 6px; right: 6px; top: 6px; }
   #idleHud .card { min-height: 64px; font-size: 15px; }
-  #radioNative {
-    position: static !important; left: auto !important; top: auto !important;
-    display: block !important; width: 100% !important; height: 40px !important;
-    opacity: 1 !important; margin: 6px 0 0;
-  }
+  .radio-dock { margin-left: 6px; margin-right: 6px; max-width: none; }
+  .media-center { min-height: 56px; height: auto; max-height: none; }
 }
 @media screen and (max-width: 600px) {
   .ascii-banner { display: none; }
@@ -566,7 +588,7 @@ button.pad.warn { color: var(--warn); border-color: var(--warn); background: var
       <div class="crt-frame">
         <div class="crt-titlebar">
           <span class="brand">TEXTMODE DECK</span>
-          <span class="ver">BUILD 59</span>
+          <span class="ver">BUILD 60</span>
         </div>
         <div class="ascii-banner" aria-hidden="true">TMDECK // TEXTMODE OVERLAY</div>
       </div>
@@ -592,12 +614,6 @@ button.pad.warn { color: var(--warn); border-color: var(--warn); background: var
               <button type="button" class="media-btn" data-action="media_play">Play</button>
               <button type="button" class="media-btn" data-action="media_pause">Pause</button>
             </div>
-            <div class="media-controls radio-only" id="mediaControlsRadio">
-              <button type="button" class="media-btn" id="radioPrevBtn">Prev</button>
-              <button type="button" class="media-btn" id="radioPlayBtn">Play</button>
-              <button type="button" class="media-btn" id="radioNextBtn">Next</button>
-            </div>
-            <audio id="radioNative" class="radio-native" preload="none" controls playsinline webkit-playsinline></audio>
           </div>
 
           <div id="living">
@@ -620,7 +636,16 @@ button.pad.warn { color: var(--warn); border-color: var(--warn); background: var
         </div>
       </div>
 
-      <div class="solo-only radio-chip-bar" id="radioChipBar"></div>
+      <div class="radio-dock" id="radioDock">
+        <div class="radio-dock-h">RADIO</div>
+        <div class="media-controls radio-only" id="mediaControlsRadio">
+          <button type="button" class="media-btn" id="radioPrevBtn">Prev</button>
+          <button type="button" class="media-btn" id="radioPlayBtn">Play</button>
+          <button type="button" class="media-btn" id="radioNextBtn">Next</button>
+        </div>
+        <div class="radio-chip-bar" id="radioChipBar"></div>
+        <audio id="radioNative" class="radio-native" preload="none" controls playsinline webkit-playsinline></audio>
+      </div>
 
       <div class="solo-only solo-panel" id="soloPanel">
         <div class="solo-title">STANDALONE NODE</div>
@@ -700,7 +725,7 @@ button.pad.warn { color: var(--warn); border-color: var(--warn); background: var
       <div class="drawer-section">Hub PC</div>
       <div class="side-brand" id="mediaBrand">CRT · CYAN</div>
       <div class="meta" id="meta">подключение…</div>
-      <div class="meta" id="buildMeta">build v59 · textmode rebuild</div>
+      <div class="meta" id="buildMeta">build v60 · ipad radio/wx fix</div>
       <div class="toast" id="toast"></div>
       <input class="hub-field" id="hubInput" type="text" placeholder="http://192.168.0.247:8787" />
       <button class="drawer-btn" id="hubSave" type="button">Save hub URL</button>
@@ -728,13 +753,13 @@ button.pad.warn { color: var(--warn); border-color: var(--warn); background: var
     <br><b>Поделиться → На экран «Домой»</b>
     <br>открой ярлык — без строки Safari.
     <br><br>Важно: добавляй URL с версией:
-    <br><b id="tipUrl">http://192.168.0.247:8787/?v=59</b>
+    <br><b id="tipUrl">http://192.168.0.247:8787/?v=60</b>
     <br>(старый ярлык без ?v= кэширует старый UI)
     <br><br>Для старта без ПК — GitHub Pages URL из README.
     <button type="button" id="tipOk">Понятно</button>
   </div>
 
-  <script src="gadget-core.js?v=59"></script>
-  <script src="deck-app.js?v=59"></script>
+  <script src="gadget-core.js?v=60"></script>
+  <script src="deck-app.js?v=60"></script>
 </body>
 </html>

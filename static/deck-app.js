@@ -1,8 +1,8 @@
 /* Textmode Deck app shell — ES5 */
 (function () {
       var IDLE_MS = 45000;
-      var DRIVE_VER = 59;
-      var APP_VER = 59;
+      var DRIVE_VER = 60;
+      var APP_VER = 60;
       var THEME_KEY = "kissaten_deck_theme";
       var SCENE_KEY = "kissaten_idle_scene";
       var SCENES = [
@@ -145,7 +145,8 @@
           syncRadioNowPlaying();
           setMeta("<b>standalone</b><br>ожидание хаба");
         } else {
-          try { if (radioPlaying) stopRadio(); } catch (eStop) {}
+          /* Keep radio available in DECK — do not kill stream on mode switch */
+          if (radioPlaying) syncRadioNowPlaying();
           toast("deck online");
         }
       }
@@ -546,6 +547,9 @@
           nowArt.className = "now-art";
         }
         paintIdleChrome();
+        if (radioPlaying) {
+          try { syncRadioNowPlaying(); } catch (eR) {}
+        }
       }
 
       function syncAudioUI(audio) {
@@ -645,21 +649,25 @@
         var aEl = document.getElementById("lvAlert");
         var aVal = document.getElementById("lvAlertVal");
         var aSub = document.getElementById("lvAlertSub");
-        if (w && w.temp_c != null) {
-          wEl.textContent = w.temp_c + "° · " + (w.label || "");
-        } else if (w && w.text) {
-          wEl.textContent = w.text;
-        } else {
-          wEl.textContent = "нет данных";
+        if (wEl) {
+          if (w && w.temp_c != null) {
+            wEl.textContent = w.temp_c + "° · " + (w.label || "");
+          } else if (w && w.text) {
+            wEl.textContent = w.text;
+          } else {
+            wEl.textContent = "нет данных";
+          }
         }
-        if (a && a.ok) {
-          aVal.textContent = a.label || "…";
-          aSub.textContent = a.place || "Kyiv";
-          aEl.className = a.alert ? "lv-alert on" : "lv-alert";
-        } else if (a) {
-          aVal.textContent = "НЕТ ДАННЫХ";
-          aSub.textContent = "Kyiv";
-          aEl.className = "lv-alert";
+        if (aEl && aVal) {
+          if (a && a.ok) {
+            aVal.textContent = a.label || "…";
+            if (aSub) aSub.textContent = a.place || "Kyiv";
+            aEl.className = a.alert ? "lv-alert on" : "lv-alert";
+          } else {
+            aVal.textContent = (a && a.label) ? a.label : "НЕТ ДАННЫХ";
+            if (aSub) aSub.textContent = (a && a.place) ? a.place : "Kyiv";
+            aEl.className = "lv-alert";
+          }
         }
         paintIdleChrome();
       }
@@ -764,15 +772,36 @@
         }
         var gen = ++livingGen;
         var cached = GC.readLivingCache ? GC.readLivingCache() : null;
-        if (cached) renderLiving(cached);
-        else {
+        if (cached) {
+          renderLiving(cached);
+        } else {
           var wEl = document.getElementById("lvWeatherVal");
-          if (wEl) wEl.textContent = "загрузка…";
+          var aVal0 = document.getElementById("lvAlertVal");
+          if (wEl && (wEl.textContent === "Kyiv · …" || wEl.textContent === "…")) {
+            wEl.textContent = "загрузка…";
+          }
+          if (aVal0 && (aVal0.textContent === "…" || !aVal0.textContent)) {
+            aVal0.textContent = "…";
+          }
         }
         GC.fetchLivingBundle(function (living) {
           if (gen !== livingGen) return;
           renderLiving(living);
         });
+        /* Hard deadline so old iPad never stays on «загрузка…» forever */
+        setTimeout(function () {
+          if (gen !== livingGen) return;
+          var wEl2 = document.getElementById("lvWeatherVal");
+          if (wEl2 && wEl2.textContent === "загрузка…") {
+            wEl2.textContent = "нет данных";
+          }
+          var aVal2 = document.getElementById("lvAlertVal");
+          var aEl2 = document.getElementById("lvAlert");
+          if (aVal2 && (aVal2.textContent === "…" || aVal2.textContent === "загрузка…")) {
+            aVal2.textContent = "НЕТ ДАННЫХ";
+            if (aEl2) aEl2.className = "lv-alert";
+          }
+        }, 12000);
         GC.fetchNews(function (ticker) {
           if (gen !== livingGen) return;
           renderTicker(ticker);
@@ -867,20 +896,20 @@
               var g = alarmCtx.createGain();
               o.type = "square";
               o.frequency.value = 880;
-              g.gain.value = 0.07;
+              g.gain.value = 0.45;
               o.connect(g);
               g.connect(alarmCtx.destination);
               o.start(0);
               if (g.gain.exponentialRampToValueAtTime) {
-                g.gain.setValueAtTime(0.07, alarmCtx.currentTime);
-                g.gain.exponentialRampToValueAtTime(0.001, alarmCtx.currentTime + 0.25);
+                g.gain.setValueAtTime(0.45, alarmCtx.currentTime);
+                g.gain.exponentialRampToValueAtTime(0.01, alarmCtx.currentTime + 0.35);
               }
-              o.stop(alarmCtx.currentTime + 0.28);
+              o.stop(alarmCtx.currentTime + 0.4);
               alarmOsc = o;
             } catch (eB) {}
           }
           beepOnce();
-          alarmPulse = setInterval(beepOnce, 700);
+          alarmPulse = setInterval(beepOnce, 500);
           return true;
         } catch (e) {
           return false;
@@ -902,17 +931,20 @@
       }
 
       function playAlarmTone() {
-        var ok = startAlarmOscPulse();
-        if (!ok) {
-          try {
-            ensureAlarmAudio();
-            var p = alarmAudio.play();
-            if (p && typeof p.then === "function") {
-              p.catch(function () {});
-            }
-          } catch (e) {}
-        }
-        toast("ALARM");
+        var oscOk = false;
+        try { oscOk = startAlarmOscPulse(); } catch (e0) { oscOk = false; }
+        /* Always try WAV too — old iPad speakers need a real file at full volume */
+        try {
+          ensureAlarmAudio();
+          alarmAudio.volume = 1;
+          alarmAudio.muted = false;
+          var p = alarmAudio.play();
+          if (p && typeof p.then === "function") {
+            p.catch(function () {});
+          }
+        } catch (e) {}
+        if (!oscOk) toast("ALARM");
+        else toast("ALARM");
         if (idleEl.className === "on") {
           bumpIdle(null, { dismiss: true });
         }
@@ -966,22 +998,29 @@
 
       function ensureRadioAudio() {
         var el = document.getElementById("radioNative");
+        var dock = document.getElementById("radioDock");
         if (!el) {
           el = document.createElement("audio");
           el.id = "radioNative";
-          document.body.appendChild(el);
+          if (dock) dock.appendChild(el);
+          else document.body.appendChild(el);
+        } else if (dock && el.parentNode !== dock) {
+          dock.appendChild(el);
         }
         el.setAttribute("playsinline", "true");
         el.setAttribute("webkit-playsinline", "true");
         el.setAttribute("controls", "controls");
         el.preload = "none";
+        /* Stay in the radio dock — never float a 1px/full-width bar over the header */
         try { el.style.setProperty("display", "block", "important"); } catch (eD) { el.style.display = "block"; }
-        el.style.position = "fixed";
-        el.style.left = "0";
-        el.style.top = "0";
-        el.style.width = "1px";
-        el.style.height = "1px";
-        el.style.opacity = "0.02";
+        el.style.position = "static";
+        el.style.left = "auto";
+        el.style.top = "auto";
+        el.style.width = "100%";
+        el.style.height = "36px";
+        el.style.opacity = "1";
+        el.style.margin = "6px 0 0";
+        try { el.volume = 1; } catch (eV) {}
         radioAudioEl = el;
         radioAudio = el;
         return el;
