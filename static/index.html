@@ -172,15 +172,15 @@ body.standalone .media-col { height: 108px; }
 .menu-chip:active { background: var(--panel); }
 
 .media-col {
-  -webkit-box-flex: 1; -webkit-flex: 1 1 240px; flex: 1 1 240px;
-  min-width: 0; max-width: 340px; margin: 0 4px;
+  -webkit-box-flex: 0; -webkit-flex: 0 1 200px; flex: 0 1 200px;
+  min-width: 0; max-width: 220px; margin: 0 4px;
   display: -webkit-box; display: -webkit-flex; display: flex;
   -webkit-box-orient: vertical; -webkit-flex-direction: column; flex-direction: column;
 }
 .media-center {
-  height: 68px; min-height: 68px; max-height: 68px;
+  height: 56px; min-height: 56px; max-height: 56px;
   border: 1px solid var(--line); background: #000; border-radius: 0;
-  padding: 0 8px;
+  padding: 0 6px;
   display: -webkit-box; display: -webkit-flex; display: flex;
   -webkit-box-align: center; -webkit-align-items: center; align-items: center;
 }
@@ -190,18 +190,18 @@ body.standalone .media-col { height: 108px; }
   width: 100%;
 }
 .now-art {
-  width: 42px; height: 42px; margin-right: 8px; border: 1px solid var(--line);
+  width: 36px; height: 36px; margin-right: 6px; border: 1px solid var(--line);
   background: #000; object-fit: cover; display: none; border-radius: 0;
   image-rendering: pixelated;
 }
 .now-art.on { display: block; }
 .media-text { min-width: 0; -webkit-box-flex: 1; -webkit-flex: 1; flex: 1; }
 .media-title {
-  font-size: 13px; font-weight: 700; color: var(--ink);
+  font-size: 12px; font-weight: 700; color: var(--ink);
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 .media-sub {
-  margin-top: 2px; font-size: 10px; color: var(--dim);
+  margin-top: 1px; font-size: 9px; color: var(--dim);
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 .media-artist { display: inline; }
@@ -211,7 +211,7 @@ body.standalone .media-col { height: 108px; }
 .media-app.on { display: inline; }
 .media-app.on:before { content: " // "; opacity: .7; }
 .media-bars {
-  margin: 5px 0 0; height: 14px; max-width: 160px;
+  margin: 3px 0 0; height: 10px; max-width: 120px;
   display: -webkit-box; display: -webkit-flex; display: flex;
   -webkit-box-align: end; -webkit-align-items: flex-end; align-items: flex-end;
 }
@@ -225,10 +225,10 @@ body.standalone .media-col { height: 108px; }
 }
 .media-btn {
   -webkit-box-flex: 1; -webkit-flex: 1; flex: 1;
-  min-width: 0; min-height: 34px; margin: 0 2px; padding: 0 4px;
+  min-width: 0; min-height: 28px; margin: 0 2px; padding: 0 4px;
   border: 1px solid var(--line); background: var(--panel); color: var(--accent);
-  font-family: inherit; font-size: 11px; font-weight: 700; border-radius: 0;
-  letter-spacing: .1em; text-transform: uppercase;
+  font-family: inherit; font-size: 10px; font-weight: 700; border-radius: 0;
+  letter-spacing: .08em; text-transform: uppercase;
 }
 .media-btn:first-child { margin-left: 0; }
 .media-btn:last-child { margin-right: 0; }
@@ -269,40 +269,41 @@ body.mode-solo #mediaControlsRadio {
 }
 
 #living {
-  -webkit-flex-shrink: 0; flex-shrink: 0;
+  -webkit-box-flex: 1; -webkit-flex: 1 1 auto; flex: 1 1 auto;
+  min-width: 0; -webkit-flex-shrink: 1; flex-shrink: 1;
   display: -webkit-box; display: -webkit-flex; display: flex;
   -webkit-box-align: stretch; -webkit-align-items: stretch; align-items: stretch;
 }
 #living .lv-weather, #living .lv-alert, #living .lv-power {
+  -webkit-box-flex: 1; -webkit-flex: 1 1 0; flex: 1 1 0;
   min-height: 108px; border: 1px solid var(--line); background: #000; border-radius: 0;
-  padding: 8px; font-size: 10px; margin: 0;
+  padding: 8px; font-size: 10px; margin: 0 2px 0 0;
   display: -webkit-box; display: -webkit-flex; display: flex;
   -webkit-box-orient: vertical; -webkit-flex-direction: column; flex-direction: column;
   -webkit-box-pack: center; -webkit-justify-content: center; justify-content: center;
   -webkit-box-align: center; -webkit-align-items: center; align-items: center;
   text-align: center; color: var(--ink);
 }
-#living .lv-weather { width: 130px; min-width: 110px; margin-right: 4px; }
-#living .lv-alert { width: 100px; min-width: 88px; margin-right: 4px; color: var(--dim); font-weight: 700; }
+#living .lv-weather { min-width: 120px; }
+#living .lv-alert { min-width: 100px; color: var(--dim); font-weight: 700; }
 #living .lv-power {
-  position: relative; width: 118px; min-width: 104px; padding: 0; overflow: hidden;
-  -webkit-perspective: 600px; perspective: 600px; cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
+  position: relative; min-width: 120px; margin-right: 0; padding: 0; overflow: hidden;
+  cursor: pointer; -webkit-tap-highlight-color: transparent;
 }
 #living .lv-k {
-  display: block; width: 100%; font-size: 8px; letter-spacing: .16em;
+  display: block; width: 100%; font-size: 9px; letter-spacing: .16em;
   text-transform: uppercase; color: var(--dim); margin-bottom: 4px;
 }
 #living .lv-k:before { content: "> "; }
 #living .lv-v {
   display: block; width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
-#living .lv-weather .lv-v { color: var(--accent); text-shadow: 0 0 6px var(--glow); font-size: 12px; }
-#living .lv-alert .lv-v { font-size: 12px; }
+#living .lv-weather .lv-v { color: var(--accent); text-shadow: 0 0 6px var(--glow); font-size: 13px; }
+#living .lv-alert .lv-v { font-size: 13px; }
 #living .lv-alert .lv-sub,
 #living .lv-power .lv-sub {
-  display: block; width: 100%; margin-top: 2px; font-size: 8px; color: var(--dim);
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  display: block; width: 100%; margin-top: 3px; font-size: 9px; color: var(--dim);
+  white-space: normal; line-height: 1.25; max-height: 2.5em; overflow: hidden;
 }
 #living .lv-alert.on {
   border-color: var(--warn); background: var(--warn-bg); color: var(--warn);
@@ -310,29 +311,25 @@ body.mode-solo #mediaControlsRadio {
 }
 #living .lv-alert.on .lv-sub { color: var(--warn); }
 
+/* Simple face swap — 3D flip is unreadable on old iPad Safari */
 #living .lv-power .pw-inner {
   position: relative; width: 100%; height: 100%; min-height: 108px;
-  -webkit-transition: -webkit-transform .45s; transition: transform .45s;
-  -webkit-transform-style: preserve-3d; transform-style: preserve-3d;
-}
-#living .lv-power.flip .pw-inner {
-  -webkit-transform: rotateY(180deg); transform: rotateY(180deg);
 }
 #living .lv-power .pw-face {
   position: absolute; left: 0; right: 0; top: 0; bottom: 0;
-  padding: 8px;
+  padding: 8px 10px;
   display: -webkit-box; display: -webkit-flex; display: flex;
   -webkit-box-orient: vertical; -webkit-flex-direction: column; flex-direction: column;
   -webkit-box-pack: center; -webkit-justify-content: center; justify-content: center;
   -webkit-box-align: center; -webkit-align-items: center; align-items: center;
-  text-align: center;
-  -webkit-backface-visibility: hidden; backface-visibility: hidden;
-  background: #000;
+  text-align: center; background: #000;
 }
-#living .lv-power .pw-back {
-  -webkit-transform: rotateY(180deg); transform: rotateY(180deg);
+#living .lv-power .pw-back { display: none; }
+#living .lv-power.flip .pw-front { display: none; }
+#living .lv-power.flip .pw-back {
+  display: -webkit-box; display: -webkit-flex; display: flex;
 }
-#living .lv-power .lv-v { font-size: 12px; font-weight: 700; }
+#living .lv-power .lv-v { font-size: 13px; font-weight: 700; }
 #living .lv-power.on {
   border-color: var(--accent); color: var(--accent);
   box-shadow: 0 0 10px var(--glow);
@@ -656,10 +653,8 @@ button.pad.warn { color: var(--warn); border-color: var(--warn); background: var
   header { padding-top: 2px; }
   .header-row { max-width: 100%; min-height: 96px; }
   .menu-chip { width: 72px; min-height: 96px; }
-  .media-col { max-width: none; -webkit-flex: 1 1 160px; flex: 1 1 160px; }
-  #living .lv-weather { width: 110px; min-width: 96px; min-height: 96px; }
-  #living .lv-alert { width: 88px; min-width: 80px; min-height: 96px; }
-  #living .lv-power { width: 104px; min-width: 92px; min-height: 96px; }
+  .media-col { max-width: 180px; -webkit-flex: 0 1 160px; flex: 0 1 160px; }
+  #living .lv-weather, #living .lv-alert, #living .lv-power { min-height: 96px; }
   #living .lv-power .pw-inner { min-height: 96px; }
   button.pad { min-height: 54px; font-size: 14px; }
   .vol-preset, .scene-btn, .media-btn { min-height: 44px; font-size: 13px; }
@@ -877,13 +872,13 @@ button.pad.warn { color: var(--warn); border-color: var(--warn); background: var
     <br><b>Поделиться → На экран «Домой»</b>
     <br>открой ярлык — без строки Safari.
     <br><br>Важно: добавляй URL с версией:
-    <br><b id="tipUrl">http://192.168.0.247:8787/?v=63</b>
+    <br><b id="tipUrl">http://192.168.0.247:8787/?v=64</b>
     <br>(старый ярлык без ?v= кэширует старый UI)
     <br><br>Для старта без ПК — GitHub Pages URL из README.
     <button type="button" id="tipOk">Понятно</button>
   </div>
 
-  <script src="gadget-core.js?v=63"></script>
-  <script src="deck-app.js?v=63"></script>
+  <script src="gadget-core.js?v=64"></script>
+  <script src="deck-app.js?v=64"></script>
 </body>
 </html>

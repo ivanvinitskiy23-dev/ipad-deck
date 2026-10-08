@@ -647,7 +647,7 @@
 
   /* ===== Power outages (Kyiv · Yasno primary + DTEK backup) ===== */
   var POWER_KEY = "kissaten_power_cfg";
-  var POWER_CACHE_KEY = "kissaten_power_cache";
+  var POWER_CACHE_KEY = "kissaten_power_cache_v2";
   var DEFAULT_POWER = {
     city: "Київ",
     street: "вул. Здолбунівська",
@@ -741,11 +741,12 @@
     out.ok = true;
     out.updated = nowSec();
     if (status === "EmergencyShutdowns") {
+      /* Schedules void — light may still be on at the address. */
       out.emergency = true;
+      out.offNow = false;
       out.level = "emergency";
       out.label = "ЕКСТРЕНІ";
       out.sub = "графіки не діють · " + group;
-      out.offNow = true;
       return out;
     }
     var slots = today.slots || [];
@@ -891,22 +892,27 @@
     m.nextOff = y.nextOff || d.nextOff || "";
     m.nextOn = y.nextOn || d.nextOn || "";
     m.emergency = !!(y.emergency || d.emergency);
-    m.offNow = !!(d.offNow || y.offNow);
-    m.soon = !!(!m.offNow && (y.soon || d.soon));
+    /* DTEK confirms live outage; Yasno EmergencyShutdowns alone ≠ lights off. */
+    m.offNow = !!(d.offNow || (y.offNow && !y.emergency));
+    m.soon = !!(!m.offNow && !m.emergency && (y.soon || d.soon));
     m.reason = d.reason || y.reason || "";
     m.restore = d.restore || y.restore || "";
     m.source = (y.ok && d.ok) ? "Yasno+DTEK" : (y.ok ? "Yasno" : (d.ok ? "DTEK" : ""));
     m.updated = nowSec();
-    if (m.emergency && m.offNow) {
+    if (m.offNow && m.emergency) {
       m.level = "emergency";
       m.label = "ЕКСТРЕНІ";
-      m.sub = (m.restore ? ("до " + m.restore) : (m.reason || "графіки не діють")) +
+      m.sub = (m.restore ? ("до " + m.restore) : (m.reason || "немає світла")) +
         (m.group ? (" · " + m.group) : "");
     } else if (m.offNow) {
       m.level = "off";
       m.label = "НЕМАЄ СВІТЛА";
       m.sub = (m.nextOn ? ("до " + m.nextOn) : (m.restore ? ("до " + m.restore) : "за графіком")) +
         (m.group ? (" · " + m.group) : "");
+    } else if (m.emergency) {
+      m.level = "emergency";
+      m.label = "ЕКСТРЕНІ";
+      m.sub = (m.reason || "графіки не діють") + (m.group ? (" · " + m.group) : "");
     } else if (m.soon) {
       m.level = "soon";
       m.label = "СКОРО";

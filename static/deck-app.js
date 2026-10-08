@@ -1,8 +1,8 @@
 /* Textmode Deck app shell — ES5 */
 (function () {
       var IDLE_MS = 45000;
-      var DRIVE_VER = 63;
-      var APP_VER = 63;
+      var DRIVE_VER = 64;
+      var APP_VER = 64;
       var THEME_KEY = "kissaten_deck_theme";
       var SCENE_KEY = "kissaten_idle_scene";
       var SCENES = [
@@ -53,8 +53,13 @@
       var radioAudio = null;
       var alarmAudio = null;
       var powerGen = 0;
+      var POWER_WARN_KEY = "kissaten_power_warn_key";
       var powerWarnKey = "";
+      try { powerWarnKey = localStorage.getItem(POWER_WARN_KEY) || ""; } catch (ePW) { powerWarnKey = ""; }
       var powerWarnUntil = 0;
+      var powerWarnActive = false;
+      var powerWarnTimer = null;
+      var POWER_WARN_MS = 18000;
       var lastPower = null;
       var toastEl = document.getElementById("toast");
       var metaEl = document.getElementById("meta");
@@ -726,6 +731,33 @@
         };
       }
 
+      function setPowerCardClass(p) {
+        var el = document.getElementById("lvPower");
+        if (!el) return;
+        var flipped = el.className.indexOf("flip") >= 0;
+        var level = (p && p.level) ? p.level : "unknown";
+        var cls = "lv-power";
+        if (level === "on" || level === "soon" || level === "off" || level === "emergency") {
+          cls += " " + level;
+        }
+        if (powerWarnActive) cls += " blink";
+        if (flipped) cls += " flip";
+        el.className = cls;
+      }
+
+      function dismissPowerWarn(silent) {
+        powerWarnActive = false;
+        powerWarnUntil = 0;
+        if (powerWarnTimer) {
+          clearTimeout(powerWarnTimer);
+          powerWarnTimer = null;
+        }
+        stopAlarmTone();
+        setPowerCardClass(lastPower);
+        paintIdleChrome();
+        if (!silent) toast("POWER · ок");
+      }
+
       function renderPower(p) {
         lastPower = p || null;
         var el = document.getElementById("lvPower");
@@ -734,16 +766,10 @@
         var bVal = document.getElementById("lvPowerBackVal");
         var bSub = document.getElementById("lvPowerBackSub");
         if (!el || !val) return;
-        var flipped = el.className.indexOf("flip") >= 0;
-        var level = (p && p.level) ? p.level : "unknown";
-        var blink = !!(p && (p.soon || p.emergency || (p.offNow && p.level === "emergency")));
-        var cls = "lv-power";
-        if (level === "on" || level === "soon" || level === "off" || level === "emergency") {
-          cls += " " + level;
+        if (powerWarnActive && (new Date()).getTime() >= powerWarnUntil) {
+          dismissPowerWarn(true);
         }
-        if (blink) cls += " blink";
-        if (flipped) cls += " flip";
-        el.className = cls;
+        setPowerCardClass(p);
         val.textContent = (p && p.label) ? p.label : "НЕМАЄ ДАНИХ";
         if (sub) sub.textContent = (p && p.sub) ? p.sub : "Kyiv · POWER";
         var back = powerBackText(p);
@@ -753,38 +779,37 @@
         maybePowerWarn(p);
       }
 
-      function stopPowerWarn() {
-        powerWarnUntil = 0;
-        /* do not clear alarmFiredKey — only stop tone if we started power warn */
-        stopAlarmTone();
-      }
-
       function maybePowerWarn(p) {
         if (!p) return;
+        var now = (new Date()).getTime();
+        if (powerWarnActive) {
+          if (now >= powerWarnUntil) dismissPowerWarn(true);
+          return;
+        }
         var d = new Date();
         var key = "";
         if (p.soon && p.nextOff) {
           key = "soon-" + d.getFullYear() + "-" + d.getMonth() + "-" + d.getDate() + "-" + p.nextOff;
-        } else if (p.emergency && p.offNow) {
-          key = "emg-" + d.getFullYear() + "-" + d.getMonth() + "-" + d.getDate() + "-" +
-            Math.floor(d.getHours() / 2);
+        } else if (p.emergency) {
+          /* One alert when emergency mode appears today — not a continuous siren. */
+          key = "emg-" + d.getFullYear() + "-" + d.getMonth() + "-" + d.getDate();
         } else {
-          if (powerWarnUntil && (new Date()).getTime() < powerWarnUntil) {
-            /* keep ringing while in warn window */
-          } else if (powerWarnUntil) {
-            stopPowerWarn();
-          }
           return;
         }
         if (powerWarnKey === key) return;
         powerWarnKey = key;
-        powerWarnUntil = (new Date()).getTime() + 90000;
+        try { localStorage.setItem(POWER_WARN_KEY, key); } catch (eW) {}
+        powerWarnActive = true;
+        powerWarnUntil = now + POWER_WARN_MS;
         unlockAlarmAudio();
         playAlarmTone();
-        toast(p.emergency ? "POWER · екстрені" : ("POWER · скоро " + (p.nextOff || "")));
-        setTimeout(function () {
-          if ((new Date()).getTime() >= powerWarnUntil) stopAlarmTone();
-        }, 92000);
+        setPowerCardClass(p);
+        paintIdleChrome();
+        toast(p.emergency ? "POWER · екстрені · тап = стоп" : ("POWER · скоро " + (p.nextOff || "") + " · тап = стоп"));
+        if (powerWarnTimer) clearTimeout(powerWarnTimer);
+        powerWarnTimer = setTimeout(function () {
+          dismissPowerWarn(true);
+        }, POWER_WARN_MS + 200);
       }
 
       function refreshPowerClient() {
@@ -1556,6 +1581,11 @@
         pw.onclick = function (ev) {
           if (ev && ev.preventDefault) ev.preventDefault();
           unlockAlarmAudio();
+          if (powerWarnActive) {
+            dismissPowerWarn(false);
+            bumpIdle();
+            return;
+          }
           var flipped = pw.className.indexOf("flip") >= 0;
           if (flipped) pw.className = pw.className.replace(/\s*flip\b/g, "");
           else pw.className = (pw.className + " flip").replace(/\s+/g, " ");
