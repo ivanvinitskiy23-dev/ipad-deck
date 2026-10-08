@@ -150,7 +150,8 @@ header {
 }
 body.standalone .menu-chip,
 body.standalone #living .lv-weather,
-body.standalone #living .lv-alert {
+body.standalone #living .lv-alert,
+body.standalone #living .lv-power {
   height: 108px !important; min-height: 108px !important; max-height: 108px !important;
 }
 body.standalone .media-col { height: 108px; }
@@ -272,7 +273,7 @@ body.mode-solo #mediaControlsRadio {
   display: -webkit-box; display: -webkit-flex; display: flex;
   -webkit-box-align: stretch; -webkit-align-items: stretch; align-items: stretch;
 }
-#living .lv-weather, #living .lv-alert {
+#living .lv-weather, #living .lv-alert, #living .lv-power {
   min-height: 108px; border: 1px solid var(--line); background: #000; border-radius: 0;
   padding: 8px; font-size: 10px; margin: 0;
   display: -webkit-box; display: -webkit-flex; display: flex;
@@ -281,8 +282,13 @@ body.mode-solo #mediaControlsRadio {
   -webkit-box-align: center; -webkit-align-items: center; align-items: center;
   text-align: center; color: var(--ink);
 }
-#living .lv-weather { width: 150px; min-width: 130px; margin-right: 4px; }
-#living .lv-alert { width: 118px; min-width: 104px; color: var(--dim); font-weight: 700; }
+#living .lv-weather { width: 130px; min-width: 110px; margin-right: 4px; }
+#living .lv-alert { width: 100px; min-width: 88px; margin-right: 4px; color: var(--dim); font-weight: 700; }
+#living .lv-power {
+  position: relative; width: 118px; min-width: 104px; padding: 0; overflow: hidden;
+  -webkit-perspective: 600px; perspective: 600px; cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
 #living .lv-k {
   display: block; width: 100%; font-size: 8px; letter-spacing: .16em;
   text-transform: uppercase; color: var(--dim); margin-bottom: 4px;
@@ -293,7 +299,8 @@ body.mode-solo #mediaControlsRadio {
 }
 #living .lv-weather .lv-v { color: var(--accent); text-shadow: 0 0 6px var(--glow); font-size: 12px; }
 #living .lv-alert .lv-v { font-size: 12px; }
-#living .lv-alert .lv-sub {
+#living .lv-alert .lv-sub,
+#living .lv-power .lv-sub {
   display: block; width: 100%; margin-top: 2px; font-size: 8px; color: var(--dim);
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
@@ -302,6 +309,62 @@ body.mode-solo #mediaControlsRadio {
   box-shadow: 0 0 14px rgba(255,51,85,.4);
 }
 #living .lv-alert.on .lv-sub { color: var(--warn); }
+
+#living .lv-power .pw-inner {
+  position: relative; width: 100%; height: 100%; min-height: 108px;
+  -webkit-transition: -webkit-transform .45s; transition: transform .45s;
+  -webkit-transform-style: preserve-3d; transform-style: preserve-3d;
+}
+#living .lv-power.flip .pw-inner {
+  -webkit-transform: rotateY(180deg); transform: rotateY(180deg);
+}
+#living .lv-power .pw-face {
+  position: absolute; left: 0; right: 0; top: 0; bottom: 0;
+  padding: 8px;
+  display: -webkit-box; display: -webkit-flex; display: flex;
+  -webkit-box-orient: vertical; -webkit-flex-direction: column; flex-direction: column;
+  -webkit-box-pack: center; -webkit-justify-content: center; justify-content: center;
+  -webkit-box-align: center; -webkit-align-items: center; align-items: center;
+  text-align: center;
+  -webkit-backface-visibility: hidden; backface-visibility: hidden;
+  background: #000;
+}
+#living .lv-power .pw-back {
+  -webkit-transform: rotateY(180deg); transform: rotateY(180deg);
+}
+#living .lv-power .lv-v { font-size: 12px; font-weight: 700; }
+#living .lv-power.on {
+  border-color: var(--accent); color: var(--accent);
+  box-shadow: 0 0 10px var(--glow);
+}
+#living .lv-power.on .lv-v { color: var(--accent); text-shadow: 0 0 6px var(--glow); }
+#living .lv-power.soon {
+  border-color: #ffcc33; color: #ffcc33; background: #141006;
+  box-shadow: 0 0 12px rgba(255,204,51,.35);
+}
+#living .lv-power.soon .lv-v { color: #ffcc33; }
+#living .lv-power.soon .lv-sub { color: #ffcc33; }
+#living .lv-power.off,
+#living .lv-power.emergency {
+  border-color: var(--warn); background: var(--warn-bg); color: var(--warn);
+  box-shadow: 0 0 14px rgba(255,51,85,.4);
+}
+#living .lv-power.off .lv-v,
+#living .lv-power.emergency .lv-v { color: var(--warn); }
+#living .lv-power.off .lv-sub,
+#living .lv-power.emergency .lv-sub { color: var(--warn); }
+#living .lv-power.blink {
+  -webkit-animation: pwBlink .7s steps(2, start) infinite;
+  animation: pwBlink .7s steps(2, start) infinite;
+}
+@-webkit-keyframes pwBlink {
+  0%, 49% { opacity: 1; }
+  50%, 100% { opacity: .35; }
+}
+@keyframes pwBlink {
+  0%, 49% { opacity: 1; }
+  50%, 100% { opacity: .35; }
+}
 
 #ticker {
   margin: 6px 10px 0; height: 24px; overflow: hidden;
@@ -551,6 +614,14 @@ button.pad.warn { color: var(--warn); border-color: var(--warn); background: var
 #idleAl { color: var(--dim); }
 #idleAl.on { border-color: var(--warn); background: var(--warn-bg); color: var(--warn); }
 #idleAl.on .v { color: var(--warn); }
+#idlePw.on { border-color: var(--accent); color: var(--accent); }
+#idlePw.soon { border-color: #ffcc33; color: #ffcc33; background: #141006; }
+#idlePw.off, #idlePw.emergency { border-color: var(--warn); background: var(--warn-bg); color: var(--warn); }
+#idlePw.off .v, #idlePw.emergency .v, #idlePw.soon .v { color: inherit; }
+#idlePw.blink {
+  -webkit-animation: pwBlink .7s steps(2, start) infinite;
+  animation: pwBlink .7s steps(2, start) infinite;
+}
 #idleTicker {
   position: absolute; left: 0; right: 0; bottom: 0; height: 28px; z-index: 4;
   pointer-events: none; overflow: hidden; background: rgba(0,0,0,.92);
@@ -586,8 +657,10 @@ button.pad.warn { color: var(--warn); border-color: var(--warn); background: var
   .header-row { max-width: 100%; min-height: 96px; }
   .menu-chip { width: 72px; min-height: 96px; }
   .media-col { max-width: none; -webkit-flex: 1 1 160px; flex: 1 1 160px; }
-  #living .lv-weather { width: 124px; min-width: 104px; min-height: 96px; }
-  #living .lv-alert { width: 100px; min-width: 92px; min-height: 96px; }
+  #living .lv-weather { width: 110px; min-width: 96px; min-height: 96px; }
+  #living .lv-alert { width: 88px; min-width: 80px; min-height: 96px; }
+  #living .lv-power { width: 104px; min-width: 92px; min-height: 96px; }
+  #living .lv-power .pw-inner { min-height: 96px; }
   button.pad { min-height: 54px; font-size: 14px; }
   .vol-preset, .scene-btn, .media-btn { min-height: 44px; font-size: 13px; }
   #idleHud { left: 6px; right: 6px; top: 6px; }
@@ -604,9 +677,10 @@ button.pad.warn { color: var(--warn); border-color: var(--warn); background: var
   .menu-chip { width: 100%; max-width: 120px; margin: 0 auto 6px; min-height: 48px; }
   .media-col { -webkit-flex: 1 1 100%; flex: 1 1 100%; max-width: 100%; margin: 0 0 6px; }
   #living { width: 100%; }
-  #living .lv-weather, #living .lv-alert {
+  #living .lv-weather, #living .lv-alert, #living .lv-power {
     -webkit-box-flex: 1; -webkit-flex: 1; flex: 1; width: auto; max-width: none; min-height: 72px;
   }
+  #living .lv-power .pw-inner { min-height: 72px; }
   .solo-clock { font-size: 56px; }
 }
 
@@ -661,6 +735,20 @@ button.pad.warn { color: var(--warn); border-color: var(--warn); background: var
               <span class="lv-k">ALERT</span>
               <span class="lv-v" id="lvAlertVal">…</span>
               <span class="lv-sub" id="lvAlertSub">Kyiv</span>
+            </div>
+            <div class="lv-power" id="lvPower" title="tap = flip">
+              <div class="pw-inner" id="lvPowerInner">
+                <div class="pw-face pw-front">
+                  <span class="lv-k">POWER</span>
+                  <span class="lv-v" id="lvPowerVal">…</span>
+                  <span class="lv-sub" id="lvPowerSub">45.1 · Kyiv</span>
+                </div>
+                <div class="pw-face pw-back">
+                  <span class="lv-k">GRAPH</span>
+                  <span class="lv-v" id="lvPowerBackVal">група 45.1</span>
+                  <span class="lv-sub" id="lvPowerBackSub">Yasno · DTEK</span>
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -776,7 +864,7 @@ button.pad.warn { color: var(--warn); border-color: var(--warn); background: var
     <img id="idlePic" alt="" />
     <div id="idleHud">
       <div class="card" id="idleWx"><span class="k">WX</span><span class="v" id="idleWxVal">…</span></div>
-      <div class="card" id="idlePl"><span class="k">PLAY</span><span class="v" id="idlePlay">…</span><span class="sub" id="idlePlaySub"></span></div>
+      <div class="card" id="idlePw"><span class="k">POWER</span><span class="v" id="idlePwVal">…</span><span class="sub" id="idlePwSub">45.1</span></div>
       <div class="card" id="idleAl"><span class="k">ALERT</span><span class="v" id="idleAlVal">…</span><span class="sub" id="idleAlSub">Kyiv</span></div>
     </div>
     <div id="idleTicker"><div id="idleTickerTrack"><span>лента…</span></div></div>
@@ -789,13 +877,13 @@ button.pad.warn { color: var(--warn); border-color: var(--warn); background: var
     <br><b>Поделиться → На экран «Домой»</b>
     <br>открой ярлык — без строки Safari.
     <br><br>Важно: добавляй URL с версией:
-    <br><b id="tipUrl">http://192.168.0.247:8787/?v=62</b>
+    <br><b id="tipUrl">http://192.168.0.247:8787/?v=63</b>
     <br>(старый ярлык без ?v= кэширует старый UI)
     <br><br>Для старта без ПК — GitHub Pages URL из README.
     <button type="button" id="tipOk">Понятно</button>
   </div>
 
-  <script src="gadget-core.js?v=62"></script>
-  <script src="deck-app.js?v=62"></script>
+  <script src="gadget-core.js?v=63"></script>
+  <script src="deck-app.js?v=63"></script>
 </body>
 </html>

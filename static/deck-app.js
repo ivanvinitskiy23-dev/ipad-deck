@@ -1,8 +1,8 @@
 /* Textmode Deck app shell — ES5 */
 (function () {
       var IDLE_MS = 45000;
-      var DRIVE_VER = 62;
-      var APP_VER = 62;
+      var DRIVE_VER = 63;
+      var APP_VER = 63;
       var THEME_KEY = "kissaten_deck_theme";
       var SCENE_KEY = "kissaten_idle_scene";
       var SCENES = [
@@ -52,6 +52,10 @@
       var alarmPulse = null;
       var radioAudio = null;
       var alarmAudio = null;
+      var powerGen = 0;
+      var powerWarnKey = "";
+      var powerWarnUntil = 0;
+      var lastPower = null;
       var toastEl = document.getElementById("toast");
       var metaEl = document.getElementById("meta");
       var hubStatsEl = document.getElementById("hubStats");
@@ -405,12 +409,23 @@
           var alertOn = al.className.indexOf(" on") >= 0 || al.className === "lv-alert on";
           ial.className = alertOn ? "card on" : "card";
         }
-        var title = document.getElementById("nowTitle");
-        var it = document.getElementById("idlePlay");
-        if (title && it) it.textContent = title.textContent;
-        var artist = document.getElementById("nowArtist");
-        var isub = document.getElementById("idlePlaySub");
-        if (artist && isub) isub.textContent = artist.textContent;
+        var pv = document.getElementById("lvPowerVal");
+        var ipv = document.getElementById("idlePwVal");
+        if (pv && ipv) ipv.textContent = pv.textContent;
+        var ps = document.getElementById("lvPowerSub");
+        var ips = document.getElementById("idlePwSub");
+        if (ps && ips) ips.textContent = ps.textContent;
+        var pw = document.getElementById("lvPower");
+        var ipw = document.getElementById("idlePw");
+        if (pw && ipw) {
+          var lvl = "unknown";
+          if (pw.className.indexOf("emergency") >= 0) lvl = "emergency";
+          else if (pw.className.indexOf("off") >= 0) lvl = "off";
+          else if (pw.className.indexOf("soon") >= 0) lvl = "soon";
+          else if (pw.className.indexOf("on") >= 0) lvl = "on";
+          var blink = pw.className.indexOf("blink") >= 0;
+          ipw.className = "card" + (lvl !== "unknown" ? (" " + lvl) : "") + (blink ? " blink" : "");
+        }
         var mainTrack = document.getElementById("tickerTrack");
         var idleTrack = document.getElementById("idleTickerTrack");
         if (mainTrack && idleTrack && idleTrack.innerHTML.length < 20 && mainTrack.innerHTML.length > 20) {
@@ -682,6 +697,118 @@
         paintIdleChrome();
       }
 
+      function powerBackText(p) {
+        if (!p) return { val: "група 45.1", sub: "Yasno · DTEK" };
+        var slots = p.slots || [];
+        var lines = [];
+        var i;
+        for (i = 0; i < slots.length && i < 3; i++) {
+          if (slots[i] && slots[i].label) lines.push(slots[i].label);
+        }
+        if (p.emergency) {
+          return {
+            val: p.reason ? String(p.reason).slice(0, 22) : "екстрені",
+            sub: (p.restore ? ("відн. " + p.restore) : "графіки не діють") +
+              (p.group ? (" · " + p.group) : "")
+          };
+        }
+        if (lines.length) {
+          return {
+            val: lines[0],
+            sub: (lines[1] ? (lines[1] + " · ") : "") + (p.group || "45.1") +
+              (p.source ? (" · " + p.source) : "")
+          };
+        }
+        return {
+          val: "група " + (p.group || "45.1"),
+          sub: (p.nextOff ? ("далі " + p.nextOff) : "немає слотів") +
+            (p.source ? (" · " + p.source) : "")
+        };
+      }
+
+      function renderPower(p) {
+        lastPower = p || null;
+        var el = document.getElementById("lvPower");
+        var val = document.getElementById("lvPowerVal");
+        var sub = document.getElementById("lvPowerSub");
+        var bVal = document.getElementById("lvPowerBackVal");
+        var bSub = document.getElementById("lvPowerBackSub");
+        if (!el || !val) return;
+        var flipped = el.className.indexOf("flip") >= 0;
+        var level = (p && p.level) ? p.level : "unknown";
+        var blink = !!(p && (p.soon || p.emergency || (p.offNow && p.level === "emergency")));
+        var cls = "lv-power";
+        if (level === "on" || level === "soon" || level === "off" || level === "emergency") {
+          cls += " " + level;
+        }
+        if (blink) cls += " blink";
+        if (flipped) cls += " flip";
+        el.className = cls;
+        val.textContent = (p && p.label) ? p.label : "НЕМАЄ ДАНИХ";
+        if (sub) sub.textContent = (p && p.sub) ? p.sub : "Kyiv · POWER";
+        var back = powerBackText(p);
+        if (bVal) bVal.textContent = back.val;
+        if (bSub) bSub.textContent = back.sub;
+        paintIdleChrome();
+        maybePowerWarn(p);
+      }
+
+      function stopPowerWarn() {
+        powerWarnUntil = 0;
+        /* do not clear alarmFiredKey — only stop tone if we started power warn */
+        stopAlarmTone();
+      }
+
+      function maybePowerWarn(p) {
+        if (!p) return;
+        var d = new Date();
+        var key = "";
+        if (p.soon && p.nextOff) {
+          key = "soon-" + d.getFullYear() + "-" + d.getMonth() + "-" + d.getDate() + "-" + p.nextOff;
+        } else if (p.emergency && p.offNow) {
+          key = "emg-" + d.getFullYear() + "-" + d.getMonth() + "-" + d.getDate() + "-" +
+            Math.floor(d.getHours() / 2);
+        } else {
+          if (powerWarnUntil && (new Date()).getTime() < powerWarnUntil) {
+            /* keep ringing while in warn window */
+          } else if (powerWarnUntil) {
+            stopPowerWarn();
+          }
+          return;
+        }
+        if (powerWarnKey === key) return;
+        powerWarnKey = key;
+        powerWarnUntil = (new Date()).getTime() + 90000;
+        unlockAlarmAudio();
+        playAlarmTone();
+        toast(p.emergency ? "POWER · екстрені" : ("POWER · скоро " + (p.nextOff || "")));
+        setTimeout(function () {
+          if ((new Date()).getTime() >= powerWarnUntil) stopAlarmTone();
+        }, 92000);
+      }
+
+      function refreshPowerClient() {
+        if (!GC || !GC.fetchPowerBundle) return;
+        var gen = ++powerGen;
+        var cached = GC.readPowerCache ? GC.readPowerCache() : null;
+        if (cached) renderPower(cached);
+        else {
+          var v0 = document.getElementById("lvPowerVal");
+          if (v0 && (v0.textContent === "…" || !v0.textContent)) v0.textContent = "…";
+        }
+        GC.fetchPowerBundle(function (bundle) {
+          if (gen !== powerGen) return;
+          renderPower(bundle);
+        });
+        setTimeout(function () {
+          if (gen !== powerGen) return;
+          var v = document.getElementById("lvPowerVal");
+          if (v && (v.textContent === "…" || v.textContent === "загрузка…")) {
+            renderPower(cached || { ok: false, label: "НЕМАЄ ДАНИХ", sub: "Kyiv · POWER", level: "unknown" });
+          }
+        }, 13000);
+      }
+
       function hubIsQuiet() {
         return (new Date()).getTime() < hubQuietUntil;
       }
@@ -902,12 +1029,12 @@
               var g = alarmCtx.createGain();
               o.type = "square";
               o.frequency.value = 880;
-              g.gain.value = 0.45;
+              g.gain.value = 0.7;
               o.connect(g);
               g.connect(alarmCtx.destination);
               o.start(0);
               if (g.gain.exponentialRampToValueAtTime) {
-                g.gain.setValueAtTime(0.45, alarmCtx.currentTime);
+                g.gain.setValueAtTime(0.7, alarmCtx.currentTime);
                 g.gain.exponentialRampToValueAtTime(0.01, alarmCtx.currentTime + 0.35);
               }
               o.stop(alarmCtx.currentTime + 0.4);
@@ -1423,10 +1550,26 @@
       armAlarmForToday();
       tickClock();
       setInterval(tickClock, 1000);
+      (function () {
+        var pw = document.getElementById("lvPower");
+        if (!pw) return;
+        pw.onclick = function (ev) {
+          if (ev && ev.preventDefault) ev.preventDefault();
+          unlockAlarmAudio();
+          var flipped = pw.className.indexOf("flip") >= 0;
+          if (flipped) pw.className = pw.className.replace(/\s*flip\b/g, "");
+          else pw.className = (pw.className + " flip").replace(/\s+/g, " ");
+          bumpIdle();
+        };
+      })();
       refreshLivingClient();
       setInterval(refreshLivingClient, 30000);
       setTimeout(refreshLivingClient, 3000);
       setTimeout(refreshLivingClient, 10000);
+      refreshPowerClient();
+      setInterval(refreshPowerClient, 60000);
+      setTimeout(refreshPowerClient, 2500);
+      setTimeout(refreshPowerClient, 12000);
       if (!hubHeld) {
         heartbeat();
         refreshStatus();

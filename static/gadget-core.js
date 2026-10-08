@@ -645,6 +645,324 @@
     return RADIO_STATIONS[i].id;
   }
 
+  /* ===== Power outages (Kyiv · Yasno primary + DTEK backup) ===== */
+  var POWER_KEY = "kissaten_power_cfg";
+  var POWER_CACHE_KEY = "kissaten_power_cache";
+  var DEFAULT_POWER = {
+    city: "Київ",
+    street: "вул. Здолбунівська",
+    house: "11б",
+    houseDtek: "11/Б",
+    group: "45.1",
+    regionId: "25",
+    dsoId: "902",
+    warnMin: 15
+  };
+
+  function getPowerCfg() {
+    var cfg = {};
+    var k;
+    for (k in DEFAULT_POWER) {
+      if (DEFAULT_POWER.hasOwnProperty(k)) cfg[k] = DEFAULT_POWER[k];
+    }
+    try {
+      var raw = localStorage.getItem(POWER_KEY);
+      if (raw) {
+        var o = JSON.parse(raw);
+        if (o && typeof o === "object") {
+          for (k in o) {
+            if (o.hasOwnProperty(k) && o[k] != null && o[k] !== "") cfg[k] = o[k];
+          }
+        }
+      }
+    } catch (e) {}
+    return cfg;
+  }
+
+  function setPowerCfg(partial) {
+    var cfg = getPowerCfg();
+    var k;
+    if (partial) {
+      for (k in partial) {
+        if (partial.hasOwnProperty(k)) cfg[k] = partial[k];
+      }
+    }
+    try { localStorage.setItem(POWER_KEY, JSON.stringify(cfg)); } catch (e) {}
+    return cfg;
+  }
+
+  function pad2p(n) {
+    n = n | 0;
+    return (n < 10 ? "0" : "") + n;
+  }
+
+  function minsToHHMM(mins) {
+    mins = mins | 0;
+    if (mins < 0) mins = 0;
+    if (mins > 24 * 60) mins = 24 * 60;
+    var h = Math.floor(mins / 60);
+    var m = mins % 60;
+    return pad2p(h) + ":" + pad2p(m);
+  }
+
+  function nowMinsKyiv() {
+    var d = new Date();
+    return d.getHours() * 60 + d.getMinutes();
+  }
+
+  function emptyPower() {
+    return {
+      ok: false,
+      level: "unknown",
+      label: "НЕМАЄ ДАНИХ",
+      sub: "Kyiv · POWER",
+      group: getPowerCfg().group,
+      emergency: false,
+      offNow: false,
+      soon: false,
+      nextOff: "",
+      nextOn: "",
+      restore: "",
+      reason: "",
+      source: "",
+      slots: [],
+      updated: nowSec()
+    };
+  }
+
+  function parseYasnoGroup(data, group) {
+    var out = emptyPower();
+    out.source = "Yasno";
+    out.group = group;
+    if (!data || !data[group]) return out;
+    var g = data[group];
+    var today = g.today || {};
+    var status = String(today.status || "");
+    out.ok = true;
+    out.updated = nowSec();
+    if (status === "EmergencyShutdowns") {
+      out.emergency = true;
+      out.level = "emergency";
+      out.label = "ЕКСТРЕНІ";
+      out.sub = "графіки не діють · " + group;
+      out.offNow = true;
+      return out;
+    }
+    var slots = today.slots || [];
+    var offRanges = [];
+    var i, s, start, end, typ, on;
+    /* Build 48 half-hour flags: true = light ON */
+    var half = [];
+    for (i = 0; i < 48; i++) half[i] = true;
+    for (i = 0; i < slots.length; i++) {
+      s = slots[i] || {};
+      start = (s.start | 0);
+      end = (s.end | 0);
+      typ = String(s.type || "");
+      on = (typ === "NotPlanned");
+      var a = Math.floor(start / 30);
+      var b = Math.ceil(end / 30);
+      var j;
+      for (j = a; j < b && j < 48; j++) half[j] = on;
+      if (!on && end > start) {
+        offRanges.push({ start: start, end: end, label: minsToHHMM(start) + "–" + minsToHHMM(end) });
+      }
+    }
+    out.slots = offRanges;
+    var nowM = nowMinsKyiv();
+    var idx = Math.floor(nowM / 30);
+    if (idx > 47) idx = 47;
+    out.offNow = !half[idx];
+    /* next off start */
+    var nextOff = -1;
+    var nextOn = -1;
+    if (out.offNow) {
+      for (i = idx; i < 48; i++) {
+        if (half[i]) { nextOn = i * 30; break; }
+      }
+    } else {
+      for (i = idx + 1; i < 48; i++) {
+        if (!half[i]) { nextOff = i * 30; break; }
+      }
+      /* also check current slot end if we're in a NotPlanned and next is Definite */
+      for (i = 0; i < offRanges.length; i++) {
+        if (offRanges[i].start > nowM) {
+          if (nextOff < 0 || offRanges[i].start < nextOff) nextOff = offRanges[i].start;
+        }
+        if (out.offNow && offRanges[i].start <= nowM && offRanges[i].end > nowM) {
+          nextOn = offRanges[i].end;
+        }
+      }
+    }
+    if (nextOff >= 0) out.nextOff = minsToHHMM(nextOff);
+    if (nextOn >= 0) out.nextOn = minsToHHMM(nextOn);
+    var warn = (getPowerCfg().warnMin | 0) || 15;
+    out.soon = (!out.offNow && nextOff >= 0 && (nextOff - nowM) <= warn && (nextOff - nowM) >= 0);
+    if (out.offNow) {
+      out.level = "off";
+      out.label = "НЕМАЄ СВІТЛА";
+      out.sub = (out.nextOn ? ("до " + out.nextOn) : "за графіком") + " · " + group;
+    } else if (out.soon) {
+      out.level = "soon";
+      out.label = "СКОРО";
+      out.sub = (out.nextOff ? ("з " + out.nextOff) : "скоро") + " · " + group;
+    } else {
+      out.level = "on";
+      out.label = "СВІТЛО Є";
+      out.sub = (out.nextOff ? ("далі " + out.nextOff) : "без слотів") + " · " + group;
+    }
+    return out;
+  }
+
+  function fetchYasnoPower(cb) {
+    var cfg = getPowerCfg();
+    var url = "https://app.yasno.ua/api/blackout-service/public/shutdowns/regions/" +
+      cfg.regionId + "/dsos/" + cfg.dsoId + "/planned-outages";
+    function done(data) {
+      cb(parseYasnoGroup(data, cfg.group));
+    }
+    xhrGet(url, 10000, function (txt) {
+      try { done(JSON.parse(txt)); } catch (e) { done(null); }
+    }, function () {
+      xhrGet(corsProxy(url), 12000, function (txt) {
+        try { done(JSON.parse(txt)); } catch (e2) { done(null); }
+      }, function () {
+        xhrGet(corsProxyGet(url), 12000, function (txt) {
+          var body = parseAllOriginsGet(txt);
+          try { done(body ? JSON.parse(body) : null); } catch (e3) {
+            try { done(typeof body === "object" ? body : null); } catch (e4) { done(null); }
+          }
+        }, function () { done(null); });
+      });
+    });
+  }
+
+  function parseDtekPower(data) {
+    var out = emptyPower();
+    out.source = "DTEK";
+    if (!data || !data.ok) return out;
+    out.ok = true;
+    out.group = data.group || getPowerCfg().group;
+    out.updated = nowSec();
+    if (data.emergency || data.current_off) {
+      out.offNow = !!data.current_off || !!data.emergency;
+      out.emergency = !!data.emergency || !!data.current_off;
+      out.reason = data.reason || "";
+      out.restore = data.restore || "";
+      if (out.offNow) {
+        out.level = data.emergency ? "emergency" : "off";
+        out.label = data.emergency ? "ЕКСТРЕНІ" : "НЕМАЄ СВІТЛА";
+        out.sub = (out.restore ? ("до " + out.restore) : (out.reason || "DTEK")) +
+          (out.group ? (" · " + out.group) : "");
+      }
+    }
+    if (data.slots && data.slots.length) out.slots = data.slots;
+    if (data.nextOff) out.nextOff = data.nextOff;
+    if (data.nextOn) out.nextOn = data.nextOn;
+    return out;
+  }
+
+  function fetchDtekPower(cb) {
+    /* Prefer LAN hub proxy (bypasses browser CORS / WAF quirks). */
+    var hubUrl = "";
+    try {
+      if (!isMixedContentHub()) hubUrl = apiUrl("/api/power/dtek");
+    } catch (e0) {}
+    function fail() {
+      cb(parseDtekPower({ ok: false }));
+    }
+    if (hubUrl) {
+      xhrGet(hubUrl, 12000, function (txt) {
+        try { cb(parseDtekPower(JSON.parse(txt))); } catch (e) { fail(); }
+      }, fail);
+      return;
+    }
+    fail();
+  }
+
+  function mergePower(yasno, dtek) {
+    var y = yasno || emptyPower();
+    var d = dtek || emptyPower();
+    var m = emptyPower();
+    m.ok = !!(y.ok || d.ok);
+    m.group = y.group || d.group || getPowerCfg().group;
+    /* Yasno primary for schedule; DTEK overlays live emergency/outage */
+    m.slots = (y.slots && y.slots.length) ? y.slots : (d.slots || []);
+    m.nextOff = y.nextOff || d.nextOff || "";
+    m.nextOn = y.nextOn || d.nextOn || "";
+    m.emergency = !!(y.emergency || d.emergency);
+    m.offNow = !!(d.offNow || y.offNow);
+    m.soon = !!(!m.offNow && (y.soon || d.soon));
+    m.reason = d.reason || y.reason || "";
+    m.restore = d.restore || y.restore || "";
+    m.source = (y.ok && d.ok) ? "Yasno+DTEK" : (y.ok ? "Yasno" : (d.ok ? "DTEK" : ""));
+    m.updated = nowSec();
+    if (m.emergency && m.offNow) {
+      m.level = "emergency";
+      m.label = "ЕКСТРЕНІ";
+      m.sub = (m.restore ? ("до " + m.restore) : (m.reason || "графіки не діють")) +
+        (m.group ? (" · " + m.group) : "");
+    } else if (m.offNow) {
+      m.level = "off";
+      m.label = "НЕМАЄ СВІТЛА";
+      m.sub = (m.nextOn ? ("до " + m.nextOn) : (m.restore ? ("до " + m.restore) : "за графіком")) +
+        (m.group ? (" · " + m.group) : "");
+    } else if (m.soon) {
+      m.level = "soon";
+      m.label = "СКОРО";
+      m.sub = (m.nextOff ? ("з " + m.nextOff) : "скоро") + (m.group ? (" · " + m.group) : "");
+    } else if (m.ok) {
+      m.level = "on";
+      m.label = "СВІТЛО Є";
+      m.sub = (m.nextOff ? ("далі " + m.nextOff) : "без слотів") + (m.group ? (" · " + m.group) : "");
+    } else {
+      m.level = "unknown";
+      m.label = "НЕМАЄ ДАНИХ";
+      m.sub = "Kyiv · POWER";
+    }
+    return m;
+  }
+
+  function readPowerCache() {
+    try {
+      var raw = localStorage.getItem(POWER_CACHE_KEY);
+      if (!raw) return null;
+      return JSON.parse(raw);
+    } catch (e) {
+      return null;
+    }
+  }
+
+  function writePowerCache(bundle) {
+    try { localStorage.setItem(POWER_CACHE_KEY, JSON.stringify(bundle)); } catch (e) {}
+  }
+
+  function fetchPowerBundle(cb) {
+    var yDone = false;
+    var dDone = false;
+    var y = null;
+    var d = null;
+    var sent = false;
+    function maybe() {
+      if (sent || !yDone || !dDone) return;
+      sent = true;
+      var merged = mergePower(y, d);
+      if (merged.ok) writePowerCache(merged);
+      else {
+        var cached = readPowerCache();
+        if (cached && cached.ok) merged = cached;
+      }
+      try { cb(merged); } catch (e) {}
+    }
+    fetchYasnoPower(function (r) { yDone = true; y = r; maybe(); });
+    fetchDtekPower(function (r) { dDone = true; d = r; maybe(); });
+    setTimeout(function () {
+      if (!yDone) { yDone = true; y = emptyPower(); }
+      if (!dDone) { dDone = true; d = emptyPower(); }
+      maybe();
+    }, 12000);
+  }
+
   global.GadgetCore = {
     HUB_KEY: HUB_KEY,
     getHubBase: getHubBase,
@@ -668,6 +986,10 @@
     publishRadioNow: publishRadioNow,
     readRadioNow: readRadioNow,
     RADIO_NOW_KEY: RADIO_NOW_KEY,
-    RADIO_STATIONS: RADIO_STATIONS
+    RADIO_STATIONS: RADIO_STATIONS,
+    getPowerCfg: getPowerCfg,
+    setPowerCfg: setPowerCfg,
+    fetchPowerBundle: fetchPowerBundle,
+    readPowerCache: readPowerCache
   };
 })(this);

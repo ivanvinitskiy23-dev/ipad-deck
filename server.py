@@ -15,7 +15,10 @@ import threading
 import time
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from urllib.parse import urlparse
+from urllib.error import HTTPError, URLError
+from urllib.parse import urlencode, urlparse
+from urllib.request import Request, build_opener, HTTPCookieProcessor
+from http.cookiejar import CookieJar
 
 ROOT = Path(__file__).resolve().parent
 STATIC = ROOT / "static"
@@ -848,6 +851,170 @@ def status_payload() -> dict:
     }
 
 
+# Fixed home address for POWER card (Kyiv).
+POWER_STREET = os.environ.get("IPAD_DECK_POWER_STREET", "вул. Здолбунівська")
+POWER_HOUSE = os.environ.get("IPAD_DECK_POWER_HOUSE", "11/Б")
+POWER_GROUP = os.environ.get("IPAD_DECK_POWER_GROUP", "45.1")
+_dtek_cache: dict = {"t": 0.0, "data": None}
+_dtek_lock = threading.Lock()
+
+
+def _http_text(url: str, data: bytes | None = None, headers: dict | None = None, timeout: float = 12.0) -> tuple[int, str, dict]:
+    hdrs = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        "Accept": "application/json,text/javascript,*/*;q=0.1",
+    }
+    if headers:
+        hdrs.update(headers)
+    jar = CookieJar()
+    opener = build_opener(HTTPCookieProcessor(jar))
+    req = Request(url, data=data, headers=hdrs, method="POST" if data is not None else "GET")
+    try:
+        with opener.open(req, timeout=timeout) as resp:
+            body = resp.read().decode("utf-8", errors="replace")
+            return int(getattr(resp, "status", 200) or 200), body, {k.lower(): v for k, v in resp.headers.items()}
+    except HTTPError as e:
+        body = e.read().decode("utf-8", errors="replace") if e.fp else ""
+        return int(e.code), body, {}
+    except (URLError, TimeoutError, OSError) as e:
+        return 0, str(e), {}
+
+
+def fetch_dtek_power() -> dict:
+    """Best-effort DTEK Kyiv address status via their AJAX endpoint."""
+    now = time.time()
+    with _dtek_lock:
+        if _dtek_cache["data"] is not None and (now - float(_dtek_cache["t"])) < 60:
+            return dict(_dtek_cache["data"])
+
+    base = "https://www.dtek-kem.com.ua"
+    code, html, _ = _http_text(base + "/ua/shutdowns", timeout=15.0)
+    low = (html or "").lower()
+    blocked = (
+        code != 200
+        or len(html or "") < 800
+        or (("incap" in low or "incapsula" in low or "challenge" in low) and "csrf-token" not in low)
+    )
+    if blocked:
+        # Soft fail — Incapsula / WAF; Yasno remains primary on the client.
+        out = {"ok": False, "error": "dtek_blocked", "group": POWER_GROUP}
+        with _dtek_lock:
+            _dtek_cache["t"] = now
+            _dtek_cache["data"] = out
+        return out
+
+    m = re.search(r'name="csrf-token"\s+content="([^"]+)"', html, re.I)
+    if not m:
+        m = re.search(r'csrf-token"\s+content="([^"]+)"', html, re.I)
+    csrf = m.group(1) if m else ""
+    ajax = base + "/ua/ajax"
+    m2 = re.search(r'name="ajaxUrl"\s+content="([^"]+)"', html, re.I)
+    if m2:
+        ajax_path = m2.group(1)
+        ajax = ajax_path if ajax_path.startswith("http") else (base + ajax_path)
+
+    form = urlencode(
+        {
+            "method": "getHomeNum",
+            "data[0][name]": "city",
+            "data[0][value]": "м. Київ",
+            "data[1][name]": "street",
+            "data[1][value]": POWER_STREET,
+            "data[2][name]": "updateFact",
+            "data[2][value]": str(int(now)),
+        }
+    ).encode("utf-8")
+    headers = {
+        "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
+        "X-Requested-With": "XMLHttpRequest",
+        "Referer": base + "/ua/shutdowns",
+        "Origin": base,
+    }
+    if csrf:
+        headers["X-CSRF-Token"] = csrf
+    code2, body, _ = _http_text(ajax, data=form, headers=headers, timeout=15.0)
+    out: dict = {"ok": False, "error": "dtek_parse", "group": POWER_GROUP, "street": POWER_STREET, "house": POWER_HOUSE}
+    try:
+        payload = json.loads(body) if body else {}
+    except json.JSONDecodeError:
+        payload = {}
+    data = payload.get("data") if isinstance(payload, dict) else None
+    if code2 == 200 and isinstance(data, dict):
+        house = None
+        for key in (POWER_HOUSE, "11/Б", "11Б", "11б", "11b", "11B", "11"):
+            if key in data:
+                house = data[key]
+                break
+        if house is None and data:
+            # fuzzy: first key containing 11
+            for k, v in data.items():
+                if "11" in str(k).replace(" ", ""):
+                    house = v
+                    break
+        if isinstance(house, dict):
+            groups = house.get("sub_type_reason") or house.get("sub_type") or []
+            if isinstance(groups, str):
+                groups = [groups]
+            group = ""
+            if groups:
+                group = str(groups[0]).replace("GPV", "")
+            current_off = False
+            emergency = False
+            reason = ""
+            restore = ""
+            # Various shapes DTEK returns for active outage
+            for rk in ("reason", "cause", "type_shutdown", "shutdown_type"):
+                if house.get(rk):
+                    reason = str(house.get(rk))
+                    break
+            for rk in ("end_date", "recovery_time", "plan_end", "time_end", "orient_end"):
+                if house.get(rk):
+                    restore = str(house.get(rk))
+                    break
+            msg = json.dumps(house, ensure_ascii=False).lower()
+            if "відсутня електроенергія" in msg or "absent" in msg or house.get("is_shutdown") or house.get("shutdown"):
+                current_off = True
+            if "аварій" in msg or "екстрен" in msg or "emergency" in msg:
+                emergency = True
+                current_off = True
+            out = {
+                "ok": True,
+                "group": group or POWER_GROUP,
+                "current_off": current_off,
+                "emergency": emergency,
+                "reason": reason,
+                "restore": restore,
+                "street": POWER_STREET,
+                "house": POWER_HOUSE,
+                "raw_keys": list(house.keys())[:20],
+            }
+    with _dtek_lock:
+        _dtek_cache["t"] = now
+        _dtek_cache["data"] = out
+    return out
+
+
+def fetch_yasno_power() -> dict:
+    url = "https://app.yasno.ua/api/blackout-service/public/shutdowns/regions/25/dsos/902/planned-outages"
+    code, body, _ = _http_text(url, timeout=12.0)
+    if code != 200:
+        return {"ok": False, "error": "yasno_http", "group": POWER_GROUP}
+    try:
+        data = json.loads(body)
+    except json.JSONDecodeError:
+        return {"ok": False, "error": "yasno_json", "group": POWER_GROUP}
+    g = data.get(POWER_GROUP) or {}
+    today = g.get("today") or {}
+    return {
+        "ok": True,
+        "group": POWER_GROUP,
+        "status": today.get("status"),
+        "emergency": str(today.get("status") or "") == "EmergencyShutdowns",
+        "slots": today.get("slots") or [],
+        "updatedOn": g.get("updatedOn") or today.get("date"),
+    }
+
+
 class DeckHandler(SimpleHTTPRequestHandler):
     # Old iOS Safari often hangs on HTTP/1.1 keep-alive.
     protocol_version = "HTTP/1.0"
@@ -917,6 +1084,12 @@ class DeckHandler(SimpleHTTPRequestHandler):
                 self._json(404, {"ok": False, "error": "no cover"})
                 return
             self._bytes(200, data, ctype or "image/jpeg")
+            return
+        if path == "/api/power/dtek":
+            self._json(200, fetch_dtek_power())
+            return
+        if path == "/api/power/yasno":
+            self._json(200, fetch_yasno_power())
             return
         if path in ("/", "/index.html"):
             # Always serve fresh index bytes (bypass SimpleHTTP file cache quirks).
