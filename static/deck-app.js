@@ -1,8 +1,8 @@
 /* Textmode Deck app shell — ES5 */
 (function () {
       var IDLE_MS = 45000;
-      var DRIVE_VER = 64;
-      var APP_VER = 64;
+      var DRIVE_VER = 65;
+      var APP_VER = 65;
       var THEME_KEY = "kissaten_deck_theme";
       var SCENE_KEY = "kissaten_idle_scene";
       var SCENES = [
@@ -61,6 +61,7 @@
       var powerWarnTimer = null;
       var POWER_WARN_MS = 18000;
       var lastPower = null;
+      var powerFace = 0;
       var toastEl = document.getElementById("toast");
       var metaEl = document.getElementById("meta");
       var hubStatsEl = document.getElementById("hubStats");
@@ -425,9 +426,9 @@
         if (pw && ipw) {
           var lvl = "unknown";
           if (pw.className.indexOf("emergency") >= 0) lvl = "emergency";
-          else if (pw.className.indexOf("off") >= 0) lvl = "off";
+          else if ((" " + pw.className + " ").indexOf(" off ") >= 0) lvl = "off";
           else if (pw.className.indexOf("soon") >= 0) lvl = "soon";
-          else if (pw.className.indexOf("on") >= 0) lvl = "on";
+          else if ((" " + pw.className + " ").indexOf(" on ") >= 0) lvl = "on";
           var blink = pw.className.indexOf("blink") >= 0;
           ipw.className = "card" + (lvl !== "unknown" ? (" " + lvl) : "") + (blink ? " blink" : "");
         }
@@ -702,46 +703,60 @@
         paintIdleChrome();
       }
 
-      function powerBackText(p) {
-        if (!p) return { val: "група 45.1", sub: "Yasno · DTEK" };
-        var slots = p.slots || [];
-        var lines = [];
-        var i;
-        for (i = 0; i < slots.length && i < 3; i++) {
-          if (slots[i] && slots[i].label) lines.push(slots[i].label);
+      function formatSchedLine(day, title) {
+        if (!day) return title + ": ще не сформовано";
+        var mark = day.cached ? " (кеш)" : "";
+        if (day.labels && day.labels.length) {
+          return title + mark + ": " + day.labels.slice(0, 3).join(", ");
         }
-        if (p.emergency) {
+        if (day.text === "без відключень") return title + mark + ": без відключень";
+        if (day.emergency && !day.labels.length) return title + ": ще не сформовано";
+        return title + ": " + (day.text || "ще не сформовано");
+      }
+
+      function powerInfoFace(p) {
+        if (p && p.emergency) {
           return {
-            val: p.reason ? String(p.reason).slice(0, 22) : "екстрені",
-            sub: (p.restore ? ("відн. " + p.restore) : "графіки не діють") +
-              (p.group ? (" · " + p.group) : "")
+            k: "INFO",
+            val: "ЕКСТРЕНІ",
+            sub: "відключення · графік не діє"
           };
         }
-        if (lines.length) {
+        var today = p && p.todaySched;
+        if (today && today.labels && today.labels.length) {
           return {
-            val: lines[0],
-            sub: (lines[1] ? (lines[1] + " · ") : "") + (p.group || "45.1") +
-              (p.source ? (" · " + p.source) : "")
+            k: "СЬОГОДНІ",
+            val: today.cached ? "КЕШ" : "ГРАФІК",
+            sub: today.labels.slice(0, 2).join(" · ") + (p.group ? (" · " + p.group) : "")
           };
         }
         return {
-          val: "група " + (p.group || "45.1"),
-          sub: (p.nextOff ? ("далі " + p.nextOff) : "немає слотів") +
-            (p.source ? (" · " + p.source) : "")
+          k: "INFO",
+          val: "група " + ((p && p.group) || "45.1"),
+          sub: (p && p.source) ? p.source : "Yasno · DTEK"
+        };
+      }
+
+      function powerGraphFace(p) {
+        var today = p && p.todaySched;
+        var tom = p && p.tomorrowSched;
+        return {
+          val: "графік " + ((p && p.group) || "45.1"),
+          sub: formatSchedLine(today, "сьогодні") + "\n" + formatSchedLine(tom, "завтра")
         };
       }
 
       function setPowerCardClass(p) {
         var el = document.getElementById("lvPower");
         if (!el) return;
-        var flipped = el.className.indexOf("flip") >= 0;
         var level = (p && p.level) ? p.level : "unknown";
-        var cls = "lv-power";
+        var face = powerFace | 0;
+        if (face < 0 || face > 2) face = 0;
+        var cls = "lv-power face-" + face;
         if (level === "on" || level === "soon" || level === "off" || level === "emergency") {
           cls += " " + level;
         }
         if (powerWarnActive) cls += " blink";
-        if (flipped) cls += " flip";
         el.className = cls;
       }
 
@@ -763,8 +778,11 @@
         var el = document.getElementById("lvPower");
         var val = document.getElementById("lvPowerVal");
         var sub = document.getElementById("lvPowerSub");
-        var bVal = document.getElementById("lvPowerBackVal");
-        var bSub = document.getElementById("lvPowerBackSub");
+        var iK = document.getElementById("lvPowerInfoK");
+        var iVal = document.getElementById("lvPowerInfoVal");
+        var iSub = document.getElementById("lvPowerInfoSub");
+        var gVal = document.getElementById("lvPowerGraphVal");
+        var gSub = document.getElementById("lvPowerGraphSub");
         if (!el || !val) return;
         if (powerWarnActive && (new Date()).getTime() >= powerWarnUntil) {
           dismissPowerWarn(true);
@@ -772,9 +790,21 @@
         setPowerCardClass(p);
         val.textContent = (p && p.label) ? p.label : "НЕМАЄ ДАНИХ";
         if (sub) sub.textContent = (p && p.sub) ? p.sub : "Kyiv · POWER";
-        var back = powerBackText(p);
-        if (bVal) bVal.textContent = back.val;
-        if (bSub) bSub.textContent = back.sub;
+        var info = powerInfoFace(p);
+        if (iK) iK.textContent = info.k;
+        if (iVal) iVal.textContent = info.val;
+        if (iSub) iSub.textContent = info.sub;
+        var graph = powerGraphFace(p);
+        if (gVal) gVal.textContent = graph.val;
+        if (gSub) {
+          gSub.textContent = "";
+          var parts = String(graph.sub || "").split("\n");
+          var pi;
+          for (pi = 0; pi < parts.length; pi++) {
+            if (pi) gSub.appendChild(document.createElement("br"));
+            gSub.appendChild(document.createTextNode(parts[pi]));
+          }
+        }
         paintIdleChrome();
         maybePowerWarn(p);
       }
@@ -1586,9 +1616,8 @@
             bumpIdle();
             return;
           }
-          var flipped = pw.className.indexOf("flip") >= 0;
-          if (flipped) pw.className = pw.className.replace(/\s*flip\b/g, "");
-          else pw.className = (pw.className + " flip").replace(/\s+/g, " ");
+          powerFace = ((powerFace | 0) + 1) % 3;
+          setPowerCardClass(lastPower);
           bumpIdle();
         };
       })();

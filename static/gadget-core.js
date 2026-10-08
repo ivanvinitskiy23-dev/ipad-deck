@@ -648,6 +648,7 @@
   /* ===== Power outages (Kyiv · Yasno primary + DTEK backup) ===== */
   var POWER_KEY = "kissaten_power_cfg";
   var POWER_CACHE_KEY = "kissaten_power_cache_v2";
+  var POWER_SCHED_KEY = "kissaten_power_sched_v1";
   var DEFAULT_POWER = {
     city: "Київ",
     street: "вул. Здолбунівська",
@@ -726,8 +727,175 @@
       reason: "",
       source: "",
       slots: [],
+      todaySched: null,
+      tomorrowSched: null,
       updated: nowSec()
     };
+  }
+
+  function dayKeyFromIso(iso) {
+    if (!iso) return "";
+    var s = String(iso);
+    var m = s.match(/(\d{4}-\d{2}-\d{2})/);
+    return m ? m[1] : s.slice(0, 10);
+  }
+
+  function kyivDayKey(offsetDays) {
+    var d = new Date((new Date()).getTime() + (offsetDays || 0) * 86400000);
+    return d.getFullYear() + "-" + pad2p(d.getMonth() + 1) + "-" + pad2p(d.getDate());
+  }
+
+  function slotsToOffRanges(slots) {
+    var offRanges = [];
+    var i, s, start, end, typ;
+    slots = slots || [];
+    for (i = 0; i < slots.length; i++) {
+      s = slots[i] || {};
+      start = (s.start | 0);
+      end = (s.end | 0);
+      typ = String(s.type || "");
+      if (typ !== "NotPlanned" && end > start) {
+        offRanges.push({ start: start, end: end, label: minsToHHMM(start) + "–" + minsToHHMM(end) });
+      }
+    }
+    return offRanges;
+  }
+
+  function emptyDaySched(which) {
+    return {
+      which: which || "today",
+      date: "",
+      status: "",
+      emergency: false,
+      live: false,
+      slots: [],
+      labels: [],
+      text: "ще не сформовано"
+    };
+  }
+
+  function parseYasnoDay(dayObj, which) {
+    var out = emptyDaySched(which);
+    dayObj = dayObj || {};
+    out.date = dayKeyFromIso(dayObj.date) || "";
+    out.status = String(dayObj.status || "");
+    out.emergency = out.status === "EmergencyShutdowns";
+    out.slots = slotsToOffRanges(dayObj.slots || []);
+    out.labels = [];
+    var i;
+    for (i = 0; i < out.slots.length; i++) out.labels.push(out.slots[i].label);
+    if (out.emergency && !out.labels.length) {
+      out.live = true;
+      out.text = "графік не діє";
+    } else if (out.labels.length) {
+      out.live = true;
+      out.text = out.labels.slice(0, 3).join(" · ");
+    } else if (out.status) {
+      out.live = true;
+      out.text = "без відключень";
+    } else {
+      out.live = false;
+      out.text = "ще не сформовано";
+    }
+    return out;
+  }
+
+  function readScheduleStore() {
+    try {
+      var raw = localStorage.getItem(POWER_SCHED_KEY);
+      if (!raw) return { group: getPowerCfg().group, days: {} };
+      var o = JSON.parse(raw);
+      if (!o || typeof o !== "object") return { group: getPowerCfg().group, days: {} };
+      if (!o.days || typeof o.days !== "object") o.days = {};
+      return o;
+    } catch (e) {
+      return { group: getPowerCfg().group, days: {} };
+    }
+  }
+
+  function writeScheduleStore(store) {
+    try { localStorage.setItem(POWER_SCHED_KEY, JSON.stringify(store)); } catch (e) {}
+  }
+
+  function saveLiveDayToStore(day, group) {
+    if (!day || !day.date || !day.live) return;
+    /* Only persist usable hourly graphs — not emergency-empty days. */
+    if (day.emergency && !day.labels.length) return;
+    if (!day.labels.length && day.text === "ще не сформовано") return;
+    var store = readScheduleStore();
+    store.group = group || getPowerCfg().group;
+    store.days[day.date] = {
+      date: day.date,
+      labels: day.labels.slice(0),
+      text: day.text,
+      status: day.status,
+      savedAt: nowSec()
+    };
+    /* Keep ~10 days max */
+    var keys = [];
+    var k;
+    for (k in store.days) {
+      if (store.days.hasOwnProperty(k)) keys.push(k);
+    }
+    keys.sort();
+    while (keys.length > 10) {
+      delete store.days[keys[0]];
+      keys.shift();
+    }
+    writeScheduleStore(store);
+  }
+
+  function resolveDaySched(liveDay, which) {
+    var out = liveDay || emptyDaySched(which);
+    var wantDate = out.date || kyivDayKey(which === "tomorrow" ? 1 : 0);
+    if (out.live && out.labels.length) {
+      out.cached = false;
+      return out;
+    }
+    if (out.live && !out.emergency && out.text === "без відключень") {
+      out.cached = false;
+      return out;
+    }
+    var store = readScheduleStore();
+    var hit = store.days && store.days[wantDate];
+    if (hit && hit.labels && hit.labels.length) {
+      return {
+        which: which,
+        date: wantDate,
+        status: hit.status || "",
+        emergency: false,
+        live: false,
+        cached: true,
+        slots: [],
+        labels: hit.labels.slice(0),
+        text: hit.labels.slice(0, 3).join(" · ")
+      };
+    }
+    if (out.emergency) {
+      out.date = wantDate;
+      out.cached = false;
+      out.text = "ще не сформовано";
+      out.labels = [];
+      return out;
+    }
+    out.date = wantDate;
+    out.cached = false;
+    if (!out.text) out.text = "ще не сформовано";
+    return out;
+  }
+
+  function applyScheduleSide(out, todayLive, tomorrowLive) {
+    if (todayLive && todayLive.live) saveLiveDayToStore(todayLive, out.group);
+    if (tomorrowLive && tomorrowLive.live) saveLiveDayToStore(tomorrowLive, out.group);
+    out.todaySched = resolveDaySched(todayLive, "today");
+    out.tomorrowSched = resolveDaySched(tomorrowLive, "tomorrow");
+    if ((!out.slots || !out.slots.length) && out.todaySched && out.todaySched.labels && out.todaySched.labels.length) {
+      out.slots = [];
+      var i;
+      for (i = 0; i < out.todaySched.labels.length; i++) {
+        out.slots.push({ label: out.todaySched.labels[i] });
+      }
+    }
   }
 
   function parseYasnoGroup(data, group) {
@@ -736,45 +904,42 @@
     out.group = group;
     if (!data || !data[group]) return out;
     var g = data[group];
-    var today = g.today || {};
-    var status = String(today.status || "");
+    var todayLive = parseYasnoDay(g.today, "today");
+    var tomorrowLive = parseYasnoDay(g.tomorrow, "tomorrow");
     out.ok = true;
     out.updated = nowSec();
-    if (status === "EmergencyShutdowns") {
+
+    if (todayLive.emergency) {
       /* Schedules void — light may still be on at the address. */
       out.emergency = true;
       out.offNow = false;
       out.level = "emergency";
       out.label = "ЕКСТРЕНІ";
       out.sub = "графіки не діють · " + group;
+      applyScheduleSide(out, todayLive, tomorrowLive);
       return out;
     }
-    var slots = today.slots || [];
-    var offRanges = [];
-    var i, s, start, end, typ, on;
-    /* Build 48 half-hour flags: true = light ON */
+
+    var offRanges = todayLive.slots || [];
+    out.slots = offRanges;
     var half = [];
+    var i, j, s, start, end, typ, on;
+    var rawSlots = (g.today && g.today.slots) || [];
     for (i = 0; i < 48; i++) half[i] = true;
-    for (i = 0; i < slots.length; i++) {
-      s = slots[i] || {};
+    for (i = 0; i < rawSlots.length; i++) {
+      s = rawSlots[i] || {};
       start = (s.start | 0);
       end = (s.end | 0);
       typ = String(s.type || "");
       on = (typ === "NotPlanned");
       var a = Math.floor(start / 30);
       var b = Math.ceil(end / 30);
-      var j;
       for (j = a; j < b && j < 48; j++) half[j] = on;
-      if (!on && end > start) {
-        offRanges.push({ start: start, end: end, label: minsToHHMM(start) + "–" + minsToHHMM(end) });
-      }
     }
-    out.slots = offRanges;
     var nowM = nowMinsKyiv();
     var idx = Math.floor(nowM / 30);
     if (idx > 47) idx = 47;
     out.offNow = !half[idx];
-    /* next off start */
     var nextOff = -1;
     var nextOn = -1;
     if (out.offNow) {
@@ -785,7 +950,6 @@
       for (i = idx + 1; i < 48; i++) {
         if (!half[i]) { nextOff = i * 30; break; }
       }
-      /* also check current slot end if we're in a NotPlanned and next is Definite */
       for (i = 0; i < offRanges.length; i++) {
         if (offRanges[i].start > nowM) {
           if (nextOff < 0 || offRanges[i].start < nextOff) nextOff = offRanges[i].start;
@@ -812,6 +976,7 @@
       out.label = "СВІТЛО Є";
       out.sub = (out.nextOff ? ("далі " + out.nextOff) : "без слотів") + " · " + group;
     }
+    applyScheduleSide(out, todayLive, tomorrowLive);
     return out;
   }
 
@@ -899,6 +1064,8 @@
     m.restore = d.restore || y.restore || "";
     m.source = (y.ok && d.ok) ? "Yasno+DTEK" : (y.ok ? "Yasno" : (d.ok ? "DTEK" : ""));
     m.updated = nowSec();
+    m.todaySched = y.todaySched || resolveDaySched(null, "today");
+    m.tomorrowSched = y.tomorrowSched || resolveDaySched(null, "tomorrow");
     if (m.offNow && m.emergency) {
       m.level = "emergency";
       m.label = "ЕКСТРЕНІ";
