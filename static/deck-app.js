@@ -1,19 +1,14 @@
 /* Textmode Deck app shell — ES5 */
 (function () {
       var IDLE_MS = 45000;
-      var DRIVE_VER = 67;
-      var APP_VER = 67;
+      var DRIVE_VER = 68;
+      var APP_VER = 68;
       var THEME_KEY = "kissaten_deck_theme";
-      var SCENE_KEY = "kissaten_idle_scene";
-      var SCENES = [
-        { id: "drive", name: "Ночная дорога" },
-        { id: "rain", name: "Окно в дождь" },
-        { id: "ramen", name: "Рамэн" },
-        { id: "vinyl", name: "Пластинка" }
-      ];
+      var IDLE_ART = "art/cafe-yum.gif";
       var GC = window.GadgetCore;
-      // Drop obsolete night-mode flag from older builds
+      // Drop obsolete night-mode / multi-scene flags from older builds
       try { localStorage.removeItem("kissaten_deck_night"); } catch (e0) {}
+      try { localStorage.removeItem("kissaten_idle_scene"); } catch (e1) {}
       var theme = "C";
       var idleTimer = null;
       var idleLoadedTheme = null;
@@ -196,80 +191,17 @@
           syncBodyClass();
         }
         idleLoadedTheme = null;
-        idleFrame.src = "about:blank";
+        if (idleFrame) idleFrame.src = "about:blank";
         saveTheme(t);
         if (wasIdle) {
           setTimeout(function () { showIdle(true); }, 80);
         }
       }
 
-      function driveUrl() {
-        var hub = GC ? GC.getHubBase() : "";
-        var q = "theme=" + theme +
-          "&scene=" + readScene() +
-          "&v=" + DRIVE_VER +
-          "&mode=" + mode;
-        if (hub) q += "&hub=" + encodeURIComponent(hub);
-        /* Always same-origin — never hubPath (HTTPS Pages cannot iframe HTTP hub) */
-        return "night-drive.html?" + q;
-      }
-
-      function readScene() {
-        try {
-          var s = localStorage.getItem(SCENE_KEY) || "drive";
-          for (var i = 0; i < SCENES.length; i++) {
-            if (SCENES[i].id === s) return s;
-          }
-        } catch (e) {}
-        return "drive";
-      }
-      function saveScene(id) {
-        try { localStorage.setItem(SCENE_KEY, id); } catch (e) {}
-      }
-      function syncSceneUI() {
-        var cur = readScene();
-        var nodes = document.querySelectorAll(".scene-pick");
-        for (var i = 0; i < nodes.length; i++) {
-          var on = nodes[i].getAttribute("data-scene") === cur;
-          nodes[i].className = on ? "drawer-btn scene-pick on" : "drawer-btn scene-pick";
-        }
-      }
-      function buildSceneList() {
-        var box = document.getElementById("sceneList");
-        if (!box) return;
-        box.innerHTML = "";
-        for (var i = 0; i < SCENES.length; i++) {
-          (function (sc) {
-            var b = document.createElement("button");
-            b.type = "button";
-            b.className = "drawer-btn scene-pick";
-            b.setAttribute("data-scene", sc.id);
-            b.textContent = sc.name;
-            b.onclick = function (ev) {
-              if (!drawerTapOk()) {
-                if (ev && ev.preventDefault) ev.preventDefault();
-                return;
-              }
-              if (ev && ev.preventDefault) ev.preventDefault();
-              if (ev && ev.stopPropagation) ev.stopPropagation();
-              saveScene(sc.id);
-              syncSceneUI();
-              idleLoadedTheme = null;
-              closeDrawer();
-              ignoreBumpUntil = (new Date()).getTime() + 2800;
-              setTimeout(function () { showIdle(true); }, 50);
-              toast(sc.name);
-            };
-            box.appendChild(b);
-          })(SCENES[i]);
-        }
-        syncSceneUI();
-      }
       var drawerArm = 0;
       function openDrawer() {
         drawerArm = (new Date()).getTime() + 700;
         drawerEl.className = "on";
-        syncSceneUI();
         syncBodyClass();
         var hubInput = document.getElementById("hubInput");
         if (hubInput) hubInput.value = GC ? (GC.getHubBase() || location.origin) : location.origin;
@@ -421,11 +353,7 @@
       }, false);
 
       function idleArtUrl() {
-        var s = readScene();
-        var t = readTheme();
-        if (s === "ramen") return "art/pack-ramen.gif?v=" + APP_VER;
-        if (s !== "rain" && s !== "vinyl") s = "drive";
-        return "art/scene-" + s + "-" + t + ".gif?v=" + APP_VER;
+        return IDLE_ART + "?v=" + APP_VER;
       }
 
       function paintIdleChrome() {
@@ -470,21 +398,37 @@
 
       function placeIdlePic() {
         var img = document.getElementById("idlePic");
-        if (!img) return;
+        var box = document.getElementById("idleFrameBox");
+        if (!img || !box) return;
         var vw = window.innerWidth || document.documentElement.clientWidth || 320;
         var vh = window.innerHeight || document.documentElement.clientHeight || 480;
         if (vw < 2) vw = 320;
         if (vh < 2) vh = 480;
+        /* Keep art inside a neat frame, clear of HUD + ticker */
+        var padX = 18;
+        var padTop = 78;
+        var padBot = 40;
+        var frameChrome = 12;
+        var border = 2;
+        var maxW = vw - padX * 2 - frameChrome * 2 - border * 2;
+        var maxH = vh - padTop - padBot - frameChrome * 2 - border * 2;
+        if (maxW < 160) maxW = 160;
+        if (maxH < 100) maxH = 100;
         var GW = (img.naturalWidth > 2) ? img.naturalWidth : 480;
         var GH = (img.naturalHeight > 2) ? img.naturalHeight : 270;
-        var gs = Math.min(vw / GW, vh / GH);
+        var gs = Math.min(maxW / GW, maxH / GH);
         if (!(gs > 0)) gs = 1;
         var dw = Math.round(GW * gs);
         var dh = Math.round(GH * gs);
+        var outerW = dw + frameChrome * 2 + border * 2;
+        var outerH = dh + frameChrome * 2 + border * 2;
+        box.style.width = outerW + "px";
+        box.style.height = outerH + "px";
+        box.style.padding = frameChrome + "px";
+        box.style.left = Math.max(0, Math.round((vw - outerW) / 2)) + "px";
+        box.style.top = Math.max(padTop, Math.round(padTop + (vh - padTop - padBot - outerH) / 2)) + "px";
         img.style.width = dw + "px";
         img.style.height = dh + "px";
-        img.style.left = Math.max(0, Math.round((vw - dw) / 2)) + "px";
-        img.style.top = Math.max(0, Math.round((vh - dh) / 2)) + "px";
       }
 
       function loadIdleFrame(forceReload) {
@@ -498,7 +442,7 @@
         }
         placeIdlePic();
         paintIdleChrome();
-        idleLoadedTheme = theme + "|v" + DRIVE_VER + "|" + readScene();
+        idleLoadedTheme = theme + "|v" + DRIVE_VER + "|cafe";
       }
 
       function showIdle(forced) {
@@ -1630,7 +1574,6 @@
         bumpIdle(e, { dismiss: true });
       }, false);
 
-      buildSceneList();
       applyTheme(readTheme(), false);
       hideChrome();
       bumpIdle();
