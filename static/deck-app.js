@@ -1,8 +1,8 @@
 /* Textmode Deck app shell — ES5 */
 (function () {
       var IDLE_MS = 45000;
-      var DRIVE_VER = 66;
-      var APP_VER = 66;
+      var DRIVE_VER = 67;
+      var APP_VER = 67;
       var THEME_KEY = "kissaten_deck_theme";
       var SCENE_KEY = "kissaten_idle_scene";
       var SCENES = [
@@ -94,8 +94,20 @@
         return localPath(path);
       }
 
+      var toastTimer = null;
       function toast(msg) {
+        if (!toastEl) return;
         toastEl.textContent = msg || "";
+        if (!msg) {
+          toastEl.className = "";
+          return;
+        }
+        toastEl.className = "on";
+        if (toastTimer) clearTimeout(toastTimer);
+        toastTimer = setTimeout(function () {
+          toastEl.className = "";
+          toastEl.textContent = "";
+        }, 2200);
       }
 
       function setMeta(html) {
@@ -258,7 +270,19 @@
         drawerArm = (new Date()).getTime() + 700;
         drawerEl.className = "on";
         syncSceneUI();
-        document.getElementById("hubInput").value = GC ? (GC.getHubBase() || location.origin) : location.origin;
+        syncBodyClass();
+        var hubInput = document.getElementById("hubInput");
+        if (hubInput) hubInput.value = GC ? (GC.getHubBase() || location.origin) : location.origin;
+        var bm = document.getElementById("buildMeta");
+        if (bm) bm.textContent = "build v" + APP_VER + " · textmode";
+      }
+
+      function setHubFold(open) {
+        var btn = document.getElementById("hubFoldBtn");
+        var fold = document.getElementById("hubFold");
+        if (!btn || !fold) return;
+        btn.className = open ? "drawer-fold-btn open" : "drawer-fold-btn";
+        fold.className = open ? "drawer-fold open" : "drawer-fold";
       }
       function closeDrawer() {
         drawerEl.className = "";
@@ -311,6 +335,11 @@
       document.getElementById("infoChip").onclick = function () { openDrawer(); };
       document.getElementById("drawerBack").onclick = closeDrawer;
       document.getElementById("tipOk").onclick = function () { tipEl.className = ""; };
+      document.getElementById("hubFoldBtn").onclick = function (e) {
+        if (!drawerTapOk()) { if (e && e.preventDefault) e.preventDefault(); return; }
+        var fold = document.getElementById("hubFold");
+        setHubFold(!(fold && fold.className.indexOf("open") >= 0));
+      };
       document.getElementById("hubSave").onclick = function () {
         var v = document.getElementById("hubInput").value.replace(/^\s+|\s+$/g, "");
         if (GC) GC.setHubBase(v);
@@ -1578,13 +1607,18 @@
       var themePills = document.querySelectorAll(".theme-pill");
       for (var j = 0; j < themePills.length; j++) {
         (function (pill) {
-          pill.onclick = function () {
+          pill.onclick = function (ev) {
+            if (!drawerTapOk()) {
+              if (ev && ev.preventDefault) ev.preventDefault();
+              return;
+            }
             applyTheme(pill.getAttribute("data-theme"), true);
-            toast("тема " + pill.getAttribute("data-theme"));
+            toast(names[pill.getAttribute("data-theme")] || ("тема " + pill.getAttribute("data-theme")));
             bumpIdle();
           };
         })(themePills[j]);
       }
+      setHubFold(false);
 
       document.body.addEventListener("touchstart", function (e) { bumpIdle(e); }, false);
       document.body.addEventListener("mousedown", function (e) { bumpIdle(e); }, false);

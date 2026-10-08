@@ -509,37 +509,13 @@ button.pad.warn { color: var(--warn); border-color: var(--warn); background: var
 .scene-btn .sub { display: block; font-size: 9px; font-weight: 500; opacity: .7; margin-top: 1px; }
 .vol-slider-wrap { display: none !important; }
 
-.theme-bar {
-  margin: auto 10px 10px; padding: 8px 10px 12px;
-  border: 1px solid var(--line); background: rgba(0,0,0,.94);
-  -webkit-flex-shrink: 0; flex-shrink: 0;
-  position: -webkit-sticky; position: sticky; bottom: 0; z-index: 5;
-}
-.theme-bar .label {
-  font-size: 10px; letter-spacing: .18em; text-transform: uppercase;
-  color: var(--dim); text-align: center; margin-bottom: 6px;
-}
-.theme-pills {
-  display: -webkit-box; display: -webkit-flex; display: flex;
-  -webkit-box-pack: center; -webkit-justify-content: center; justify-content: center;
-}
-.theme-pill {
-  -webkit-box-flex: 1; -webkit-flex: 1; flex: 1; max-width: 120px;
-  margin: 0 4px; min-height: 36px; border: 1px solid var(--line); background: #000;
-  color: var(--dim); font-family: inherit; font-size: 11px; font-weight: 700;
-  letter-spacing: .12em; text-transform: uppercase; border-radius: 0;
-}
-.theme-pill.on {
-  border-color: var(--accent); color: var(--accent); text-shadow: 0 0 6px var(--glow);
-}
-
 /* Drawer = system console */
 #drawer { display: none; position: fixed; top: 0; right: 0; bottom: 0; left: 0; width: 100%; height: 100%; z-index: 200; }
 #drawer.on { display: block; }
 .drawer-back { position: absolute; top: 0; right: 0; bottom: 0; left: 0; background: rgba(0,0,0,.78); }
 .drawer-panel {
   position: absolute; left: 0; top: 0; bottom: 0; width: 82%; max-width: 320px;
-  padding: 16px 14px 24px; background: #000; border-right: 1px solid var(--accent);
+  padding: 16px 14px 28px; background: #000; border-right: 1px solid var(--accent);
   overflow: auto; -webkit-overflow-scrolling: touch;
   -webkit-transform: translateX(-104%); transform: translateX(-104%);
   -webkit-transition: -webkit-transform .2s ease-out; transition: transform .2s ease-out;
@@ -547,46 +523,83 @@ button.pad.warn { color: var(--warn); border-color: var(--warn); background: var
 #drawer.on .drawer-panel { -webkit-transform: translateX(0); transform: translateX(0); }
 .drawer-title {
   font-size: 11px; letter-spacing: .2em; text-transform: uppercase;
-  color: var(--accent); margin-bottom: 12px; text-shadow: 0 0 8px var(--glow);
+  color: var(--accent); margin-bottom: 10px; text-shadow: 0 0 8px var(--glow);
 }
 .drawer-title:before { content: "$ "; }
 .drawer-section {
   font-size: 10px; letter-spacing: .14em; text-transform: uppercase;
-  color: var(--dim); margin: 14px 0 6px;
+  color: var(--dim); margin: 16px 0 6px;
 }
 .drawer-section:before { content: "// "; }
+.drawer-hint {
+  margin: 0 0 10px; font-size: 10px; line-height: 1.35; color: var(--dim);
+}
 .side-brand {
   font-size: 11px; letter-spacing: .14em; text-transform: uppercase;
   color: var(--accent); margin: 2px 0 6px; text-shadow: 0 0 6px var(--glow);
 }
 .meta { margin: 4px 0 0; font-size: 10px; line-height: 1.45; color: var(--dim); }
 .meta b { color: var(--ink); }
-.toast { min-height: 14px; margin-top: 4px; font-size: 10px; color: var(--accent); text-shadow: 0 0 6px var(--glow); }
+#toast {
+  position: fixed; left: 10px; right: 10px; bottom: 10px; z-index: 260;
+  min-height: 0; padding: 0; margin: 0; pointer-events: none;
+  font-size: 11px; letter-spacing: .08em; text-align: center;
+  color: var(--accent); text-shadow: 0 0 8px var(--glow);
+}
+#toast.on {
+  padding: 8px 10px; border: 1px solid var(--accent); background: rgba(0,0,0,.92);
+}
 .hub-field {
   width: 100%; font-size: 12px; padding: 8px; margin: 0 0 6px;
   border: 1px solid var(--line); background: #050505; color: var(--ink);
-  font-family: inherit; border-radius: 0;
+  font-family: inherit; border-radius: 0; -webkit-box-sizing: border-box; box-sizing: border-box;
 }
 .mode-badge {
-  display: inline-block; font-size: 9px; letter-spacing: .14em; text-transform: uppercase;
-  padding: 3px 7px; border: 1px solid var(--accent); color: var(--accent); margin-bottom: 8px;
+  display: block; font-size: 10px; letter-spacing: .14em; text-transform: uppercase;
+  padding: 6px 8px; border: 1px solid var(--accent); color: var(--accent); margin: 0 0 12px;
+  text-align: center;
 }
-.mode-pills { display: -webkit-box; display: -webkit-flex; display: flex; margin: 0 0 10px; }
+.mode-pills { display: -webkit-box; display: -webkit-flex; display: flex; margin: 0 0 6px; }
 .mode-pill {
   -webkit-box-flex: 1; -webkit-flex: 1; flex: 1;
-  margin: 0 3px 0 0; padding: 10px 6px; border: 1px solid var(--line); background: #050505;
+  margin: 0 3px 0 0; padding: 12px 6px; border: 1px solid var(--line); background: #050505;
   color: var(--dim); font-family: inherit; font-size: 11px; letter-spacing: .1em;
   text-transform: uppercase; border-radius: 0;
 }
 .mode-pill:last-child { margin-right: 0; }
 .mode-pill.on { color: var(--accent); border-color: var(--accent); font-weight: 700; }
+.theme-pills {
+  display: -webkit-box; display: -webkit-flex; display: flex;
+  -webkit-box-pack: center; -webkit-justify-content: center; justify-content: center;
+  margin: 0 0 4px;
+}
+.theme-pill {
+  -webkit-box-flex: 1; -webkit-flex: 1; flex: 1;
+  margin: 0 3px 0 0; min-height: 40px; border: 1px solid var(--line); background: #050505;
+  color: var(--dim); font-family: inherit; font-size: 10px; font-weight: 700;
+  letter-spacing: .1em; text-transform: uppercase; border-radius: 0;
+}
+.theme-pill:last-child { margin-right: 0; }
+.theme-pill.on {
+  border-color: var(--accent); color: var(--accent); text-shadow: 0 0 6px var(--glow);
+}
 .fs-btn, .drawer-btn, .scene-pick {
-  display: block; width: 100%; margin: 0 0 6px; padding: 9px 8px;
+  display: block; width: 100%; margin: 0 0 6px; padding: 10px 8px;
   border: 1px solid var(--line); background: #050505; color: var(--accent);
-  font-family: inherit; font-size: 10px; letter-spacing: .1em; text-transform: uppercase;
+  font-family: inherit; font-size: 11px; letter-spacing: .1em; text-transform: uppercase;
   border-radius: 0; text-align: left;
 }
 .drawer-btn.on, .scene-pick.on { border-color: var(--hot); color: var(--hot); }
+.drawer-fold-btn {
+  display: block; width: 100%; margin: 16px 0 0; padding: 10px 8px;
+  border: 1px dashed var(--line); background: #050505; color: var(--dim);
+  font-family: inherit; font-size: 10px; letter-spacing: .12em; text-transform: uppercase;
+  border-radius: 0; text-align: left;
+}
+.drawer-fold-btn:before { content: "▸ "; color: var(--accent); }
+.drawer-fold-btn.open:before { content: "▾ "; }
+.drawer-fold { display: none; margin-top: 8px; padding-top: 4px; }
+.drawer-fold.open { display: block; }
 
 #idle {
   display: none; position: fixed; top: 0; right: 0; bottom: 0; left: 0; width: 100%; height: 100%;
@@ -655,7 +668,6 @@ button.pad.warn { color: var(--warn); border-color: var(--warn); background: var
   #deckStack { width: 100% !important; height: 100% !important; left: 0 !important; right: 0 !important; top: 0 !important; bottom: 0 !important; }
   .solo-clock { font-size: 48px; }
   .solo-panel { margin-top: 6px; padding: 10px 10px 8px; }
-  .theme-bar { margin-left: 6px; margin-right: 6px; }
   header { padding-top: 2px; }
   .header-row { max-width: 100%; min-height: 96px; }
   .menu-chip { width: 72px; min-height: 96px; }
@@ -836,38 +848,45 @@ button.pad.warn { color: var(--warn); border-color: var(--warn); background: var
         </div>
       </div>
 
-      <div class="theme-bar">
-        <div class="label">PALETTE</div>
-        <div class="theme-pills">
-          <button type="button" class="theme-pill" data-theme="B">PHOSPHOR</button>
-          <button type="button" class="theme-pill" data-theme="C">CRT</button>
-          <button type="button" class="theme-pill" data-theme="D">AMBER</button>
-        </div>
-      </div>
     </div>
   </div>
+
+  <div id="toast" aria-live="polite"></div>
 
   <div id="drawer">
     <div class="drawer-back" id="drawerBack"></div>
     <div class="drawer-panel">
-      <div class="drawer-title">system</div>
+      <div class="drawer-title">sys</div>
+      <div class="mode-badge" id="modeBadge">…</div>
+
       <div class="drawer-section">Mode</div>
       <div class="mode-pills">
         <button type="button" class="mode-pill" id="modeDeckBtn" data-mode="deck">DECK</button>
         <button type="button" class="mode-pill" id="modeSoloBtn" data-mode="solo">STANDALONE</button>
       </div>
-      <div class="mode-badge" id="modeBadge">…</div>
-      <div class="drawer-section">Hub URL</div>
-      <div class="side-brand" id="mediaBrand">CRT · CYAN</div>
-      <div class="meta" id="meta" style="display:none">подключение…</div>
-      <div class="meta" id="buildMeta">build v62 · radio solo</div>
-      <div class="toast" id="toast"></div>
-      <input class="hub-field" id="hubInput" type="text" placeholder="http://192.168.0.247:8787" />
-      <button class="drawer-btn" id="hubSave" type="button">Save hub URL</button>
-      <div class="drawer-section">Screensaver</div>
-      <div id="sceneList"></div>
+      <div class="drawer-hint">DECK = звук / ПК · STANDALONE = радио / будильник</div>
+
+      <div class="drawer-section">Now</div>
       <button class="drawer-btn" id="cinemaBtn" type="button">Cinema</button>
-      <button class="fs-btn" id="fsBtn" type="button">Fullscreen tip</button>
+      <div id="sceneList"></div>
+
+      <div class="drawer-section">Look</div>
+      <div class="theme-pills" id="drawerThemes">
+        <button type="button" class="theme-pill" data-theme="B">PHOSPHOR</button>
+        <button type="button" class="theme-pill" data-theme="C">CRT</button>
+        <button type="button" class="theme-pill" data-theme="D">AMBER</button>
+      </div>
+      <div class="side-brand" id="mediaBrand">CRT · CYAN</div>
+
+      <button type="button" class="drawer-fold-btn" id="hubFoldBtn">Hub &amp; help</button>
+      <div class="drawer-fold" id="hubFold">
+        <div class="drawer-section" style="margin-top:4px">Hub URL</div>
+        <input class="hub-field" id="hubInput" type="text" placeholder="http://192.168.0.247:8787" />
+        <button class="drawer-btn" id="hubSave" type="button">Save hub URL</button>
+        <div class="meta" id="meta">подключение…</div>
+        <button class="fs-btn" id="fsBtn" type="button">Fullscreen tip</button>
+        <div class="meta" id="buildMeta">build</div>
+      </div>
     </div>
   </div>
 
@@ -888,13 +907,13 @@ button.pad.warn { color: var(--warn); border-color: var(--warn); background: var
     <br><b>Поделиться → На экран «Домой»</b>
     <br>открой ярлык — без строки Safari.
     <br><br>Важно: добавляй URL с версией:
-    <br><b id="tipUrl">http://192.168.0.247:8787/?v=66</b>
+    <br><b id="tipUrl">http://192.168.0.247:8787/?v=67</b>
     <br>(старый ярлык без ?v= кэширует старый UI)
     <br><br>Для старта без ПК — GitHub Pages URL из README.
     <button type="button" id="tipOk">Понятно</button>
   </div>
 
-  <script src="gadget-core.js?v=66"></script>
-  <script src="deck-app.js?v=66"></script>
+  <script src="gadget-core.js?v=67"></script>
+  <script src="deck-app.js?v=67"></script>
 </body>
 </html>
