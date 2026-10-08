@@ -1,8 +1,8 @@
 /* Textmode Deck app shell — ES5 */
 (function () {
       var IDLE_MS = 45000;
-      var DRIVE_VER = 70;
-      var APP_VER = 70;
+      var DRIVE_VER = 71;
+      var APP_VER = 71;
       var THEME_KEY = "kissaten_deck_theme";
       var IDLE_ART = "art/cafe-yum.gif";
       var GC = window.GadgetCore;
@@ -676,52 +676,52 @@
         paintIdleChrome();
       }
 
-      function formatSchedLine(day, title) {
-        if (!day) return title + ": ще не сформовано";
-        var mark = "";
-        if (day.source === "DTEK") mark = " (DTEK)";
-        else if (day.probable) mark = " (ймовірний)";
-        else if (day.cached) mark = " (кеш)";
-        if (day.labels && day.labels.length) {
-          return title + mark + ": " + day.labels.slice(0, 3).join(", ");
-        }
-        if (day.text === "без відключень") return title + mark + ": без відключень";
-        if (day.emergency && !day.labels.length) {
-          return title + ": немає слотів у Yasno";
-        }
-        return title + ": " + (day.text || "ще не сформовано");
+      function compactSlotLabel(label) {
+        var s = String(label || "");
+        /* 06:00–09:30 → 6:00-9:30 (wider on tablet CRT) */
+        s = s.replace(/[–—]/g, "-");
+        s = s.replace(/\b0(\d:)/g, "$1");
+        return s;
       }
 
-      function powerInfoFace(p) {
-        if (p && p.emergency) {
-          return {
-            k: "INFO",
-            val: "ЕКСТРЕНІ",
-            sub: "відключення · графік не діє"
-          };
+      function daySourceMark(day) {
+        if (!day) return "";
+        if (day.source === "DTEK") return "DTEK";
+        if (day.probable) return "ймовірний";
+        if (day.cached) return "кеш";
+        return "Yasno";
+      }
+
+      function fillPowerSlots(el, day) {
+        if (!el) return;
+        el.innerHTML = "";
+        var labels = (day && day.labels) ? day.labels : [];
+        var i, row, text;
+        if (labels.length) {
+          for (i = 0; i < labels.length && i < 3; i++) {
+            row = document.createElement("span");
+            row.className = "pw-slot";
+            row.textContent = compactSlotLabel(labels[i]);
+            el.appendChild(row);
+          }
+          return;
         }
-        var today = p && p.todaySched;
+        row = document.createElement("span");
+        row.className = "pw-slot empty";
+        if (day && day.text === "без відключень") text = "без відключень";
+        else if (day && day.emergency) text = "немає слотів";
+        else text = (day && day.text) ? day.text : "ще немає";
+        row.textContent = text;
+        el.appendChild(row);
+      }
+
+      function powerStatusSub(p) {
+        if (!p) return "Kyiv · POWER";
+        var today = p.todaySched;
         if (today && today.labels && today.labels.length) {
-          return {
-            k: "СЬОГОДНІ",
-            val: today.cached ? "КЕШ" : "ГРАФІК",
-            sub: today.labels.slice(0, 2).join(" · ") + (p.group ? (" · " + p.group) : "")
-          };
+          return "далі " + compactSlotLabel(today.labels[0]) + (p.group ? (" · " + p.group) : "");
         }
-        return {
-          k: "INFO",
-          val: "група " + ((p && p.group) || "45.1"),
-          sub: (p && p.source) ? p.source : "Yasno · DTEK"
-        };
-      }
-
-      function powerGraphFace(p) {
-        var today = p && p.todaySched;
-        var tom = p && p.tomorrowSched;
-        return {
-          val: "графік " + ((p && p.group) || "45.1"),
-          sub: formatSchedLine(today, "сьогодні") + "\n" + formatSchedLine(tom, "завтра")
-        };
+        return p.sub || ("група " + (p.group || "45.1"));
       }
 
       function setPowerCardClass(p) {
@@ -756,32 +756,32 @@
         var el = document.getElementById("lvPower");
         var val = document.getElementById("lvPowerVal");
         var sub = document.getElementById("lvPowerSub");
-        var iK = document.getElementById("lvPowerInfoK");
-        var iVal = document.getElementById("lvPowerInfoVal");
-        var iSub = document.getElementById("lvPowerInfoSub");
-        var gVal = document.getElementById("lvPowerGraphVal");
-        var gSub = document.getElementById("lvPowerGraphSub");
+        var d1k = document.getElementById("lvPowerDay1K");
+        var d1m = document.getElementById("lvPowerDay1Meta");
+        var d2k = document.getElementById("lvPowerDay2K");
+        var d2m = document.getElementById("lvPowerDay2Meta");
         if (!el || !val) return;
         if (powerWarnActive && (new Date()).getTime() >= powerWarnUntil) {
           dismissPowerWarn(true);
         }
         setPowerCardClass(p);
         val.textContent = (p && p.label) ? p.label : "НЕМАЄ ДАНИХ";
-        if (sub) sub.textContent = (p && p.sub) ? p.sub : "Kyiv · POWER";
-        var info = powerInfoFace(p);
-        if (iK) iK.textContent = info.k;
-        if (iVal) iVal.textContent = info.val;
-        if (iSub) iSub.textContent = info.sub;
-        var graph = powerGraphFace(p);
-        if (gVal) gVal.textContent = graph.val;
-        if (gSub) {
-          gSub.textContent = "";
-          var parts = String(graph.sub || "").split("\n");
-          var pi;
-          for (pi = 0; pi < parts.length; pi++) {
-            if (pi) gSub.appendChild(document.createElement("br"));
-            gSub.appendChild(document.createTextNode(parts[pi]));
-          }
+        if (sub) sub.textContent = powerStatusSub(p);
+        var today = p && p.todaySched;
+        var tom = p && p.tomorrowSched;
+        if (d1k) d1k.textContent = "СЬОГОДНІ";
+        fillPowerSlots(document.getElementById("lvPowerDay1Slots"), today);
+        if (d1m) {
+          d1m.textContent = daySourceMark(today) +
+            (p && p.group ? (" · " + p.group) : "") +
+            " · tap завтра";
+        }
+        if (d2k) d2k.textContent = "ЗАВТРА";
+        fillPowerSlots(document.getElementById("lvPowerDay2Slots"), tom);
+        if (d2m) {
+          d2m.textContent = daySourceMark(tom) +
+            (p && p.group ? (" · " + p.group) : "") +
+            " · tap статус";
         }
         paintIdleChrome();
         maybePowerWarn(p);
