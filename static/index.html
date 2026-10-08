@@ -384,6 +384,10 @@ body.mode-deck .solo-only { display: none !important; }
 body.mode-solo .media-col { max-width: none; -webkit-flex: 1 1 auto; flex: 1 1 auto; }
 body.mode-solo .media-center { min-height: 72px; height: auto; max-height: none; padding: 8px 10px; }
 body.mode-solo .deck-media-only { display: none !important; }
+body.mode-deck .solo-media-only { display: none !important; }
+body.mode-solo .solo-media-only {
+  display: -webkit-box !important; display: -webkit-flex !important; display: flex !important;
+}
 body.mode-deck .radio-only { display: none !important; }
 
 .radio-chip-bar {
@@ -721,6 +725,11 @@ button.pad.warn { color: var(--warn); border-color: var(--warn); background: var
               <button type="button" class="media-btn" data-action="media_play">Play</button>
               <button type="button" class="media-btn" data-action="media_pause">Pause</button>
             </div>
+            <div class="media-controls solo-media-only" id="mediaControlsSolo">
+              <button type="button" class="media-btn" id="soloRadioPrevBtn">Prev</button>
+              <button type="button" class="media-btn" id="soloRadioPlayBtn">Play</button>
+              <button type="button" class="media-btn" id="soloRadioNextBtn">Next</button>
+            </div>
           </div>
 
           <div id="living">
@@ -879,13 +888,13 @@ button.pad.warn { color: var(--warn); border-color: var(--warn); background: var
     <br><b>Поделиться → На экран «Домой»</b>
     <br>открой ярлык — без строки Safari.
     <br><br>Важно: добавляй URL с версией:
-    <br><b id="tipUrl">http://192.168.0.247:8787/?v=65</b>
+    <br><b id="tipUrl">http://192.168.0.247:8787/?v=66</b>
     <br>(старый ярлык без ?v= кэширует старый UI)
     <br><br>Для старта без ПК — GitHub Pages URL из README.
     <button type="button" id="tipOk">Понятно</button>
   </div>
 
-  <script src="gadget-core.js?v=65"></script>
-  <script src="deck-app.js?v=65"></script>
+  <script src="gadget-core.js?v=66"></script>
+  <script src="deck-app.js?v=66"></script>
 </body>
 </html>

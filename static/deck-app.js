@@ -1,8 +1,8 @@
 /* Textmode Deck app shell — ES5 */
 (function () {
       var IDLE_MS = 45000;
-      var DRIVE_VER = 65;
-      var APP_VER = 65;
+      var DRIVE_VER = 66;
+      var APP_VER = 66;
       var THEME_KEY = "kissaten_deck_theme";
       var SCENE_KEY = "kissaten_idle_scene";
       var SCENES = [
@@ -1238,8 +1238,11 @@
         nowArt.className = "now-art";
         nowArt.removeAttribute("src");
         paintIdleChrome();
+        var playLabel = radioPlaying ? "Stop" : "Play";
         var playBtn = document.getElementById("radioPlayBtn");
-        if (playBtn) playBtn.textContent = radioPlaying ? "Stop" : "Play";
+        if (playBtn) playBtn.textContent = playLabel;
+        var soloPlay = document.getElementById("soloRadioPlayBtn");
+        if (soloPlay) soloPlay.textContent = playLabel;
         if (GC.publishRadioNow) {
           GC.publishRadioNow({
             playing: radioPlaying,
@@ -1557,18 +1560,20 @@
         })(actionBtns[i]);
       }
 
-      document.getElementById("radioPlayBtn").onclick = function () {
-        unlockRadioAudio();
-        toggleRadio();
-      };
-      document.getElementById("radioPrevBtn").onclick = function () {
-        unlockRadioAudio();
-        stepRadio(-1);
-      };
-      document.getElementById("radioNextBtn").onclick = function () {
-        unlockRadioAudio();
-        stepRadio(1);
-      };
+      function bindRadioBtn(id, fn) {
+        var el = document.getElementById(id);
+        if (!el) return;
+        el.onclick = function () {
+          unlockRadioAudio();
+          fn();
+        };
+      }
+      bindRadioBtn("radioPlayBtn", toggleRadio);
+      bindRadioBtn("radioPrevBtn", function () { stepRadio(-1); });
+      bindRadioBtn("radioNextBtn", function () { stepRadio(1); });
+      bindRadioBtn("soloRadioPlayBtn", toggleRadio);
+      bindRadioBtn("soloRadioPrevBtn", function () { stepRadio(-1); });
+      bindRadioBtn("soloRadioNextBtn", function () { stepRadio(1); });
 
       var themePills = document.querySelectorAll(".theme-pill");
       for (var j = 0; j < themePills.length; j++) {
