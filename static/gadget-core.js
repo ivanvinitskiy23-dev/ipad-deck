@@ -34,25 +34,66 @@
   ];
 
   /* HTTPS MP3/AAC that start with a real frame (no ICY metadata block). Each URL is a different mount. */
+  /*
+   * iPad Safari: prefer HTTPS AAC Icecast (SomaFM / Radio Paradise).
+   * I Love Music / StreamAfrica often fail on old iOS even when HTTP 200 from PC.
+   * url = primary, url2/url3 = same station alt host/codec (never another channel).
+   */
   var RADIO_STATIONS = [
-    { id: "chillout", name: "0n Chillout", url: "https://0n-chillout.radionetz.de/0n-chillout.mp3" },
-    { id: "jazz", name: "0n Jazz", url: "https://0n-jazz.radionetz.de/0n-jazz.mp3" },
-    { id: "dance", name: "I Love Dance", url: "https://streams.ilovemusic.de/iloveradio2.mp3" },
-    { id: "hiphop", name: "I Love Hip Hop", url: "https://streams.ilovemusic.de/iloveradio3.mp3" },
-    { id: "rock", name: "I Love Rock", url: "https://streams.ilovemusic.de/iloveradio4.mp3" },
-    { id: "lofi", name: "Lofi Radio", url: "https://play.streamafrica.net/lofiradio" },
-    { id: "rp", name: "Radio Paradise", url: "https://stream.radioparadise.com/mp3-128", url2: "https://stream.radioparadise.com/aac-128" }
+    {
+      id: "chillout", name: "Groove",
+      url: "https://ice6.somafm.com/groovesalad-128-aac",
+      url2: "https://ice2.somafm.com/groovesalad-128-aac",
+      url3: "https://0n-chillout.radionetz.de/0n-chillout.mp3"
+    },
+    {
+      id: "space", name: "Space",
+      url: "https://ice5.somafm.com/spacestation-128-aac",
+      url2: "https://ice2.somafm.com/spacestation-128-aac",
+      url3: "https://ice5.somafm.com/spacestation-128-mp3"
+    },
+    {
+      id: "drone", name: "Drone",
+      url: "https://ice6.somafm.com/dronezone-128-aac",
+      url2: "https://ice2.somafm.com/dronezone-128-aac",
+      url3: "https://ice6.somafm.com/dronezone-128-mp3"
+    },
+    {
+      id: "beat", name: "Beat",
+      url: "https://ice6.somafm.com/beatblender-128-aac",
+      url2: "https://ice2.somafm.com/beatblender-128-aac",
+      url3: "https://ice6.somafm.com/beatblender-128-mp3"
+    },
+    {
+      id: "trip", name: "Trip",
+      url: "https://ice6.somafm.com/thetrip-128-aac",
+      url2: "https://ice2.somafm.com/thetrip-128-aac",
+      url3: "https://ice6.somafm.com/thetrip-128-mp3"
+    },
+    {
+      id: "indie", name: "Indie",
+      url: "https://ice5.somafm.com/indiepop-128-aac",
+      url2: "https://ice2.somafm.com/indiepop-128-aac",
+      url3: "https://ice5.somafm.com/indiepop-128-mp3"
+    },
+    {
+      id: "rp", name: "Paradise",
+      url: "https://stream.radioparadise.com/aac-128",
+      url2: "https://stream.radioparadise.com/mp3-128",
+      url3: "https://stream.radioparadise.com/aac-32"
+    }
   ];
 
-  /* Retired ids → closest current station. Dead SomaFM ice ids used to all become chillout. */
+  /* Retired / old chip ids → closest current station. */
   var RADIO_ID_ALIAS = {
-    fluid: "chillout", groove: "chillout", gsclassic: "chillout", drone: "chillout",
-    space: "chillout", beat: "chillout", cliqhop: "chillout", lush: "chillout", soma: "chillout",
-    lounge: "chillout", asp: "chillout",
-    smooth: "jazz", smoothuk: "jazz",
-    ilove2: "dance",
-    ilove3: "hiphop",
-    chillhop: "lofi", zenolofi: "lofi"
+    fluid: "chillout", groove: "chillout", gsclassic: "chillout",
+    lounge: "chillout", asp: "chillout", lush: "chillout", soma: "chillout",
+    cliqhop: "beat",
+    jazz: "drone", smooth: "drone", smoothuk: "drone",
+    dance: "trip", ilove2: "trip",
+    hiphop: "beat", ilove3: "beat",
+    rock: "indie",
+    lofi: "drone", chillhop: "drone", zenolofi: "drone"
   };
 
   function trimSlash(s) {

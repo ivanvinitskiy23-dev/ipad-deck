@@ -1,8 +1,8 @@
 /* Textmode Deck app shell — ES5 */
 (function () {
       var IDLE_MS = 45000;
-      var DRIVE_VER = 71;
-      var APP_VER = 71;
+      var DRIVE_VER = 72;
+      var APP_VER = 72;
       var THEME_KEY = "kissaten_deck_theme";
       var IDLE_ART = "art/cafe-yum.gif";
       var GC = window.GadgetCore;
@@ -1344,8 +1344,9 @@
         var st = GC.stationById(GC.getRadioId());
         radioTryList = [];
         if (st.url) radioTryList.push(st.url);
-        /* Same station, other codec only — never a different station. */
+        /* Same station, other host/codec only — never a different channel. */
         if (st.url2 && st.url2 !== st.url) radioTryList.push(st.url2);
+        if (st.url3 && st.url3 !== st.url && st.url3 !== st.url2) radioTryList.push(st.url3);
         if (!radioTryList.length) {
           radioPlaying = false;
           syncRadioUI();
