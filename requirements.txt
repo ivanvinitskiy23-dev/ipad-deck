@@ -5,3 +5,4 @@ winrt-Windows.Media.Control>=2.3.0
 winrt-Windows.Media>=2.3.0
 winrt-Windows.Foundation>=2.3.0
 winrt-Windows.Storage.Streams>=2.3.0
+curl-cffi>=0.14.0

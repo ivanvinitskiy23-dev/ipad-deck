@@ -854,9 +854,15 @@ def status_payload() -> dict:
 # Fixed home address for POWER card (Kyiv).
 POWER_STREET = os.environ.get("IPAD_DECK_POWER_STREET", "вул. Здолбунівська")
 POWER_HOUSE = os.environ.get("IPAD_DECK_POWER_HOUSE", "11/Б")
+POWER_CITY = os.environ.get("IPAD_DECK_POWER_CITY", "м. Київ")
 POWER_GROUP = os.environ.get("IPAD_DECK_POWER_GROUP", "45.1")
 _dtek_cache: dict = {"t": 0.0, "data": None}
 _dtek_lock = threading.Lock()
+
+try:
+    from curl_cffi import requests as cffi_requests  # type: ignore
+except ImportError:  # pragma: no cover
+    cffi_requests = None
 
 
 def _http_text(url: str, data: bytes | None = None, headers: dict | None = None, timeout: float = 12.0) -> tuple[int, str, dict]:
@@ -880,114 +886,204 @@ def _http_text(url: str, data: bytes | None = None, headers: dict | None = None,
         return 0, str(e), {}
 
 
+def _mins_hhmm(mins: int) -> str:
+    mins = max(0, min(24 * 60, int(mins)))
+    return f"{mins // 60:02d}:{mins % 60:02d}"
+
+
+def _dtek_hour_map_to_labels(hour_map: dict | None) -> list[str]:
+    """Convert DTEK hour map (1..24 → yes/no/first/second) into HH:MM–HH:MM labels."""
+    if not isinstance(hour_map, dict):
+        return []
+    segs: list[tuple[int, int]] = []
+    for h in range(1, 25):
+        v = str(hour_map.get(str(h), hour_map.get(h, "yes")) or "yes").lower()
+        start = (h - 1) * 60
+        if v == "no":
+            segs.append((start, start + 60))
+        elif v == "first":
+            segs.append((start, start + 30))
+        elif v in ("second", "last"):
+            segs.append((start + 30, start + 60))
+    if not segs:
+        return []
+    merged = [segs[0]]
+    for a, b in segs[1:]:
+        if a <= merged[-1][1]:
+            merged[-1] = (merged[-1][0], max(merged[-1][1], b))
+        else:
+            merged.append((a, b))
+    return [f"{_mins_hhmm(a)}–{_mins_hhmm(b)}" for a, b in merged]
+
+
+def _dtek_pick_house(data: dict) -> tuple[str | None, dict | None]:
+    if not isinstance(data, dict):
+        return None, None
+    for key in (POWER_HOUSE, "11/Б", "11Б", "11б", "11b", "11B", "11"):
+        if key in data and isinstance(data[key], dict):
+            return key, data[key]
+    for k, v in data.items():
+        if "11" in str(k).replace(" ", "") and isinstance(v, dict):
+            return str(k), v
+    return None, None
+
+
+def _dtek_day_sched(fact: dict, group: str, which: str) -> dict:
+    out = {
+        "which": which,
+        "date": "",
+        "labels": [],
+        "text": "немає слотів у DTEK",
+        "source": "DTEK",
+        "group": group,
+    }
+    data = (fact or {}).get("data") if isinstance(fact, dict) else None
+    if not isinstance(data, dict) or not data:
+        return out
+    gkey = "GPV" + str(group).replace("GPV", "")
+    today_ts = str((fact or {}).get("today") or "")
+    items = sorted(((str(ts), groups) for ts, groups in data.items()), key=lambda x: int(x[0]) if str(x[0]).isdigit() else 0)
+    chosen = None
+    if which == "today" and today_ts and today_ts in data:
+        chosen = (today_ts, data[today_ts])
+    elif which == "tomorrow" and today_ts and today_ts.isdigit():
+        tom_ts = str(int(today_ts) + 86400)
+        if tom_ts in data:
+            chosen = (tom_ts, data[tom_ts])
+    if chosen is None:
+        # fallback: first / second chronologically
+        if which == "today" and items:
+            chosen = items[0]
+        elif which == "tomorrow" and len(items) > 1:
+            chosen = items[1]
+    if not chosen:
+        return out
+    ts, groups = chosen
+    if ts.isdigit():
+        try:
+            out["date"] = time.strftime("%Y-%m-%d", time.gmtime(int(ts) + 3 * 3600))
+        except (OverflowError, OSError, ValueError):
+            out["date"] = ""
+    hour_map = None
+    if isinstance(groups, dict):
+        hour_map = groups.get(gkey) or groups.get(group) or groups.get("GPV" + group)
+    labels = _dtek_hour_map_to_labels(hour_map if isinstance(hour_map, dict) else None)
+    out["labels"] = labels
+    out["text"] = " · ".join(labels[:3]) if labels else ("без відключень" if hour_map else "немає слотів у DTEK")
+    return out
+
+
 def fetch_dtek_power() -> dict:
-    """Best-effort DTEK Kyiv address status via their AJAX endpoint."""
+    """DTEK Kyiv address status + fact schedule (today/tomorrow) via AJAX.
+
+    Uses curl_cffi Chrome impersonation to clear Incapsula/WAF.
+    """
     now = time.time()
     with _dtek_lock:
-        if _dtek_cache["data"] is not None and (now - float(_dtek_cache["t"])) < 60:
+        if _dtek_cache["data"] is not None and (now - float(_dtek_cache["t"])) < 90:
             return dict(_dtek_cache["data"])
 
-    base = "https://www.dtek-kem.com.ua"
-    code, html, _ = _http_text(base + "/ua/shutdowns", timeout=15.0)
-    low = (html or "").lower()
-    blocked = (
-        code != 200
-        or len(html or "") < 800
-        or (("incap" in low or "incapsula" in low or "challenge" in low) and "csrf-token" not in low)
-    )
-    if blocked:
-        # Soft fail — Incapsula / WAF; Yasno remains primary on the client.
-        out = {"ok": False, "error": "dtek_blocked", "group": POWER_GROUP}
+    out: dict = {
+        "ok": False,
+        "error": "dtek_unavailable",
+        "group": POWER_GROUP,
+        "street": POWER_STREET,
+        "house": POWER_HOUSE,
+    }
+    if cffi_requests is None:
+        out["error"] = "dtek_missing_curl_cffi"
         with _dtek_lock:
             _dtek_cache["t"] = now
             _dtek_cache["data"] = out
         return out
 
-    m = re.search(r'name="csrf-token"\s+content="([^"]+)"', html, re.I)
-    if not m:
-        m = re.search(r'csrf-token"\s+content="([^"]+)"', html, re.I)
-    csrf = m.group(1) if m else ""
-    ajax = base + "/ua/ajax"
-    m2 = re.search(r'name="ajaxUrl"\s+content="([^"]+)"', html, re.I)
-    if m2:
-        ajax_path = m2.group(1)
-        ajax = ajax_path if ajax_path.startswith("http") else (base + ajax_path)
-
-    form = urlencode(
-        {
-            "method": "getHomeNum",
-            "data[0][name]": "city",
-            "data[0][value]": "м. Київ",
-            "data[1][name]": "street",
-            "data[1][value]": POWER_STREET,
-            "data[2][name]": "updateFact",
-            "data[2][value]": str(int(now)),
-        }
-    ).encode("utf-8")
-    headers = {
-        "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
-        "X-Requested-With": "XMLHttpRequest",
-        "Referer": base + "/ua/shutdowns",
-        "Origin": base,
-    }
-    if csrf:
-        headers["X-CSRF-Token"] = csrf
-    code2, body, _ = _http_text(ajax, data=form, headers=headers, timeout=15.0)
-    out: dict = {"ok": False, "error": "dtek_parse", "group": POWER_GROUP, "street": POWER_STREET, "house": POWER_HOUSE}
+    base = "https://www.dtek-kem.com.ua"
     try:
-        payload = json.loads(body) if body else {}
-    except json.JSONDecodeError:
-        payload = {}
-    data = payload.get("data") if isinstance(payload, dict) else None
-    if code2 == 200 and isinstance(data, dict):
-        house = None
-        for key in (POWER_HOUSE, "11/Б", "11Б", "11б", "11b", "11B", "11"):
-            if key in data:
-                house = data[key]
-                break
-        if house is None and data:
-            # fuzzy: first key containing 11
-            for k, v in data.items():
-                if "11" in str(k).replace(" ", ""):
-                    house = v
-                    break
-        if isinstance(house, dict):
-            groups = house.get("sub_type_reason") or house.get("sub_type") or []
-            if isinstance(groups, str):
-                groups = [groups]
-            group = ""
-            if groups:
-                group = str(groups[0]).replace("GPV", "")
-            current_off = False
-            emergency = False
-            reason = ""
-            restore = ""
-            # Various shapes DTEK returns for active outage
-            for rk in ("reason", "cause", "type_shutdown", "shutdown_type"):
-                if house.get(rk):
-                    reason = str(house.get(rk))
-                    break
-            for rk in ("end_date", "recovery_time", "plan_end", "time_end", "orient_end"):
-                if house.get(rk):
-                    restore = str(house.get(rk))
-                    break
-            msg = json.dumps(house, ensure_ascii=False).lower()
-            if "відсутня електроенергія" in msg or "absent" in msg or house.get("is_shutdown") or house.get("shutdown"):
-                current_off = True
-            if "аварій" in msg or "екстрен" in msg or "emergency" in msg:
-                emergency = True
-                current_off = True
-            out = {
-                "ok": True,
-                "group": group or POWER_GROUP,
-                "current_off": current_off,
-                "emergency": emergency,
-                "reason": reason,
-                "restore": restore,
-                "street": POWER_STREET,
-                "house": POWER_HOUSE,
-                "raw_keys": list(house.keys())[:20],
+        sess = cffi_requests.Session(impersonate="chrome124")
+        page = sess.get(base + "/ua/shutdowns", timeout=25)
+        html = page.text or ""
+        if page.status_code != 200 or len(html) < 2000 or "csrf-token" not in html.lower():
+            out["error"] = "dtek_blocked"
+            with _dtek_lock:
+                _dtek_cache["t"] = now
+                _dtek_cache["data"] = out
+            return out
+        m = re.search(r'name="csrf-token"\s+content="([^"]+)"', html, re.I)
+        if not m:
+            m = re.search(r'content="([^"]+)"\s+name="csrf-token"', html, re.I)
+        csrf = m.group(1) if m else ""
+        form = urlencode(
+            {
+                "method": "getHomeNum",
+                "data[0][name]": "city",
+                "data[0][value]": POWER_CITY,
+                "data[1][name]": "street",
+                "data[1][value]": POWER_STREET,
+                "data[2][name]": "updateFact",
+                "data[2][value]": str(int(now)),
             }
+        )
+        headers = {
+            "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
+            "X-Requested-With": "XMLHttpRequest",
+            "Referer": base + "/ua/shutdowns",
+            "Origin": base,
+            "Accept": "application/json, text/javascript, */*; q=0.01",
+        }
+        if csrf:
+            headers["X-CSRF-Token"] = csrf
+        resp = sess.post(base + "/ua/ajax", data=form, headers=headers, timeout=25)
+        payload = resp.json() if resp.status_code == 200 else {}
+    except Exception as e:
+        out["error"] = f"dtek_http:{type(e).__name__}"
+        with _dtek_lock:
+            _dtek_cache["t"] = now
+            _dtek_cache["data"] = out
+        return out
+
+    data = payload.get("data") if isinstance(payload, dict) else None
+    fact = payload.get("fact") if isinstance(payload, dict) else {}
+    house_key, house = _dtek_pick_house(data if isinstance(data, dict) else {})
+    group = POWER_GROUP
+    reason = ""
+    restore = ""
+    current_off = False
+    emergency = False
+    if isinstance(house, dict):
+        groups = house.get("sub_type_reason") or []
+        if isinstance(groups, str):
+            groups = [groups]
+        if groups:
+            group = str(groups[0]).replace("GPV", "") or POWER_GROUP
+        reason = str(house.get("sub_type") or house.get("reason") or "")
+        restore = str(house.get("end_date") or "")
+        msg = json.dumps(house, ensure_ascii=False).lower()
+        if "аварій" in msg or str(house.get("type") or "") in ("2", "3"):
+            emergency = True
+            current_off = True
+        if "відсутня електроенергія" in msg:
+            current_off = True
+
+    today_sched = _dtek_day_sched(fact if isinstance(fact, dict) else {}, group, "today")
+    tomorrow_sched = _dtek_day_sched(fact if isinstance(fact, dict) else {}, group, "tomorrow")
+    # Persist labels also as slots for older clients
+    slots = [{"label": x} for x in (today_sched.get("labels") or [])]
+
+    out = {
+        "ok": True,
+        "group": group,
+        "current_off": current_off,
+        "emergency": emergency,
+        "reason": reason,
+        "restore": restore,
+        "street": POWER_STREET,
+        "house": house_key or POWER_HOUSE,
+        "fact_update": (fact or {}).get("update") if isinstance(fact, dict) else "",
+        "today_sched": today_sched,
+        "tomorrow_sched": tomorrow_sched,
+        "slots": slots,
+        "source": "DTEK",
+    }
     with _dtek_lock:
         _dtek_cache["t"] = now
         _dtek_cache["data"] = out

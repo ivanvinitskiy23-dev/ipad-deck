@@ -1106,6 +1106,26 @@
     }, 12000);
   }
 
+  function schedFromDtekDay(day, which) {
+    var out = emptyDaySched(which);
+    if (!day || typeof day !== "object") return out;
+    out.date = day.date || kyivDayKey(which === "tomorrow" ? 1 : 0);
+    out.labels = day.labels ? day.labels.slice(0) : [];
+    out.source = "DTEK";
+    out.cached = false;
+    out.probable = false;
+    if (out.labels.length) {
+      out.live = true;
+      out.text = out.labels.slice(0, 3).join(" · ");
+    } else if (day.text === "без відключень") {
+      out.live = true;
+      out.text = "без відключень";
+    } else {
+      out.text = day.text || "немає слотів у DTEK";
+    }
+    return out;
+  }
+
   function parseDtekPower(data) {
     var out = emptyPower();
     out.source = "DTEK";
@@ -1113,9 +1133,11 @@
     out.ok = true;
     out.group = data.group || getPowerCfg().group;
     out.updated = nowSec();
+    out.todaySched = schedFromDtekDay(data.today_sched, "today");
+    out.tomorrowSched = schedFromDtekDay(data.tomorrow_sched, "tomorrow");
     if (data.emergency || data.current_off) {
       out.offNow = !!data.current_off || !!data.emergency;
-      out.emergency = !!data.emergency || !!data.current_off;
+      out.emergency = !!data.emergency;
       out.reason = data.reason || "";
       out.restore = data.restore || "";
       if (out.offNow) {
@@ -1126,9 +1148,31 @@
       }
     }
     if (data.slots && data.slots.length) out.slots = data.slots;
+    else if (out.todaySched && out.todaySched.labels && out.todaySched.labels.length) {
+      out.slots = [];
+      var si;
+      for (si = 0; si < out.todaySched.labels.length; si++) {
+        out.slots.push({ label: out.todaySched.labels[si] });
+      }
+    }
     if (data.nextOff) out.nextOff = data.nextOff;
     if (data.nextOn) out.nextOn = data.nextOn;
     return out;
+  }
+
+  function preferSched(primary, fallback) {
+    function usable(s) {
+      return !!(s && ((s.labels && s.labels.length) || s.text === "без відключень"));
+    }
+    if (usable(primary) && !primary.probable) return primary;
+    if (usable(fallback)) {
+      var f = fallback;
+      /* mark DTEK so UI can show source */
+      if (!f.source) f.source = "DTEK";
+      return f;
+    }
+    if (usable(primary)) return primary;
+    return primary || fallback || emptyDaySched("today");
   }
 
   function fetchDtekPower(cb) {
@@ -1154,9 +1198,38 @@
     var d = dtek || emptyPower();
     var m = emptyPower();
     m.ok = !!(y.ok || d.ok);
-    m.group = y.group || d.group || getPowerCfg().group;
-    /* Yasno primary for schedule; DTEK overlays live emergency/outage */
-    m.slots = (y.slots && y.slots.length) ? y.slots : (d.slots || []);
+    m.group = d.group || y.group || getPowerCfg().group;
+    /* Yasno primary when it has real slots; DTEK fact fills gaps (common in emergency). */
+    m.todaySched = preferSched(y.todaySched, d.todaySched);
+    m.tomorrowSched = preferSched(y.tomorrowSched, d.tomorrowSched);
+    if (m.todaySched && m.todaySched.labels && m.todaySched.labels.length) {
+      m.slots = [];
+      var i;
+      for (i = 0; i < m.todaySched.labels.length; i++) {
+        m.slots.push({ label: m.todaySched.labels[i] });
+      }
+      /* also cache DTEK/Yasno usable day */
+      saveLiveDayToStore({
+        date: m.todaySched.date || kyivDayKey(0),
+        labels: m.todaySched.labels.slice(0),
+        text: m.todaySched.text,
+        status: m.todaySched.status || "",
+        live: true,
+        emergency: false
+      }, m.group);
+    } else {
+      m.slots = (y.slots && y.slots.length) ? y.slots : (d.slots || []);
+    }
+    if (m.tomorrowSched && m.tomorrowSched.labels && m.tomorrowSched.labels.length) {
+      saveLiveDayToStore({
+        date: m.tomorrowSched.date || kyivDayKey(1),
+        labels: m.tomorrowSched.labels.slice(0),
+        text: m.tomorrowSched.text,
+        status: m.tomorrowSched.status || "",
+        live: true,
+        emergency: false
+      }, m.group);
+    }
     m.nextOff = y.nextOff || d.nextOff || "";
     m.nextOn = y.nextOn || d.nextOn || "";
     m.emergency = !!(y.emergency || d.emergency);
@@ -1167,8 +1240,6 @@
     m.restore = d.restore || y.restore || "";
     m.source = (y.ok && d.ok) ? "Yasno+DTEK" : (y.ok ? "Yasno" : (d.ok ? "DTEK" : ""));
     m.updated = nowSec();
-    m.todaySched = y.todaySched || resolveDaySched(null, "today");
-    m.tomorrowSched = y.tomorrowSched || resolveDaySched(null, "tomorrow");
     if (m.offNow && m.emergency) {
       m.level = "emergency";
       m.label = "ЕКСТРЕНІ";
@@ -1182,7 +1253,9 @@
     } else if (m.emergency) {
       m.level = "emergency";
       m.label = "ЕКСТРЕНІ";
-      m.sub = (m.reason || "графіки не діють") + (m.group ? (" · " + m.group) : "");
+      var hasGraph = !!(m.todaySched && m.todaySched.labels && m.todaySched.labels.length);
+      m.sub = (hasGraph ? "графік DTEK є" : (m.reason || "графіки не діють")) +
+        (m.group ? (" · " + m.group) : "");
     } else if (m.soon) {
       m.level = "soon";
       m.label = "СКОРО";
@@ -1190,7 +1263,8 @@
     } else if (m.ok) {
       m.level = "on";
       m.label = "СВІТЛО Є";
-      m.sub = (m.nextOff ? ("далі " + m.nextOff) : "без слотів") + (m.group ? (" · " + m.group) : "");
+      m.sub = (m.nextOff ? ("далі " + m.nextOff) : (m.todaySched && m.todaySched.labels && m.todaySched.labels.length ? m.todaySched.labels[0] : "без слотів")) +
+        (m.group ? (" · " + m.group) : "");
     } else {
       m.level = "unknown";
       m.label = "НЕМАЄ ДАНИХ";

@@ -1,8 +1,8 @@
 /* Textmode Deck app shell — ES5 */
 (function () {
       var IDLE_MS = 45000;
-      var DRIVE_VER = 69;
-      var APP_VER = 69;
+      var DRIVE_VER = 70;
+      var APP_VER = 70;
       var THEME_KEY = "kissaten_deck_theme";
       var IDLE_ART = "art/cafe-yum.gif";
       var GC = window.GadgetCore;
@@ -679,7 +679,8 @@
       function formatSchedLine(day, title) {
         if (!day) return title + ": ще не сформовано";
         var mark = "";
-        if (day.probable) mark = " (ймовірний)";
+        if (day.source === "DTEK") mark = " (DTEK)";
+        else if (day.probable) mark = " (ймовірний)";
         else if (day.cached) mark = " (кеш)";
         if (day.labels && day.labels.length) {
           return title + mark + ": " + day.labels.slice(0, 3).join(", ");
