@@ -1,8 +1,8 @@
 /* Textmode Deck app shell — ES5 */
 (function () {
       var IDLE_MS = 45000;
-      var DRIVE_VER = 72;
-      var APP_VER = 72;
+      var DRIVE_VER = 73;
+      var APP_VER = 73;
       var THEME_KEY = "kissaten_deck_theme";
       var IDLE_ART = "art/cafe-yum.gif";
       var GC = window.GadgetCore;
@@ -1278,13 +1278,25 @@
       var radioPlayGen = 0;
 
       function playRadioUrl(url) {
+        /* Fresh <audio> on each try — old iOS often sticks on the first stream src. */
+        var old = document.getElementById("radioNative");
+        if (old && old.parentNode) {
+          try { old.pause(); } catch (eP) {}
+          try { old.removeAttribute("src"); } catch (eS) {}
+          try { old.onerror = null; old.onplaying = null; } catch (eH) {}
+          try { old.parentNode.removeChild(old); } catch (eR) {}
+        }
+        radioAudioEl = null;
+        radioAudio = null;
         var el = ensureRadioAudio();
         var gen = ++radioPlayGen;
+        var stName = "";
+        try {
+          var st0 = GC && GC.stationById(GC.getRadioId());
+          stName = st0 && st0.name ? st0.name : "";
+        } catch (eN) {}
         el.onerror = null;
         el.onplaying = null;
-        try { el.pause(); } catch (e0) {}
-        try { el.removeAttribute("src"); } catch (e1) {}
-        while (el.firstChild) el.removeChild(el.firstChild);
         el.src = url;
         try { el.load(); } catch (eL) {}
         el.onerror = function () {
@@ -1296,14 +1308,14 @@
           } else {
             radioPlaying = false;
             syncRadioUI();
-            toast("radio fail");
+            toast("radio fail" + (stName ? (" · " + stName) : ""));
           }
         };
         el.onplaying = function () {
           if (gen !== radioPlayGen) return;
           radioPlaying = true;
           syncRadioUI();
-          toast("radio · on");
+          toast("radio · " + (stName || "on"));
         };
         var p = null;
         try {
@@ -1316,7 +1328,7 @@
             if (gen !== radioPlayGen) return;
             radioPlaying = true;
             syncRadioUI();
-            toast("radio · on");
+            toast("radio · " + (stName || "on"));
           }).catch(function () {
             if (gen !== radioPlayGen) return;
             radioTryIdx++;
@@ -1324,13 +1336,13 @@
             else {
               radioPlaying = false;
               syncRadioUI();
-              toast("radio fail · tap Play again");
+              toast("radio fail · tap Play");
             }
           });
         } else {
           radioPlaying = true;
           syncRadioUI();
-          toast("radio · on");
+          toast("radio · " + (stName || "on"));
         }
       }
 

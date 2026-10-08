@@ -35,52 +35,48 @@
 
   /* HTTPS MP3/AAC that start with a real frame (no ICY metadata block). Each URL is a different mount. */
   /*
-   * iPad Safari: prefer HTTPS AAC Icecast (SomaFM / Radio Paradise).
-   * I Love Music / StreamAfrica often fail on old iOS even when HTTP 200 from PC.
-   * url = primary, url2/url3 = same station alt host/codec (never another channel).
+   * iPad Safari: SomaFM / Radio Paradise / I Love Music often fail even when HTTP 200.
+   * 0n Online Radio (radionetz) MP3 HTTPS is what actually plays on this deck's iPad.
+   * url/url2/url3 = same genre, alt host only.
    */
   var RADIO_STATIONS = [
     {
-      id: "chillout", name: "Groove",
-      url: "https://ice6.somafm.com/groovesalad-128-aac",
-      url2: "https://ice2.somafm.com/groovesalad-128-aac",
-      url3: "https://0n-chillout.radionetz.de/0n-chillout.mp3"
+      id: "chillout", name: "Chill",
+      url: "https://stream.0nlineradio.com/chillout",
+      url2: "https://0n-chillout.radionetz.de/0n-chillout.mp3"
     },
     {
-      id: "space", name: "Space",
-      url: "https://ice5.somafm.com/spacestation-128-aac",
-      url2: "https://ice2.somafm.com/spacestation-128-aac",
-      url3: "https://ice5.somafm.com/spacestation-128-mp3"
+      id: "jazz", name: "Jazz",
+      url: "https://stream.0nlineradio.com/jazz",
+      url2: "https://0n-jazz.radionetz.de/0n-jazz.mp3"
     },
     {
-      id: "drone", name: "Drone",
-      url: "https://ice6.somafm.com/dronezone-128-aac",
-      url2: "https://ice2.somafm.com/dronezone-128-aac",
-      url3: "https://ice6.somafm.com/dronezone-128-mp3"
+      id: "dance", name: "Dance",
+      url: "https://stream.0nlineradio.com/dance",
+      url2: "https://0n-dance.radionetz.de/0n-dance.mp3"
     },
     {
-      id: "beat", name: "Beat",
-      url: "https://ice6.somafm.com/beatblender-128-aac",
-      url2: "https://ice2.somafm.com/beatblender-128-aac",
-      url3: "https://ice6.somafm.com/beatblender-128-mp3"
+      id: "house", name: "House",
+      url: "https://stream.0nlineradio.com/house",
+      url2: "https://stream.0nlineradio.com/party"
     },
     {
-      id: "trip", name: "Trip",
-      url: "https://ice6.somafm.com/thetrip-128-aac",
-      url2: "https://ice2.somafm.com/thetrip-128-aac",
-      url3: "https://ice6.somafm.com/thetrip-128-mp3"
+      id: "rock", name: "Rock",
+      url: "https://stream.0nlineradio.com/rock",
+      url2: "https://0n-rock.radionetz.de/0n-rock.mp3",
+      url3: "https://stream.0nlineradio.com/classic-rock"
     },
     {
-      id: "indie", name: "Indie",
-      url: "https://ice5.somafm.com/indiepop-128-aac",
-      url2: "https://ice2.somafm.com/indiepop-128-aac",
-      url3: "https://ice5.somafm.com/indiepop-128-mp3"
+      id: "hits", name: "Hits",
+      url: "https://stream.0nlineradio.com/greatest-hits",
+      url2: "https://stream.0nlineradio.com/top40",
+      url3: "https://0n-top40.radionetz.de/0n-top40.mp3"
     },
     {
-      id: "rp", name: "Paradise",
-      url: "https://stream.radioparadise.com/aac-128",
-      url2: "https://stream.radioparadise.com/mp3-128",
-      url3: "https://stream.radioparadise.com/aac-32"
+      id: "eighties", name: "80s",
+      url: "https://stream.0nlineradio.com/80s",
+      url2: "https://0n-80s.radionetz.de/0n-80s.mp3",
+      url3: "https://stream.0nlineradio.com/90s"
     }
   ];
 
@@ -88,12 +84,14 @@
   var RADIO_ID_ALIAS = {
     fluid: "chillout", groove: "chillout", gsclassic: "chillout",
     lounge: "chillout", asp: "chillout", lush: "chillout", soma: "chillout",
-    cliqhop: "beat",
-    jazz: "drone", smooth: "drone", smoothuk: "drone",
-    dance: "trip", ilove2: "trip",
-    hiphop: "beat", ilove3: "beat",
-    rock: "indie",
-    lofi: "drone", chillhop: "drone", zenolofi: "drone"
+    space: "chillout", drone: "chillout", lofi: "chillout",
+    chillhop: "chillout", zenolofi: "chillout", rp: "hits",
+    beat: "house", cliqhop: "house", trip: "dance",
+    dance: "dance", ilove2: "dance",
+    hiphop: "house", ilove3: "house",
+    indie: "rock", rock: "rock",
+    smooth: "jazz", smoothuk: "jazz",
+    metal: "rock", party: "house"
   };
 
   function trimSlash(s) {
