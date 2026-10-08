@@ -1,8 +1,8 @@
 /* Textmode Deck app shell — ES5 */
 (function () {
       var IDLE_MS = 45000;
-      var DRIVE_VER = 68;
-      var APP_VER = 68;
+      var DRIVE_VER = 69;
+      var APP_VER = 69;
       var THEME_KEY = "kissaten_deck_theme";
       var IDLE_ART = "art/cafe-yum.gif";
       var GC = window.GadgetCore;
@@ -678,12 +678,16 @@
 
       function formatSchedLine(day, title) {
         if (!day) return title + ": ще не сформовано";
-        var mark = day.cached ? " (кеш)" : "";
+        var mark = "";
+        if (day.probable) mark = " (ймовірний)";
+        else if (day.cached) mark = " (кеш)";
         if (day.labels && day.labels.length) {
           return title + mark + ": " + day.labels.slice(0, 3).join(", ");
         }
         if (day.text === "без відключень") return title + mark + ": без відключень";
-        if (day.emergency && !day.labels.length) return title + ": ще не сформовано";
+        if (day.emergency && !day.labels.length) {
+          return title + ": немає слотів у Yasno";
+        }
         return title + ": " + (day.text || "ще не сформовано");
       }
 
@@ -1608,7 +1612,7 @@
       setTimeout(refreshLivingClient, 3000);
       setTimeout(refreshLivingClient, 10000);
       refreshPowerClient();
-      setInterval(refreshPowerClient, 60000);
+      setInterval(refreshPowerClient, 45000);
       setTimeout(refreshPowerClient, 2500);
       setTimeout(refreshPowerClient, 12000);
       if (!hubHeld) {

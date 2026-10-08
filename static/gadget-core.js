@@ -740,9 +740,38 @@
     return m ? m[1] : s.slice(0, 10);
   }
 
+  function kyivParts(offsetDays) {
+    var base = new Date((new Date()).getTime() + (offsetDays || 0) * 86400000);
+    try {
+      var parts = base.toLocaleString("en-GB", { timeZone: "Europe/Kyiv", hour12: false }).split(/[,\s/]+/);
+      /* en-GB: DD/MM/YYYY, HH:MM:SS → parts like 09 10 2026 02:30:00 */
+      if (parts.length >= 3) {
+        var dd = parseInt(parts[0], 10);
+        var mm = parseInt(parts[1], 10);
+        var yy = parseInt(parts[2], 10);
+        if (yy > 2000 && mm >= 1 && mm <= 12 && dd >= 1 && dd <= 31) {
+          var noon = new Date(Date.UTC(yy, mm - 1, dd, 12, 0, 0));
+          return { y: yy, m: mm, d: dd, weekday: noon.getUTCDay() }; /* 0=Sun */
+        }
+      }
+    } catch (e) {}
+    return {
+      y: base.getFullYear(),
+      m: base.getMonth() + 1,
+      d: base.getDate(),
+      weekday: base.getDay()
+    };
+  }
+
   function kyivDayKey(offsetDays) {
-    var d = new Date((new Date()).getTime() + (offsetDays || 0) * 86400000);
-    return d.getFullYear() + "-" + pad2p(d.getMonth() + 1) + "-" + pad2p(d.getDate());
+    var p = kyivParts(offsetDays);
+    return p.y + "-" + pad2p(p.m) + "-" + pad2p(p.d);
+  }
+
+  function kyivWeekdayMon0(offsetDays) {
+    /* Yasno probable slots: 0=Monday … 6=Sunday */
+    var sun0 = kyivParts(offsetDays).weekday;
+    return (sun0 + 6) % 7;
   }
 
   function slotsToOffRanges(slots) {
@@ -784,15 +813,19 @@
     out.labels = [];
     var i;
     for (i = 0; i < out.slots.length; i++) out.labels.push(out.slots[i].label);
-    if (out.emergency && !out.labels.length) {
-      out.live = true;
-      out.text = "графік не діє";
-    } else if (out.labels.length) {
+    if (out.labels.length) {
       out.live = true;
       out.text = out.labels.slice(0, 3).join(" · ");
-    } else if (out.status) {
+    } else if (out.emergency) {
+      /* Emergency with empty slots — do not treat as a usable live schedule. */
+      out.live = false;
+      out.text = "немає слотів у Yasno";
+    } else if (out.status === "ScheduleApplies" || out.status === "WaitingForSchedule") {
       out.live = true;
       out.text = "без відключень";
+    } else if (out.status) {
+      out.live = false;
+      out.text = "ще не сформовано";
     } else {
       out.live = false;
       out.text = "ще не сформовано";
@@ -845,16 +878,47 @@
     writeScheduleStore(store);
   }
 
-  function resolveDaySched(liveDay, which) {
+  function dayFromProbable(which, group, probableGroups) {
+    var out = emptyDaySched(which);
+    out.date = kyivDayKey(which === "tomorrow" ? 1 : 0);
+    if (!probableGroups || !probableGroups[group]) return out;
+    var g = probableGroups[group] || {};
+    var slotMap = g.slots || {};
+    var wd = String(kyivWeekdayMon0(which === "tomorrow" ? 1 : 0));
+    var raw = slotMap[wd] || slotMap[kyivWeekdayMon0(which === "tomorrow" ? 1 : 0)] || [];
+    out.slots = slotsToOffRanges(raw);
+    out.labels = [];
+    var i;
+    for (i = 0; i < out.slots.length; i++) out.labels.push(out.slots[i].label);
+    if (out.labels.length) {
+      out.live = true;
+      out.probable = true;
+      out.cached = false;
+      out.text = out.labels.slice(0, 3).join(" · ");
+    } else {
+      out.text = "немає слотів у Yasno";
+    }
+    return out;
+  }
+
+  function resolveDaySched(liveDay, which, probableGroups, group) {
     var out = liveDay || emptyDaySched(which);
     var wantDate = out.date || kyivDayKey(which === "tomorrow" ? 1 : 0);
+    out.date = wantDate;
     if (out.live && out.labels.length) {
       out.cached = false;
+      out.probable = !!out.probable;
       return out;
     }
     if (out.live && !out.emergency && out.text === "без відключень") {
       out.cached = false;
       return out;
+    }
+    /* Planned empty (common in EmergencyShutdowns) → weekly probable template */
+    var prob = dayFromProbable(which, group || getPowerCfg().group, probableGroups);
+    if (prob && prob.labels && prob.labels.length) {
+      prob.emergency = !!(out && out.emergency);
+      return prob;
     }
     var store = readScheduleStore();
     var hit = store.days && store.days[wantDate];
@@ -863,32 +927,31 @@
         which: which,
         date: wantDate,
         status: hit.status || "",
-        emergency: false,
+        emergency: !!(out && out.emergency),
         live: false,
         cached: true,
+        probable: false,
         slots: [],
         labels: hit.labels.slice(0),
         text: hit.labels.slice(0, 3).join(" · ")
       };
     }
-    if (out.emergency) {
-      out.date = wantDate;
-      out.cached = false;
-      out.text = "ще не сформовано";
-      out.labels = [];
-      return out;
-    }
-    out.date = wantDate;
     out.cached = false;
-    if (!out.text) out.text = "ще не сформовано";
+    out.labels = out.labels || [];
+    if (out.emergency) out.text = "немає слотів у Yasno";
+    else if (!out.text) out.text = "ще не сформовано";
     return out;
   }
 
-  function applyScheduleSide(out, todayLive, tomorrowLive) {
-    if (todayLive && todayLive.live) saveLiveDayToStore(todayLive, out.group);
-    if (tomorrowLive && tomorrowLive.live) saveLiveDayToStore(tomorrowLive, out.group);
-    out.todaySched = resolveDaySched(todayLive, "today");
-    out.tomorrowSched = resolveDaySched(tomorrowLive, "tomorrow");
+  function applyScheduleSide(out, todayLive, tomorrowLive, probableGroups) {
+    if (todayLive && todayLive.live && todayLive.labels && todayLive.labels.length) {
+      saveLiveDayToStore(todayLive, out.group);
+    }
+    if (tomorrowLive && tomorrowLive.live && tomorrowLive.labels && tomorrowLive.labels.length) {
+      saveLiveDayToStore(tomorrowLive, out.group);
+    }
+    out.todaySched = resolveDaySched(todayLive, "today", probableGroups, out.group);
+    out.tomorrowSched = resolveDaySched(tomorrowLive, "tomorrow", probableGroups, out.group);
     if ((!out.slots || !out.slots.length) && out.todaySched && out.todaySched.labels && out.todaySched.labels.length) {
       out.slots = [];
       var i;
@@ -898,7 +961,7 @@
     }
   }
 
-  function parseYasnoGroup(data, group) {
+  function parseYasnoGroup(data, group, probableGroups) {
     var out = emptyPower();
     out.source = "Yasno";
     out.group = group;
@@ -908,6 +971,7 @@
     var tomorrowLive = parseYasnoDay(g.tomorrow, "tomorrow");
     out.ok = true;
     out.updated = nowSec();
+    out.updatedOn = g.updatedOn || "";
 
     if (todayLive.emergency) {
       /* Schedules void — light may still be on at the address. */
@@ -916,7 +980,7 @@
       out.level = "emergency";
       out.label = "ЕКСТРЕНІ";
       out.sub = "графіки не діють · " + group;
-      applyScheduleSide(out, todayLive, tomorrowLive);
+      applyScheduleSide(out, todayLive, tomorrowLive, probableGroups);
       return out;
     }
 
@@ -976,31 +1040,70 @@
       out.label = "СВІТЛО Є";
       out.sub = (out.nextOff ? ("далі " + out.nextOff) : "без слотів") + " · " + group;
     }
-    applyScheduleSide(out, todayLive, tomorrowLive);
+    applyScheduleSide(out, todayLive, tomorrowLive, probableGroups);
     return out;
+  }
+
+  function xhrGetJsonCascade(url, cb) {
+    xhrGet(url, 10000, function (txt) {
+      try { cb(JSON.parse(txt)); } catch (e) { cb(null); }
+    }, function () {
+      xhrGet(corsProxy(url), 12000, function (txt) {
+        try { cb(JSON.parse(txt)); } catch (e2) { cb(null); }
+      }, function () {
+        xhrGet(corsProxyGet(url), 12000, function (txt) {
+          var body = parseAllOriginsGet(txt);
+          try { cb(body ? JSON.parse(body) : null); } catch (e3) {
+            try { cb(typeof body === "object" ? body : null); } catch (e4) { cb(null); }
+          }
+        }, function () { cb(null); });
+      });
+    });
+  }
+
+  function extractProbableGroups(data, regionId, dsoId) {
+    if (!data || typeof data !== "object") return null;
+    try {
+      var reg = data[regionId] || data[String(regionId)];
+      if (!reg || !reg.dsos) return null;
+      var dso = reg.dsos[dsoId] || reg.dsos[String(dsoId)];
+      if (!dso || !dso.groups) return null;
+      return dso.groups;
+    } catch (e) {
+      return null;
+    }
   }
 
   function fetchYasnoPower(cb) {
     var cfg = getPowerCfg();
-    var url = "https://app.yasno.ua/api/blackout-service/public/shutdowns/regions/" +
+    var plannedUrl = "https://app.yasno.ua/api/blackout-service/public/shutdowns/regions/" +
       cfg.regionId + "/dsos/" + cfg.dsoId + "/planned-outages";
-    function done(data) {
-      cb(parseYasnoGroup(data, cfg.group));
+    var probableUrl = "https://app.yasno.ua/api/blackout-service/public/shutdowns/probable-outages?regionId=" +
+      cfg.regionId + "&dsoId=" + cfg.dsoId;
+    var planned = null;
+    var probableGroups = null;
+    var left = 2;
+    var sent = false;
+    function finish() {
+      if (sent || left > 0) return;
+      sent = true;
+      cb(parseYasnoGroup(planned, cfg.group, probableGroups));
     }
-    xhrGet(url, 10000, function (txt) {
-      try { done(JSON.parse(txt)); } catch (e) { done(null); }
-    }, function () {
-      xhrGet(corsProxy(url), 12000, function (txt) {
-        try { done(JSON.parse(txt)); } catch (e2) { done(null); }
-      }, function () {
-        xhrGet(corsProxyGet(url), 12000, function (txt) {
-          var body = parseAllOriginsGet(txt);
-          try { done(body ? JSON.parse(body) : null); } catch (e3) {
-            try { done(typeof body === "object" ? body : null); } catch (e4) { done(null); }
-          }
-        }, function () { done(null); });
-      });
+    xhrGetJsonCascade(plannedUrl, function (data) {
+      planned = data;
+      left--;
+      finish();
     });
+    xhrGetJsonCascade(probableUrl, function (data) {
+      probableGroups = extractProbableGroups(data, cfg.regionId, cfg.dsoId);
+      left--;
+      finish();
+    });
+    setTimeout(function () {
+      if (sent) return;
+      left = 0;
+      finish();
+    }, 12000);
   }
 
   function parseDtekPower(data) {
