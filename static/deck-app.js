@@ -1,8 +1,8 @@
 /* Textmode Deck app shell — ES5 */
 (function () {
       var IDLE_MS = 45000;
-      var DRIVE_VER = 76;
-      var APP_VER = 76;
+      var DRIVE_VER = 77;
+      var APP_VER = 77;
       var THEME_KEY = "kissaten_deck_theme";
       var IDLE_ART = "art/cafe-yum.gif";
       var GC = window.GadgetCore;
