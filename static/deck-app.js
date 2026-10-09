@@ -1,8 +1,8 @@
 /* Textmode Deck app shell — ES5 */
 (function () {
       var IDLE_MS = 45000;
-      var DRIVE_VER = 80;
-      var APP_VER = 80;
+      var DRIVE_VER = 81;
+      var APP_VER = 81;
       var THEME_KEY = "kissaten_deck_theme";
       var IDLE_ART = "art/cafe-yum.gif";
       var GC = window.GadgetCore;
@@ -884,6 +884,10 @@
           setMeta("<b>Pages · Solo</b><br>DECK = открыть LAN hub");
           return;
         }
+        if (GC && GC.canUseHubApi && !GC.canUseHubApi()) {
+          setMeta("<b>standalone</b><br>Pages · без LAN hub");
+          return;
+        }
         if (modeLock === "solo") return;
         if (hubIsQuiet()) return;
         if (mode !== "deck" && failCount >= 2) return;
@@ -924,6 +928,10 @@
 
       function heartbeat() {
         if (GC && GC.isMixedContentHub()) {
+          if (mode !== "solo" && modeLock !== "deck") setMode("solo", { auto: true });
+          return;
+        }
+        if (GC && GC.canUseHubApi && !GC.canUseHubApi()) {
           if (mode !== "solo" && modeLock !== "deck") setMode("solo", { auto: true });
           return;
         }

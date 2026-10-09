@@ -133,6 +133,17 @@
     return /^http:\/\//i.test(base);
   }
 
+  /** True only when /api/* will hit the Windows hub — not GitHub Pages. */
+  function canUseHubApi() {
+    if (isMixedContentHub()) return false;
+    if (isLikelyHubOrigin()) return true;
+    var base = getHubBase();
+    if (!base) return false;
+    /* Saved hub must look like LAN / localhost, not pages host. */
+    return /^(https?:\/\/)?(localhost|127\.0\.0\.1|192\.168\.|10\.|172\.(1[6-9]|2\d|3[01])\.)/i.test(base) ||
+      /:8787|:8080/.test(base);
+  }
+
   function hostBlocked(url) {
     var u = String(url || "").toLowerCase();
     for (var i = 0; i < BLOCK_HOST.length; i++) {
@@ -1128,10 +1139,10 @@
       left--;
       finish();
     }
-    /* Prefer LAN hub proxy — avoids sticky CORS/cache and keeps status fresh. */
+    /* Prefer LAN hub proxy — never call /api on GitHub Pages (404 spam). */
     var hubPlanned = "";
     try {
-      if (!isMixedContentHub()) hubPlanned = apiUrl("/api/power/yasno/planned");
+      if (canUseHubApi()) hubPlanned = apiUrl("/api/power/yasno/planned");
     } catch (eH) {}
     if (hubPlanned) {
       xhrGet(hubPlanned, 10000, function (txt) {
@@ -1233,7 +1244,7 @@
     /* Prefer LAN hub proxy (bypasses browser CORS / WAF quirks). */
     var hubUrl = "";
     try {
-      if (!isMixedContentHub()) hubUrl = apiUrl("/api/power/dtek");
+      if (canUseHubApi()) hubUrl = apiUrl("/api/power/dtek");
     } catch (e0) {}
     function fail() {
       cb(parseDtekPower({ ok: false }));
@@ -1394,6 +1405,7 @@
     apiUrl: apiUrl,
     isLikelyHubOrigin: isLikelyHubOrigin,
     isMixedContentHub: isMixedContentHub,
+    canUseHubApi: canUseHubApi,
     xhrGet: xhrGet,
     fetchWeather: fetchWeather,
     fetchAlert: fetchAlert,
