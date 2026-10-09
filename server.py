@@ -17,7 +17,7 @@ from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.error import HTTPError, URLError
 from urllib.parse import urlencode, urlparse
-from urllib.request import Request, build_opener, HTTPCookieProcessor, urlopen, urlretrieve
+from urllib.request import Request, build_opener, HTTPCookieProcessor, urlopen
 from http.cookiejar import CookieJar
 
 ROOT = Path(__file__).resolve().parent
@@ -886,13 +886,7 @@ _sys_thread_started = False
 HW_CPU_HOT_C = float(os.environ.get("IPAD_DECK_CPU_HOT", "85"))
 HW_GPU_HOT_C = float(os.environ.get("IPAD_DECK_GPU_HOT", "80"))
 HW_WARN_C = float(os.environ.get("IPAD_DECK_TEMP_WARN", "70"))
-LHM_DIR = ROOT / "tools" / "LibreHardwareMonitor"
-LHM_EXE = LHM_DIR / "LibreHardwareMonitor.exe"
 LHM_PORT = int(os.environ.get("IPAD_DECK_LHM_PORT", "8085"))
-LHM_ZIP_URL = (
-    "https://github.com/LibreHardwareMonitor/LibreHardwareMonitor/releases/"
-    "download/v0.9.6/LibreHardwareMonitor.zip"
-)
 _hw_cache: dict = {
     "cpu_temp_c": None,
     "cpu_load": None,
