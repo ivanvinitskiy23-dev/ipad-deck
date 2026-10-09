@@ -909,8 +909,6 @@ _hw_cache: dict = {
     "source": "",
 }
 _nvml_ok: bool | None = None
-_lhm_start_tried = False
-_lhm_lock = threading.Lock()
 
 
 def _hw_empty() -> dict:
@@ -946,146 +944,6 @@ def _parse_sensor_number(raw: str) -> float | None:
         return None
 
 
-def _write_lhm_config() -> None:
-    cfg = LHM_DIR / "LibreHardwareMonitor.config"
-    body = (
-        '<?xml version="1.0" encoding="utf-8"?>\n'
-        "<configuration>\n"
-        "  <appSettings>\n"
-        '    <add key="runWebServerMenuItem" value="true" />\n'
-        f'    <add key="listenerPort" value="{LHM_PORT}" />\n'
-        '    <add key="listenerIp" value="127.0.0.1" />\n'
-        '    <add key="minTrayMenuItem" value="true" />\n'
-        '    <add key="minimizeOnCloseMenuItem" value="true" />\n'
-        '    <add key="startMinimizedMenuItem" value="true" />\n'
-        "  </appSettings>\n"
-        "</configuration>\n"
-    )
-    try:
-        LHM_DIR.mkdir(parents=True, exist_ok=True)
-        cfg.write_text(body, encoding="utf-8")
-    except OSError:
-        pass
-
-
-def _lhm_download() -> bool:
-    if LHM_EXE.exists():
-        return True
-    try:
-        import zipfile
-
-        LHM_DIR.mkdir(parents=True, exist_ok=True)
-        zpath = LHM_DIR / "_lhm.zip"
-        urlretrieve(LHM_ZIP_URL, zpath)  # noqa: S310 — fixed release URL
-        with zipfile.ZipFile(zpath, "r") as zf:
-            zf.extractall(LHM_DIR)
-        try:
-            zpath.unlink()
-        except OSError:
-            pass
-        return LHM_EXE.exists()
-    except Exception:
-        return False
-
-
-def _lhm_process_running() -> bool:
-    if platform.system() != "Windows":
-        return False
-    try:
-        r = subprocess.run(
-            ["tasklist", "/FI", "IMAGENAME eq LibreHardwareMonitor.exe", "/NH"],
-            capture_output=True,
-            text=True,
-            timeout=3,
-            creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
-        )
-        return "LibreHardwareMonitor.exe" in (r.stdout or "")
-    except Exception:
-        return False
-
-
-def _lhm_http_ok() -> bool:
-    try:
-        with urlopen(f"http://127.0.0.1:{LHM_PORT}/data.json", timeout=2.0) as resp:  # noqa: S310
-            body = resp.read()
-            return int(getattr(resp, "status", 200) or 200) == 200 and len(body) > 200
-    except Exception:
-        return False
-
-
-def _lhm_kill() -> None:
-    try:
-        subprocess.run(
-            ["taskkill", "/F", "/IM", "LibreHardwareMonitor.exe"],
-            capture_output=True,
-            timeout=5,
-            creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
-        )
-    except Exception:
-        pass
-
-
-def ensure_lhm_running() -> bool:
-    """Start vendored LibreHardwareMonitor with Remote Web Server if needed."""
-    global _lhm_start_tried
-    if platform.system() != "Windows":
-        return False
-    if _lhm_http_ok():
-        return True
-    with _lhm_lock:
-        if _lhm_http_ok():
-            return True
-        if not _lhm_download():
-            return False
-        _write_lhm_config()
-        # Running without web server → restart once with our config.
-        if _lhm_process_running() and not _lhm_start_tried:
-            _lhm_start_tried = True
-            _lhm_kill()
-            time.sleep(0.8)
-        if not _lhm_process_running():
-            _lhm_start_tried = True
-            started = False
-            try:
-                # Manifest often requires elevation (WinError 740 on CreateProcess).
-                import ctypes
-
-                rc = int(
-                    ctypes.windll.shell32.ShellExecuteW(  # type: ignore[attr-defined]
-                        None,
-                        "open",
-                        str(LHM_EXE),
-                        None,
-                        str(LHM_DIR),
-                        7,  # SW_SHOWMINNOACTIVE
-                    )
-                )
-                started = rc > 32
-            except Exception:
-                started = False
-            if not started:
-                try:
-                    subprocess.Popen(
-                        [
-                            "powershell",
-                            "-NoProfile",
-                            "-WindowStyle",
-                            "Hidden",
-                            "-Command",
-                            f'Start-Process -FilePath "{LHM_EXE}" -WorkingDirectory "{LHM_DIR}" -WindowStyle Minimized',
-                        ],
-                        stdout=subprocess.DEVNULL,
-                        stderr=subprocess.DEVNULL,
-                    )
-                    started = True
-                except Exception:
-                    return False
-        for _ in range(16):
-            time.sleep(0.5)
-            if _lhm_http_ok():
-                return True
-        return _lhm_http_ok()
-
 def _lhm_walk(node: dict, path: str, rows: list[tuple[str, str, float]]) -> None:
     text = str(node.get("Text") or "")
     val_raw = str(node.get("Value") or "")
@@ -1101,12 +959,11 @@ def _lhm_walk(node: dict, path: str, rows: list[tuple[str, str, float]]) -> None
 
 
 def _read_lhm_http(out: dict) -> bool:
-    if not ensure_lhm_running():
-        return False
+    """Optional: read LHM only if user already left its web server running. Never auto-start."""
     try:
-        with urlopen(f"http://127.0.0.1:{LHM_PORT}/data.json", timeout=2.5) as resp:  # noqa: S310
+        with urlopen(f"http://127.0.0.1:{LHM_PORT}/data.json", timeout=0.8) as resp:  # noqa: S310
             body = resp.read().decode("utf-8", errors="replace")
-        if not body:
+        if not body or len(body) < 200:
             return False
         data = json.loads(body)
     except Exception:
@@ -1355,15 +1212,11 @@ def _refresh_sys_cache() -> None:
 
 def _sys_worker() -> None:
     time.sleep(0.3)
-    # Prime CPU% baseline for psutil + wake LibreHardwareMonitor web server
+    # Prime CPU% baseline for psutil
     try:
         import psutil  # type: ignore
 
         psutil.cpu_percent(interval=None)
-    except Exception:
-        pass
-    try:
-        ensure_lhm_running()
     except Exception:
         pass
     while True:

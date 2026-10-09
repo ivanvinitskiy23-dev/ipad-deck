@@ -1,8 +1,10 @@
-# LibreHardwareMonitor (vendored for iPad Deck hub)
+# LibreHardwareMonitor (optional)
 
-Hub reads `http://127.0.0.1:8085/data.json` for CPU° / GPU° / RAM / FAN.
+Hub **does not** auto-start LHM (window spam).
 
-If `LibreHardwareMonitor.exe` is missing, `server.py` downloads release **v0.9.6** automatically.
-Config enables **Remote Web Server** on port 8085.
+If you manually run LibreHardwareMonitor with **Options → Remote web server → Run**
+on port `8085`, the hub will read `http://127.0.0.1:8085/data.json` for CPU°.
 
-Manual: [LibreHardwareMonitor releases](https://github.com/LibreHardwareMonitor/LibreHardwareMonitor/releases)
+Otherwise vitals fall back to NVIDIA / psutil (GPU° · RAM · CPU%).
+
+Release: https://github.com/LibreHardwareMonitor/LibreHardwareMonitor/releases
