@@ -5,11 +5,11 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-  <meta name="apple-mobile-web-app-title" content="Qwiqly Deck v77" />
+  <meta name="apple-mobile-web-app-title" content="Qwiqly Deck v78" />
   <meta name="mobile-web-app-capable" content="yes" />
   <meta http-equiv="Cache-Control" content="no-store, no-cache, must-revalidate" />
   <meta http-equiv="Pragma" content="no-cache" />
-  <title>Qwiqly Deck v77</title>
+  <title>Qwiqly Deck v78</title>
   <style>
 /* TEXTMODE DECK — full rebuild UI (CRT / phosphor) */
 * { -webkit-tap-highlight-color: transparent; box-sizing: border-box; }
@@ -119,6 +119,16 @@ body.theme-D {
   color: var(--ink); text-transform: none; font-weight: 600;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   text-shadow: none;
+  -webkit-transition: color .2s ease, text-shadow .2s ease; transition: color .2s ease, text-shadow .2s ease;
+}
+.crt-titlebar .hub-stats.warn {
+  color: #ffcc33;
+  text-shadow: 0 0 6px rgba(255,204,51,.45);
+}
+.crt-titlebar .hub-stats.hot {
+  color: var(--warn);
+  font-weight: 800;
+  text-shadow: 0 0 8px rgba(255,51,85,.55);
 }
 .crt-titlebar .ver {
   color: var(--dim); letter-spacing: .08em;
@@ -989,13 +999,13 @@ button.pad.warn { color: var(--warn); border-color: var(--warn); background: var
     <br><b>Поделиться → На экран «Домой»</b>
     <br>открой ярлык — без строки Safari.
     <br><br>Важно: добавляй URL с версией:
-    <br><b id="tipUrl">http://192.168.0.247:8787/?v=77</b>
+    <br><b id="tipUrl">http://192.168.0.247:8787/?v=78</b>
     <br>(старый ярлык без ?v= кэширует старый UI)
     <br><br>Для старта без ПК — GitHub Pages URL из README.
     <button type="button" id="tipOk">Понятно</button>
   </div>
 
-  <script src="gadget-core.js?v=77"></script>
-  <script src="deck-app.js?v=77"></script>
+  <script src="gadget-core.js?v=78"></script>
+  <script src="deck-app.js?v=78"></script>
 </body>
 </html>

@@ -1,8 +1,8 @@
 /* Textmode Deck app shell — ES5 */
 (function () {
       var IDLE_MS = 45000;
-      var DRIVE_VER = 77;
-      var APP_VER = 77;
+      var DRIVE_VER = 78;
+      var APP_VER = 78;
       var THEME_KEY = "kissaten_deck_theme";
       var IDLE_ART = "art/cafe-yum.gif";
       var GC = window.GadgetCore;
@@ -105,17 +105,27 @@
         }, 2200);
       }
 
+      function setHubStats(text, flags) {
+        if (!hubStatsEl) return;
+        var t = String(text || "").replace(/\s+/g, " ").replace(/^\s+|\s+$/g, "");
+        hubStatsEl.textContent = t || "—";
+        var cls = "hub-stats";
+        if (flags && flags.hot) cls += " hot";
+        else if (flags && flags.warn) cls += " warn";
+        hubStatsEl.className = cls;
+      }
+
       function setMeta(html) {
         if (metaEl) metaEl.innerHTML = html || "";
-        /* Titlebar PC params (arrow spot) — one compact line */
-        if (hubStatsEl) {
+        /* Offline / mode lines also land in titlebar until HW stats arrive */
+        if (hubStatsEl && html) {
           var t = String(html || "")
             .replace(/<br\s*\/?>/gi, " · ")
             .replace(/<\/?b>/gi, "")
             .replace(/<[^>]+>/g, "")
             .replace(/\s+/g, " ")
             .replace(/^\s+|\s+$/g, "");
-          hubStatsEl.textContent = t || "—";
+          setHubStats(t, null);
         }
       }
 
@@ -893,12 +903,18 @@
             var ip = (s.ips && s.ips[0]) ? s.ips[0] : "—";
             var shortHost = (s.hostname || "").replace(/^DESKTOP-/, "");
             setMeta(shortHost + " · " + disk + " · " + ip);
+            if (s.hw && s.hw.line) {
+              setHubStats(s.hw.line, { hot: !!s.hw.hot, warn: !!s.hw.warn });
+            } else {
+              setHubStats(shortHost + " · " + disk, null);
+            }
             if (typeof s.volume === "number") syncVolumeUI(s.volume, s.muted);
             if (typeof s.muted === "boolean") isMuted = s.muted;
             if (s.now_playing) updateNowPlaying(s.now_playing);
             if (s.audio) syncAudioUI(s.audio);
           } catch (e) {
             setMeta("ошибка статуса");
+            setHubStats("ошибка статуса", null);
           }
         };
         xhr.onerror = function () { markHubDown(); };

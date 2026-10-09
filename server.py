@@ -882,6 +882,214 @@ _sys_meta = {
 }
 _sys_thread_started = False
 
+# PC vitals for titlebar (GPU via NVML / nvidia-smi; CPU° optional via LibreHardwareMonitor WMI)
+HW_CPU_HOT_C = float(os.environ.get("IPAD_DECK_CPU_HOT", "85"))
+HW_GPU_HOT_C = float(os.environ.get("IPAD_DECK_GPU_HOT", "80"))
+HW_WARN_C = float(os.environ.get("IPAD_DECK_TEMP_WARN", "70"))
+_hw_cache: dict = {
+    "cpu_temp_c": None,
+    "cpu_load": None,
+    "gpu_temp_c": None,
+    "gpu_load": None,
+    "gpu_fan": None,
+    "ram_percent": None,
+    "ram_used_gb": None,
+    "ram_total_gb": None,
+    "line": "",
+    "hot": False,
+    "warn": False,
+}
+_nvml_ok: bool | None = None
+
+
+def _hw_empty() -> dict:
+    return {
+        "cpu_temp_c": None,
+        "cpu_load": None,
+        "gpu_temp_c": None,
+        "gpu_load": None,
+        "gpu_fan": None,
+        "ram_percent": None,
+        "ram_used_gb": None,
+        "ram_total_gb": None,
+        "line": "",
+        "hot": False,
+        "warn": False,
+    }
+
+
+def _read_ram_cpu_psutil(out: dict) -> None:
+    try:
+        import psutil  # type: ignore
+    except Exception:
+        return
+    try:
+        out["cpu_load"] = round(float(psutil.cpu_percent(interval=None)), 0)
+    except Exception:
+        pass
+    try:
+        vm = psutil.virtual_memory()
+        out["ram_percent"] = round(float(vm.percent), 0)
+        out["ram_used_gb"] = round(vm.used / (1024 ** 3), 1)
+        out["ram_total_gb"] = round(vm.total / (1024 ** 3), 1)
+    except Exception:
+        pass
+
+
+def _read_gpu_nvml(out: dict) -> bool:
+    global _nvml_ok
+    try:
+        import pynvml  # type: ignore
+    except Exception:
+        _nvml_ok = False
+        return False
+    try:
+        if _nvml_ok is False:
+            return False
+        pynvml.nvmlInit()
+        _nvml_ok = True
+        handle = pynvml.nvmlDeviceGetHandleByIndex(0)
+        out["gpu_temp_c"] = int(pynvml.nvmlDeviceGetTemperature(handle, pynvml.NVML_TEMPERATURE_GPU))
+        util = pynvml.nvmlDeviceGetUtilizationRates(handle)
+        out["gpu_load"] = int(util.gpu)
+        try:
+            fan = int(pynvml.nvmlDeviceGetFanSpeed(handle))
+            if fan > 0:
+                out["gpu_fan"] = fan
+        except Exception:
+            pass
+        return True
+    except Exception:
+        _nvml_ok = False
+        return False
+
+
+def _read_gpu_nvidia_smi(out: dict) -> bool:
+    try:
+        r = subprocess.run(
+            [
+                "nvidia-smi",
+                "--query-gpu=temperature.gpu,utilization.gpu,fan.speed",
+                "--format=csv,noheader,nounits",
+            ],
+            capture_output=True,
+            text=True,
+            timeout=2.5,
+            creationflags=(
+                getattr(subprocess, "CREATE_NO_WINDOW", 0)
+                if platform.system() == "Windows"
+                else 0
+            ),
+        )
+    except Exception:
+        return False
+    if r.returncode != 0 or not (r.stdout or "").strip():
+        return False
+    line = (r.stdout or "").strip().splitlines()[0]
+    parts = [p.strip() for p in line.split(",")]
+    if len(parts) < 2:
+        return False
+    try:
+        if parts[0] and parts[0] not in ("N/A", "[N/A]"):
+            out["gpu_temp_c"] = int(float(parts[0]))
+        if parts[1] and parts[1] not in ("N/A", "[N/A]"):
+            out["gpu_load"] = int(float(parts[1]))
+        if len(parts) > 2 and parts[2] and parts[2] not in ("N/A", "[N/A]", "0"):
+            out["gpu_fan"] = int(float(parts[2]))
+        return out.get("gpu_temp_c") is not None or out.get("gpu_load") is not None
+    except Exception:
+        return False
+
+
+def _read_cpu_temp_lhm(out: dict) -> None:
+    """Optional: LibreHardwareMonitor / OpenHardwareMonitor exporting WMI."""
+    if platform.system() != "Windows":
+        return
+    for ns in ("root\\LibreHardwareMonitor", "root\\OpenHardwareMonitor"):
+        try:
+            import wmi  # type: ignore
+
+            c = wmi.WMI(namespace=ns)
+            best = None
+            for s in c.Sensor():
+                try:
+                    st = str(getattr(s, "SensorType", "") or "")
+                    name = str(getattr(s, "Name", "") or "")
+                    val = getattr(s, "Value", None)
+                    if st != "Temperature" or val is None:
+                        continue
+                    nl = name.lower()
+                    if "gpu" in nl or "hdd" in nl or "ssd" in nl or "drive" in nl:
+                        continue
+                    score = 0
+                    if "package" in nl or "tctl" in nl or "tdie" in nl:
+                        score = 3
+                    elif "cpu" in nl or "core" in nl:
+                        score = 2
+                    else:
+                        score = 1
+                    v = float(val)
+                    if best is None or score > best[0]:
+                        best = (score, v)
+                except Exception:
+                    continue
+            if best is not None:
+                out["cpu_temp_c"] = round(best[1], 0)
+                return
+        except Exception:
+            continue
+
+
+def _format_hw_line(hw: dict) -> tuple[str, bool, bool]:
+    parts: list[str] = []
+    cpu_t = hw.get("cpu_temp_c")
+    cpu_l = hw.get("cpu_load")
+    if cpu_t is not None:
+        parts.append(f"CPU {int(cpu_t)}°")
+    elif cpu_l is not None:
+        parts.append(f"CPU {int(cpu_l)}%")
+    gpu_t = hw.get("gpu_temp_c")
+    gpu_l = hw.get("gpu_load")
+    if gpu_t is not None and gpu_l is not None:
+        parts.append(f"GPU {int(gpu_t)}° {int(gpu_l)}%")
+    elif gpu_t is not None:
+        parts.append(f"GPU {int(gpu_t)}°")
+    elif gpu_l is not None:
+        parts.append(f"GPU {int(gpu_l)}%")
+    ram = hw.get("ram_percent")
+    if ram is not None:
+        parts.append(f"RAM {int(ram)}%")
+    fan = hw.get("gpu_fan")
+    if fan is not None and int(fan) > 0:
+        parts.append(f"FAN {int(fan)}%")
+
+    hot = False
+    warn = False
+    if cpu_t is not None:
+        if float(cpu_t) >= HW_CPU_HOT_C:
+            hot = True
+        elif float(cpu_t) >= HW_WARN_C:
+            warn = True
+    if gpu_t is not None:
+        if float(gpu_t) >= HW_GPU_HOT_C:
+            hot = True
+        elif float(gpu_t) >= HW_WARN_C:
+            warn = True
+    return " · ".join(parts), hot, warn
+
+
+def collect_hw_stats() -> dict:
+    out = _hw_empty()
+    _read_ram_cpu_psutil(out)
+    if not _read_gpu_nvml(out):
+        _read_gpu_nvidia_smi(out)
+    _read_cpu_temp_lhm(out)
+    line, hot, warn = _format_hw_line(out)
+    out["line"] = line
+    out["hot"] = hot
+    out["warn"] = warn
+    return out
+
 
 def get_audio_cached() -> dict:
     with _sys_lock:
@@ -889,7 +1097,7 @@ def get_audio_cached() -> dict:
 
 
 def _refresh_sys_cache() -> None:
-    global _last_volume, _audio_cache
+    global _last_volume, _audio_cache, _hw_cache
     try:
         if platform.system() == "Windows":
             real = _get_volume_windows()
@@ -903,16 +1111,28 @@ def _refresh_sys_cache() -> None:
         audio = None
     ips = lan_ips()
     disk = disk_free_gb()
+    try:
+        hw = collect_hw_stats()
+    except Exception:
+        hw = _hw_empty()
     with _sys_lock:
         if audio:
             _audio_cache = audio
         _sys_meta["ips"] = ips
         _sys_meta["disk_free_gb"] = disk
         _sys_meta["hostname"] = socket.gethostname()
+        _hw_cache = hw
 
 
 def _sys_worker() -> None:
     time.sleep(0.3)
+    # Prime CPU% baseline for psutil
+    try:
+        import psutil  # type: ignore
+
+        psutil.cpu_percent(interval=None)
+    except Exception:
+        pass
     while True:
         try:
             _refresh_sys_cache()
@@ -939,6 +1159,7 @@ def status_payload() -> dict:
     with _sys_lock:
         audio = dict(_audio_cache)
         meta = dict(_sys_meta)
+        hw = dict(_hw_cache)
     return {
         "ok": True,
         "hostname": meta.get("hostname") or socket.gethostname(),
@@ -952,6 +1173,7 @@ def status_payload() -> dict:
         "muted": _muted,
         "now_playing": np,
         "audio": audio,
+        "hw": hw,
     }
 
 
