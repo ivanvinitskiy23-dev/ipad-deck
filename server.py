@@ -220,6 +220,50 @@ def find_discord() -> Path | None:
     return None
 
 
+def find_steam() -> Path | None:
+    pf = os.environ.get("PROGRAMFILES", r"C:\Program Files")
+    pf86 = os.environ.get("PROGRAMFILES(X86)", r"C:\Program Files (x86)")
+    return _first_existing(
+        [
+            Path(pf86) / "Steam" / "steam.exe",
+            Path(pf) / "Steam" / "steam.exe",
+            Path(shutil.which("steam") or ""),
+        ]
+    )
+
+
+def find_faceit() -> Path | None:
+    local = os.environ.get("LOCALAPPDATA", "")
+    pf = os.environ.get("PROGRAMFILES", r"C:\Program Files")
+    pf86 = os.environ.get("PROGRAMFILES(X86)", r"C:\Program Files (x86)")
+    return _first_existing(
+        [
+            Path(local) / "FaceIt" / "FACEIT.exe" if local else None,
+            Path(local) / "FACEIT" / "FACEIT.exe" if local else None,
+            Path(local) / "Programs" / "FACEIT" / "FACEIT.exe" if local else None,
+            Path(local) / "Programs" / "faceit" / "FACEIT.exe" if local else None,
+            Path(pf) / "FACEIT" / "FACEIT.exe",
+            Path(pf86) / "FACEIT" / "FACEIT.exe",
+        ]
+    )
+
+
+def find_faceit_ac() -> Path | None:
+    pf = os.environ.get("PROGRAMFILES", r"C:\Program Files")
+    pf86 = os.environ.get("PROGRAMFILES(X86)", r"C:\Program Files (x86)")
+    local = os.environ.get("LOCALAPPDATA", "")
+    return _first_existing(
+        [
+            Path(pf) / "FACEIT AC" / "faceitclient.exe",
+            Path(pf86) / "FACEIT AC" / "faceitclient.exe",
+            Path(pf) / "FACEIT Anti-Cheat" / "faceitclient.exe",
+            Path(pf86) / "FACEIT Anti-Cheat" / "faceitclient.exe",
+            Path(local) / "Programs" / "FACEIT Anti-Cheat" / "faceitclient.exe" if local else None,
+            Path(local) / "Programs" / "FACEIT AC" / "faceitclient.exe" if local else None,
+        ]
+    )
+
+
 def action_open_exe(exe: Path | None, label: str) -> str:
     if not exe:
         return f"{label} not found"
@@ -230,6 +274,23 @@ def action_open_exe(exe: Path | None, label: str) -> str:
         stderr=subprocess.DEVNULL,
     )
     return f"started {label}"
+
+
+def action_steam_applaunch(app_id: int, label: str) -> str:
+    steam = find_steam()
+    if steam:
+        subprocess.Popen(
+            [str(steam), "-applaunch", str(app_id)],
+            cwd=str(steam.parent),
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+        return f"started {label}"
+    try:
+        os.startfile(f"steam://rungameid/{app_id}")  # type: ignore[attr-defined]
+        return f"started {label}"
+    except Exception:
+        return f"{label} not found (Steam)"
 
 
 def action_open_cursor() -> str:
@@ -246,6 +307,43 @@ def action_open_telegram() -> str:
 
 def action_open_discord() -> str:
     return action_open_exe(find_discord(), "Discord")
+
+
+def action_open_steam() -> str:
+    return action_open_exe(find_steam(), "Steam")
+
+
+def action_open_faceit() -> str:
+    return action_open_exe(find_faceit(), "FACEIT")
+
+
+def action_open_faceit_ac() -> str:
+    return action_open_exe(find_faceit_ac(), "FACEIT AC")
+
+
+def action_open_faceit_stack() -> str:
+    """One tap: FACEIT Anti-Cheat + FACEIT client."""
+    parts = []
+    ac = find_faceit_ac()
+    client = find_faceit()
+    if ac:
+        action_open_exe(ac, "FACEIT AC")
+        parts.append("AC")
+        time.sleep(0.6)
+    if client:
+        action_open_exe(client, "FACEIT")
+        parts.append("FACEIT")
+    if not parts:
+        return "FACEIT / AC not found"
+    return "started " + " + ".join(parts)
+
+
+def action_open_cs2() -> str:
+    return action_steam_applaunch(730, "CS2")
+
+
+def action_open_pubg() -> str:
+    return action_steam_applaunch(578080, "PUBG")
 
 
 # ---- audio output scenes (headphones / bluetooth) ----
@@ -497,6 +595,12 @@ ACTIONS = {
     "chrome": action_open_chrome,
     "telegram": action_open_telegram,
     "discord": action_open_discord,
+    "steam": action_open_steam,
+    "faceit": action_open_faceit,
+    "faceit_ac": action_open_faceit_ac,
+    "faceit_stack": action_open_faceit_stack,
+    "cs2": action_open_cs2,
+    "pubg": action_open_pubg,
     "media_play": lambda: action_media("play"),
     "media_pause": lambda: action_media("pause"),
 }

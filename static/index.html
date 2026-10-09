@@ -5,11 +5,11 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-  <meta name="apple-mobile-web-app-title" content="Qwiqly Deck v75" />
+  <meta name="apple-mobile-web-app-title" content="Qwiqly Deck v76" />
   <meta name="mobile-web-app-capable" content="yes" />
   <meta http-equiv="Cache-Control" content="no-store, no-cache, must-revalidate" />
   <meta http-equiv="Pragma" content="no-cache" />
-  <title>Qwiqly Deck v75</title>
+  <title>Qwiqly Deck v76</title>
   <style>
 /* TEXTMODE DECK — full rebuild UI (CRT / phosphor) */
 * { -webkit-tap-highlight-color: transparent; box-sizing: border-box; }
@@ -517,6 +517,11 @@ button.pad.warn { color: var(--warn); border-color: var(--warn); background: var
 .ico-ch { background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><circle cx='16' cy='16' r='11' fill='none' stroke='%23ff2d95' stroke-width='2'/><circle cx='16' cy='16' r='4' fill='%23ff2d95'/></svg>"); }
 .ico-cu { background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect x='6' y='6' width='20' height='20' fill='none' stroke='%23ffb000' stroke-width='2'/><path d='M12 10 L12 22 L18 16 Z' fill='%23ffb000'/></svg>"); }
 .ico-lk { background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect x='8' y='14' width='16' height='12' fill='none' stroke='%23ff3355' stroke-width='2'/><path d='M11 14 V11 a5 5 0 0 1 10 0 v3' fill='none' stroke='%23ff3355' stroke-width='2'/></svg>"); }
+.ico-st { background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect x='5' y='8' width='22' height='16' rx='2' fill='none' stroke='%2300e5ff' stroke-width='2'/><circle cx='11' cy='16' r='2' fill='%2300e5ff'/><circle cx='16' cy='16' r='2' fill='%2300e5ff'/><circle cx='21' cy='16' r='2' fill='%2300e5ff'/></svg>"); }
+.ico-fc { background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><polygon fill='none' stroke='%23ffb000' stroke-width='2' points='16,4 28,12 28,20 16,28 4,20 4,12'/><circle cx='16' cy='16' r='3' fill='%23ffb000'/></svg>"); }
+.ico-fs { background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><polygon fill='none' stroke='%23ff2d95' stroke-width='2' points='16,4 28,12 28,20 16,28 4,20 4,12'/><path d='M11 16 L15 20 L22 11' fill='none' stroke='%23ff2d95' stroke-width='2'/></svg>"); }
+.ico-cs { background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><circle cx='16' cy='16' r='10' fill='none' stroke='%2333ff99' stroke-width='2'/><rect x='11' y='11' width='4' height='10' fill='%2333ff99'/><path d='M17 11 h4 a3 3 0 0 1 0 6 h-4 z M17 17 h5 a3 3 0 0 1 0 4 h-5 z' fill='%2333ff99'/></svg>"); }
+.ico-pg { background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><path d='M6 22 L16 6 L26 22 Z' fill='none' stroke='%23ffb000' stroke-width='2'/><circle cx='16' cy='18' r='2' fill='%23ffb000'/></svg>"); }
 
 .vol-card {
   width: 100%; margin: 0 0 10px; padding: 12px 14px;
@@ -906,6 +911,15 @@ button.pad.warn { color: var(--warn); border-color: var(--warn); background: var
           <button class="pad leaf" data-action="discord"><span class="ico ico-dc"></span><span class="lbl">Discord</span></button>
           <button class="pad lantern" data-action="chrome"><span class="ico ico-ch"></span><span class="lbl">Chrome</span></button>
         </div>
+        <div class="row deck-only">
+          <button class="pad lantern" data-action="steam"><span class="ico ico-st"></span><span class="lbl">Steam</span></button>
+          <button class="pad leaf" data-action="faceit"><span class="ico ico-fc"></span><span class="lbl">FACEIT</span></button>
+          <button class="pad lantern" data-action="faceit_stack"><span class="ico ico-fs"></span><span class="lbl">FACEIT+</span></button>
+        </div>
+        <div class="row deck-only">
+          <button class="pad leaf" data-action="cs2"><span class="ico ico-cs"></span><span class="lbl">CS2</span></button>
+          <button class="pad lantern" data-action="pubg"><span class="ico ico-pg"></span><span class="lbl">PUBG</span></button>
+        </div>
 
         <div class="section deck-only">OPS</div>
         <div class="row deck-only">
@@ -974,13 +988,13 @@ button.pad.warn { color: var(--warn); border-color: var(--warn); background: var
     <br><b>Поделиться → На экран «Домой»</b>
     <br>открой ярлык — без строки Safari.
     <br><br>Важно: добавляй URL с версией:
-    <br><b id="tipUrl">http://192.168.0.247:8787/?v=75</b>
+    <br><b id="tipUrl">http://192.168.0.247:8787/?v=76</b>
     <br>(старый ярлык без ?v= кэширует старый UI)
     <br><br>Для старта без ПК — GitHub Pages URL из README.
     <button type="button" id="tipOk">Понятно</button>
   </div>
 
-  <script src="gadget-core.js?v=75"></script>
-  <script src="deck-app.js?v=75"></script>
+  <script src="gadget-core.js?v=76"></script>
+  <script src="deck-app.js?v=76"></script>
 </body>
 </html>
