@@ -2,14 +2,14 @@
 <html lang="ru">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-  <meta name="apple-mobile-web-app-title" content="Qwiqly Deck v73" />
+  <meta name="apple-mobile-web-app-title" content="Qwiqly Deck v74" />
   <meta name="mobile-web-app-capable" content="yes" />
   <meta http-equiv="Cache-Control" content="no-store, no-cache, must-revalidate" />
   <meta http-equiv="Pragma" content="no-cache" />
-  <title>Qwiqly Deck v73</title>
+  <title>Qwiqly Deck v74</title>
   <style>
 /* TEXTMODE DECK — full rebuild UI (CRT / phosphor) */
 * { -webkit-tap-highlight-color: transparent; box-sizing: border-box; }
@@ -85,6 +85,11 @@ body.theme-D {
   display: -webkit-box; display: -webkit-flex; display: flex;
   -webkit-box-orient: vertical; -webkit-flex-direction: column; flex-direction: column;
   position: absolute; top: 0; right: 0; bottom: 0; left: 0; width: 100%; height: 100%; overflow: auto; -webkit-overflow-scrolling: touch; z-index: 1;
+  /* iPad status bar (black-translucent) overlaps ~10–20px without this */
+  padding-top: 12px;
+  padding-top: calc(12px + constant(safe-area-inset-top));
+  padding-top: calc(12px + env(safe-area-inset-top));
+  -webkit-box-sizing: border-box; box-sizing: border-box;
 }
 
 /* ===== CRT frame chrome ===== */
@@ -236,8 +241,10 @@ body.standalone .media-col { height: 120px; }
 #mediaControlsRadio .media-btn {
   -webkit-flex: 0 0 auto; flex: 0 0 auto;
   width: auto; min-width: 56px; min-height: 30px;
-  margin: 0 3px 0 0; font-size: 10px; padding: 0 8px;
+  margin: 0 3px; font-size: 10px; padding: 0 8px;
 }
+#mediaControlsRadio .media-btn:first-child { margin-left: 0; }
+#mediaControlsRadio .media-btn:last-child { margin-right: 0; }
 /* Hidden unlock element for iOS — NEVER show the native gray bar */
 #radioNative {
   position: fixed !important;
@@ -260,7 +267,7 @@ body.standalone .media-col { height: 120px; }
 .radio-dock .media-controls {
   display: -webkit-box; display: -webkit-flex; display: flex;
   width: 100%; margin: 0 0 6px;
-  -webkit-box-pack: start; -webkit-justify-content: flex-start; justify-content: flex-start;
+  -webkit-box-pack: center; -webkit-justify-content: center; justify-content: center;
 }
 body.mode-deck .radio-dock,
 body.mode-deck #mediaControlsRadio { display: none !important; }
@@ -652,7 +659,10 @@ button.pad.warn { color: var(--warn); border-color: var(--warn); background: var
   image-rendering: -webkit-optimize-contrast; image-rendering: pixelated; image-rendering: crisp-edges;
 }
 #idleHud {
-  position: absolute; left: 8px; right: 8px; top: 8px; z-index: 4; pointer-events: none;
+  position: absolute; left: 8px; right: 8px; z-index: 4; pointer-events: none;
+  top: 18px;
+  top: calc(10px + constant(safe-area-inset-top));
+  top: calc(10px + env(safe-area-inset-top));
   display: -webkit-box; display: -webkit-flex; display: flex;
   -webkit-box-pack: center; -webkit-justify-content: center; justify-content: center;
 }
@@ -726,7 +736,12 @@ button.pad.warn { color: var(--warn); border-color: var(--warn); background: var
   body.standalone .media-col { height: 120px; }
   button.pad { min-height: 54px; font-size: 14px; }
   .vol-preset, .scene-btn, .media-btn { min-height: 44px; font-size: 13px; }
-  #idleHud { left: 6px; right: 6px; top: 6px; }
+  #idleHud {
+    left: 6px; right: 6px;
+    top: 18px;
+    top: calc(18px + constant(safe-area-inset-top));
+    top: calc(18px + env(safe-area-inset-top));
+  }
   #idleHud .card { min-height: 64px; font-size: 15px; }
   .media-center { min-height: 56px; height: auto; max-height: none; }
   #radioNative {
@@ -958,13 +973,13 @@ button.pad.warn { color: var(--warn); border-color: var(--warn); background: var
     <br><b>Поделиться → На экран «Домой»</b>
     <br>открой ярлык — без строки Safari.
     <br><br>Важно: добавляй URL с версией:
-    <br><b id="tipUrl">http://192.168.0.247:8787/?v=73</b>
+    <br><b id="tipUrl">http://192.168.0.247:8787/?v=74</b>
     <br>(старый ярлык без ?v= кэширует старый UI)
     <br><br>Для старта без ПК — GitHub Pages URL из README.
     <button type="button" id="tipOk">Понятно</button>
   </div>
 
-  <script src="gadget-core.js?v=73"></script>
-  <script src="deck-app.js?v=73"></script>
+  <script src="gadget-core.js?v=74"></script>
+  <script src="deck-app.js?v=74"></script>
 </body>
 </html>

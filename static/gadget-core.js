@@ -56,11 +56,6 @@
       url2: "https://0n-dance.radionetz.de/0n-dance.mp3"
     },
     {
-      id: "house", name: "House",
-      url: "https://stream.0nlineradio.com/house",
-      url2: "https://stream.0nlineradio.com/party"
-    },
-    {
       id: "rock", name: "Rock",
       url: "https://stream.0nlineradio.com/rock",
       url2: "https://0n-rock.radionetz.de/0n-rock.mp3",
@@ -86,12 +81,12 @@
     lounge: "chillout", asp: "chillout", lush: "chillout", soma: "chillout",
     space: "chillout", drone: "chillout", lofi: "chillout",
     chillhop: "chillout", zenolofi: "chillout", rp: "hits",
-    beat: "house", cliqhop: "house", trip: "dance",
+    beat: "dance", cliqhop: "dance", trip: "dance", house: "dance",
     dance: "dance", ilove2: "dance",
-    hiphop: "house", ilove3: "house",
+    hiphop: "dance", ilove3: "dance", party: "dance",
     indie: "rock", rock: "rock",
     smooth: "jazz", smoothuk: "jazz",
-    metal: "rock", party: "house"
+    metal: "rock"
   };
 
   function trimSlash(s) {
