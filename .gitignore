@@ -7,3 +7,8 @@ venv/
 *.log
 .DS_Store
 Thumbs.db
+
+# LibreHardwareMonitor binaries (hub downloads v0.9.6 on first run if missing)
+tools/LibreHardwareMonitor/**
+!tools/LibreHardwareMonitor/LibreHardwareMonitor.config
+!tools/LibreHardwareMonitor/README.md

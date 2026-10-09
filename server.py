@@ -17,7 +17,7 @@ from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.error import HTTPError, URLError
 from urllib.parse import urlencode, urlparse
-from urllib.request import Request, build_opener, HTTPCookieProcessor
+from urllib.request import Request, build_opener, HTTPCookieProcessor, urlopen, urlretrieve
 from http.cookiejar import CookieJar
 
 ROOT = Path(__file__).resolve().parent
@@ -882,24 +882,35 @@ _sys_meta = {
 }
 _sys_thread_started = False
 
-# PC vitals for titlebar (GPU via NVML / nvidia-smi; CPU° optional via LibreHardwareMonitor WMI)
+# PC vitals for titlebar — prefer LibreHardwareMonitor HTTP (/data.json), else NVML/psutil.
 HW_CPU_HOT_C = float(os.environ.get("IPAD_DECK_CPU_HOT", "85"))
 HW_GPU_HOT_C = float(os.environ.get("IPAD_DECK_GPU_HOT", "80"))
 HW_WARN_C = float(os.environ.get("IPAD_DECK_TEMP_WARN", "70"))
+LHM_DIR = ROOT / "tools" / "LibreHardwareMonitor"
+LHM_EXE = LHM_DIR / "LibreHardwareMonitor.exe"
+LHM_PORT = int(os.environ.get("IPAD_DECK_LHM_PORT", "8085"))
+LHM_ZIP_URL = (
+    "https://github.com/LibreHardwareMonitor/LibreHardwareMonitor/releases/"
+    "download/v0.9.6/LibreHardwareMonitor.zip"
+)
 _hw_cache: dict = {
     "cpu_temp_c": None,
     "cpu_load": None,
     "gpu_temp_c": None,
     "gpu_load": None,
     "gpu_fan": None,
+    "fan_rpm": None,
     "ram_percent": None,
     "ram_used_gb": None,
     "ram_total_gb": None,
     "line": "",
     "hot": False,
     "warn": False,
+    "source": "",
 }
 _nvml_ok: bool | None = None
+_lhm_start_tried = False
+_lhm_lock = threading.Lock()
 
 
 def _hw_empty() -> dict:
@@ -909,13 +920,252 @@ def _hw_empty() -> dict:
         "gpu_temp_c": None,
         "gpu_load": None,
         "gpu_fan": None,
+        "fan_rpm": None,
         "ram_percent": None,
         "ram_used_gb": None,
         "ram_total_gb": None,
         "line": "",
         "hot": False,
         "warn": False,
+        "source": "",
     }
+
+
+def _parse_sensor_number(raw: str) -> float | None:
+    s = str(raw or "").strip()
+    if not s or s in ("-", "—"):
+        return None
+    s = s.replace("°C", "").replace("RPM", "").replace("%", "").replace("GB", "")
+    s = s.replace(",", ".").strip()
+    m = re.search(r"-?\d+(?:\.\d+)?", s)
+    if not m:
+        return None
+    try:
+        return float(m.group(0))
+    except ValueError:
+        return None
+
+
+def _write_lhm_config() -> None:
+    cfg = LHM_DIR / "LibreHardwareMonitor.config"
+    body = (
+        '<?xml version="1.0" encoding="utf-8"?>\n'
+        "<configuration>\n"
+        "  <appSettings>\n"
+        '    <add key="runWebServerMenuItem" value="true" />\n'
+        f'    <add key="listenerPort" value="{LHM_PORT}" />\n'
+        '    <add key="listenerIp" value="127.0.0.1" />\n'
+        '    <add key="minTrayMenuItem" value="true" />\n'
+        '    <add key="minimizeOnCloseMenuItem" value="true" />\n'
+        '    <add key="startMinimizedMenuItem" value="true" />\n'
+        "  </appSettings>\n"
+        "</configuration>\n"
+    )
+    try:
+        LHM_DIR.mkdir(parents=True, exist_ok=True)
+        cfg.write_text(body, encoding="utf-8")
+    except OSError:
+        pass
+
+
+def _lhm_download() -> bool:
+    if LHM_EXE.exists():
+        return True
+    try:
+        import zipfile
+
+        LHM_DIR.mkdir(parents=True, exist_ok=True)
+        zpath = LHM_DIR / "_lhm.zip"
+        urlretrieve(LHM_ZIP_URL, zpath)  # noqa: S310 — fixed release URL
+        with zipfile.ZipFile(zpath, "r") as zf:
+            zf.extractall(LHM_DIR)
+        try:
+            zpath.unlink()
+        except OSError:
+            pass
+        return LHM_EXE.exists()
+    except Exception:
+        return False
+
+
+def _lhm_process_running() -> bool:
+    if platform.system() != "Windows":
+        return False
+    try:
+        r = subprocess.run(
+            ["tasklist", "/FI", "IMAGENAME eq LibreHardwareMonitor.exe", "/NH"],
+            capture_output=True,
+            text=True,
+            timeout=3,
+            creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
+        )
+        return "LibreHardwareMonitor.exe" in (r.stdout or "")
+    except Exception:
+        return False
+
+
+def _lhm_http_ok() -> bool:
+    try:
+        with urlopen(f"http://127.0.0.1:{LHM_PORT}/data.json", timeout=2.0) as resp:  # noqa: S310
+            body = resp.read()
+            return int(getattr(resp, "status", 200) or 200) == 200 and len(body) > 200
+    except Exception:
+        return False
+
+
+def _lhm_kill() -> None:
+    try:
+        subprocess.run(
+            ["taskkill", "/F", "/IM", "LibreHardwareMonitor.exe"],
+            capture_output=True,
+            timeout=5,
+            creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
+        )
+    except Exception:
+        pass
+
+
+def ensure_lhm_running() -> bool:
+    """Start vendored LibreHardwareMonitor with Remote Web Server if needed."""
+    global _lhm_start_tried
+    if platform.system() != "Windows":
+        return False
+    if _lhm_http_ok():
+        return True
+    with _lhm_lock:
+        if _lhm_http_ok():
+            return True
+        if not _lhm_download():
+            return False
+        _write_lhm_config()
+        # Running without web server → restart once with our config.
+        if _lhm_process_running() and not _lhm_start_tried:
+            _lhm_start_tried = True
+            _lhm_kill()
+            time.sleep(0.8)
+        if not _lhm_process_running():
+            _lhm_start_tried = True
+            started = False
+            try:
+                # Manifest often requires elevation (WinError 740 on CreateProcess).
+                import ctypes
+
+                rc = int(
+                    ctypes.windll.shell32.ShellExecuteW(  # type: ignore[attr-defined]
+                        None,
+                        "open",
+                        str(LHM_EXE),
+                        None,
+                        str(LHM_DIR),
+                        7,  # SW_SHOWMINNOACTIVE
+                    )
+                )
+                started = rc > 32
+            except Exception:
+                started = False
+            if not started:
+                try:
+                    subprocess.Popen(
+                        [
+                            "powershell",
+                            "-NoProfile",
+                            "-WindowStyle",
+                            "Hidden",
+                            "-Command",
+                            f'Start-Process -FilePath "{LHM_EXE}" -WorkingDirectory "{LHM_DIR}" -WindowStyle Minimized',
+                        ],
+                        stdout=subprocess.DEVNULL,
+                        stderr=subprocess.DEVNULL,
+                    )
+                    started = True
+                except Exception:
+                    return False
+        for _ in range(16):
+            time.sleep(0.5)
+            if _lhm_http_ok():
+                return True
+        return _lhm_http_ok()
+
+def _lhm_walk(node: dict, path: str, rows: list[tuple[str, str, float]]) -> None:
+    text = str(node.get("Text") or "")
+    val_raw = str(node.get("Value") or "")
+    p = f"{path}/{text}".strip("/")
+    kids = node.get("Children") or []
+    if val_raw and val_raw not in ("", "-") and not kids:
+        num = _parse_sensor_number(val_raw)
+        if num is not None:
+            rows.append((p, val_raw, num))
+    for c in kids:
+        if isinstance(c, dict):
+            _lhm_walk(c, p, rows)
+
+
+def _read_lhm_http(out: dict) -> bool:
+    if not ensure_lhm_running():
+        return False
+    try:
+        with urlopen(f"http://127.0.0.1:{LHM_PORT}/data.json", timeout=2.5) as resp:  # noqa: S310
+            body = resp.read().decode("utf-8", errors="replace")
+        if not body:
+            return False
+        data = json.loads(body)
+    except Exception:
+        return False
+    rows: list[tuple[str, str, float]] = []
+    if isinstance(data, dict):
+        _lhm_walk(data, "", rows)
+    if not rows:
+        return False
+
+    best_cpu_t: tuple[int, float] | None = None
+    best_gpu_t: tuple[int, float] | None = None
+    best_fan: tuple[int, float] | None = None
+    for path, _raw, num in rows:
+        pl = path.lower()
+        leaf = pl.rsplit("/", 1)[-1]
+        if "/temperatures/" in pl or pl.endswith("/temperatures") or "temperatures/" in pl:
+            if "gpu" in pl:
+                score = 3 if "core" in leaf and "hot" not in leaf else 2
+                if best_gpu_t is None or score > best_gpu_t[0]:
+                    best_gpu_t = (score, num)
+            elif "ssd" in pl or "hdd" in pl or "nvme" in pl or "composite" in pl:
+                continue
+            else:
+                score = 0
+                if "tctl" in leaf or "tdie" in leaf or "package" in leaf:
+                    score = 4
+                elif leaf == "cpu" or leaf.startswith("cpu "):
+                    score = 3
+                elif "core" in leaf and "cpu" in pl:
+                    score = 2
+                elif "cpu" in pl:
+                    score = 1
+                if score and (best_cpu_t is None or score > best_cpu_t[0]):
+                    best_cpu_t = (score, num)
+        if "/load/" in pl:
+            if "cpu total" in leaf:
+                out["cpu_load"] = round(num, 0)
+            elif leaf == "gpu core" or (leaf.endswith("gpu core") and "memory" not in leaf):
+                out["gpu_load"] = round(num, 0)
+            elif leaf == "memory" and "total memory" in pl:
+                out["ram_percent"] = round(num, 0)
+            elif leaf == "memory" and "virtual memory" in pl and out.get("ram_percent") is None:
+                out["ram_percent"] = round(num, 0)
+        if "/fans/" in pl and ("rpm" in _raw.lower() or num >= 100):
+            if num <= 0:
+                continue
+            score = 3 if "cpu fan" in leaf else (1 if "gpu" in pl else 2)
+            if best_fan is None or score > best_fan[0]:
+                best_fan = (score, num)
+
+    if best_cpu_t:
+        out["cpu_temp_c"] = round(best_cpu_t[1], 0)
+    if best_gpu_t:
+        out["gpu_temp_c"] = round(best_gpu_t[1], 0)
+    if best_fan:
+        out["fan_rpm"] = int(best_fan[1])
+    out["source"] = "LHM"
+    return out.get("cpu_temp_c") is not None or out.get("gpu_temp_c") is not None
 
 
 def _read_ram_cpu_psutil(out: dict) -> None:
@@ -924,12 +1174,14 @@ def _read_ram_cpu_psutil(out: dict) -> None:
     except Exception:
         return
     try:
-        out["cpu_load"] = round(float(psutil.cpu_percent(interval=None)), 0)
+        if out.get("cpu_load") is None:
+            out["cpu_load"] = round(float(psutil.cpu_percent(interval=None)), 0)
     except Exception:
         pass
     try:
         vm = psutil.virtual_memory()
-        out["ram_percent"] = round(float(vm.percent), 0)
+        if out.get("ram_percent") is None:
+            out["ram_percent"] = round(float(vm.percent), 0)
         out["ram_used_gb"] = round(vm.used / (1024 ** 3), 1)
         out["ram_total_gb"] = round(vm.total / (1024 ** 3), 1)
     except Exception:
@@ -949,15 +1201,19 @@ def _read_gpu_nvml(out: dict) -> bool:
         pynvml.nvmlInit()
         _nvml_ok = True
         handle = pynvml.nvmlDeviceGetHandleByIndex(0)
-        out["gpu_temp_c"] = int(pynvml.nvmlDeviceGetTemperature(handle, pynvml.NVML_TEMPERATURE_GPU))
-        util = pynvml.nvmlDeviceGetUtilizationRates(handle)
-        out["gpu_load"] = int(util.gpu)
+        if out.get("gpu_temp_c") is None:
+            out["gpu_temp_c"] = int(pynvml.nvmlDeviceGetTemperature(handle, pynvml.NVML_TEMPERATURE_GPU))
+        if out.get("gpu_load") is None:
+            util = pynvml.nvmlDeviceGetUtilizationRates(handle)
+            out["gpu_load"] = int(util.gpu)
         try:
             fan = int(pynvml.nvmlDeviceGetFanSpeed(handle))
-            if fan > 0:
+            if fan > 0 and out.get("gpu_fan") is None:
                 out["gpu_fan"] = fan
         except Exception:
             pass
+        if not out.get("source"):
+            out["source"] = "NVML"
         return True
     except Exception:
         _nvml_ok = False
@@ -990,54 +1246,18 @@ def _read_gpu_nvidia_smi(out: dict) -> bool:
     if len(parts) < 2:
         return False
     try:
-        if parts[0] and parts[0] not in ("N/A", "[N/A]"):
+        if out.get("gpu_temp_c") is None and parts[0] and parts[0] not in ("N/A", "[N/A]"):
             out["gpu_temp_c"] = int(float(parts[0]))
-        if parts[1] and parts[1] not in ("N/A", "[N/A]"):
+        if out.get("gpu_load") is None and parts[1] and parts[1] not in ("N/A", "[N/A]"):
             out["gpu_load"] = int(float(parts[1]))
         if len(parts) > 2 and parts[2] and parts[2] not in ("N/A", "[N/A]", "0"):
-            out["gpu_fan"] = int(float(parts[2]))
+            if out.get("gpu_fan") is None:
+                out["gpu_fan"] = int(float(parts[2]))
+        if not out.get("source"):
+            out["source"] = "nvidia-smi"
         return out.get("gpu_temp_c") is not None or out.get("gpu_load") is not None
     except Exception:
         return False
-
-
-def _read_cpu_temp_lhm(out: dict) -> None:
-    """Optional: LibreHardwareMonitor / OpenHardwareMonitor exporting WMI."""
-    if platform.system() != "Windows":
-        return
-    for ns in ("root\\LibreHardwareMonitor", "root\\OpenHardwareMonitor"):
-        try:
-            import wmi  # type: ignore
-
-            c = wmi.WMI(namespace=ns)
-            best = None
-            for s in c.Sensor():
-                try:
-                    st = str(getattr(s, "SensorType", "") or "")
-                    name = str(getattr(s, "Name", "") or "")
-                    val = getattr(s, "Value", None)
-                    if st != "Temperature" or val is None:
-                        continue
-                    nl = name.lower()
-                    if "gpu" in nl or "hdd" in nl or "ssd" in nl or "drive" in nl:
-                        continue
-                    score = 0
-                    if "package" in nl or "tctl" in nl or "tdie" in nl:
-                        score = 3
-                    elif "cpu" in nl or "core" in nl:
-                        score = 2
-                    else:
-                        score = 1
-                    v = float(val)
-                    if best is None or score > best[0]:
-                        best = (score, v)
-                except Exception:
-                    continue
-            if best is not None:
-                out["cpu_temp_c"] = round(best[1], 0)
-                return
-        except Exception:
-            continue
 
 
 def _format_hw_line(hw: dict) -> tuple[str, bool, bool]:
@@ -1059,9 +1279,12 @@ def _format_hw_line(hw: dict) -> tuple[str, bool, bool]:
     ram = hw.get("ram_percent")
     if ram is not None:
         parts.append(f"RAM {int(ram)}%")
-    fan = hw.get("gpu_fan")
-    if fan is not None and int(fan) > 0:
-        parts.append(f"FAN {int(fan)}%")
+    fan_rpm = hw.get("fan_rpm")
+    gpu_fan = hw.get("gpu_fan")
+    if fan_rpm is not None and int(fan_rpm) > 0:
+        parts.append(f"FAN {int(fan_rpm)}")
+    elif gpu_fan is not None and int(gpu_fan) > 0:
+        parts.append(f"FAN {int(gpu_fan)}%")
 
     hot = False
     warn = False
@@ -1080,16 +1303,22 @@ def _format_hw_line(hw: dict) -> tuple[str, bool, bool]:
 
 def collect_hw_stats() -> dict:
     out = _hw_empty()
+    got_lhm = False
+    try:
+        got_lhm = _read_lhm_http(out)
+    except Exception:
+        got_lhm = False
     _read_ram_cpu_psutil(out)
-    if not _read_gpu_nvml(out):
-        _read_gpu_nvidia_smi(out)
-    _read_cpu_temp_lhm(out)
+    if out.get("gpu_temp_c") is None or out.get("gpu_load") is None:
+        if not _read_gpu_nvml(out):
+            _read_gpu_nvidia_smi(out)
+    if not got_lhm and not out.get("source"):
+        out["source"] = "psutil"
     line, hot, warn = _format_hw_line(out)
     out["line"] = line
     out["hot"] = hot
     out["warn"] = warn
     return out
-
 
 def get_audio_cached() -> dict:
     with _sys_lock:
@@ -1126,11 +1355,15 @@ def _refresh_sys_cache() -> None:
 
 def _sys_worker() -> None:
     time.sleep(0.3)
-    # Prime CPU% baseline for psutil
+    # Prime CPU% baseline for psutil + wake LibreHardwareMonitor web server
     try:
         import psutil  # type: ignore
 
         psutil.cpu_percent(interval=None)
+    except Exception:
+        pass
+    try:
+        ensure_lhm_running()
     except Exception:
         pass
     while True:
@@ -1384,10 +1617,12 @@ def fetch_dtek_power() -> dict:
         reason = str(house.get("sub_type") or house.get("reason") or "")
         restore = str(house.get("end_date") or "")
         msg = json.dumps(house, ensure_ascii=False).lower()
-        if "аварій" in msg or str(house.get("type") or "") in ("2", "3"):
+        # Only treat as emergency when DTEK text says so — numeric type codes are sticky/noisy.
+        if ("аварій" in msg) or ("екстрень" in msg) or ("экстрен" in msg):
             emergency = True
+        if "відсутня електроенергія" in msg or "немає напруги" in msg:
             current_off = True
-        if "відсутня електроенергія" in msg:
+        elif emergency and ("відключен" in msg):
             current_off = True
 
     today_sched = _dtek_day_sched(fact if isinstance(fact, dict) else {}, group, "today")
@@ -1416,15 +1651,28 @@ def fetch_dtek_power() -> dict:
     return out
 
 
-def fetch_yasno_power() -> dict:
+def fetch_yasno_planned_raw() -> dict:
+    """Full Yasno planned-outages JSON (hub proxy for the iPad client)."""
     url = "https://app.yasno.ua/api/blackout-service/public/shutdowns/regions/25/dsos/902/planned-outages"
     code, body, _ = _http_text(url, timeout=12.0)
     if code != 200:
-        return {"ok": False, "error": "yasno_http", "group": POWER_GROUP}
+        return {"ok": False, "error": "yasno_http"}
     try:
         data = json.loads(body)
     except json.JSONDecodeError:
-        return {"ok": False, "error": "yasno_json", "group": POWER_GROUP}
+        return {"ok": False, "error": "yasno_json"}
+    if not isinstance(data, dict):
+        return {"ok": False, "error": "yasno_shape"}
+    # Marker so client can tell error envelopes from real Yasno maps.
+    out = {"ok": True, "groups": data}
+    return out
+
+
+def fetch_yasno_power() -> dict:
+    wrap = fetch_yasno_planned_raw()
+    if not wrap.get("ok"):
+        return {"ok": False, "error": wrap.get("error") or "yasno_http", "group": POWER_GROUP}
+    data = wrap.get("groups") or {}
     g = data.get(POWER_GROUP) or {}
     today = g.get("today") or {}
     return {
@@ -1512,6 +1760,9 @@ class DeckHandler(SimpleHTTPRequestHandler):
             return
         if path == "/api/power/yasno":
             self._json(200, fetch_yasno_power())
+            return
+        if path == "/api/power/yasno/planned":
+            self._json(200, fetch_yasno_planned_raw())
             return
         if path in ("/", "/index.html"):
             # Always serve fresh index bytes (bypass SimpleHTTP file cache quirks).

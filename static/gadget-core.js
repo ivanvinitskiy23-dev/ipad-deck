@@ -681,7 +681,7 @@
 
   /* ===== Power outages (Kyiv · Yasno primary + DTEK backup) ===== */
   var POWER_KEY = "kissaten_power_cfg";
-  var POWER_CACHE_KEY = "kissaten_power_cache_v2";
+  var POWER_CACHE_KEY = "kissaten_power_cache_v3";
   var POWER_SCHED_KEY = "kissaten_power_sched_v1";
   var DEFAULT_POWER = {
     city: "Київ",
@@ -1123,11 +1123,31 @@
       sent = true;
       cb(parseYasnoGroup(planned, cfg.group, probableGroups));
     }
-    xhrGetJsonCascade(plannedUrl, function (data) {
+    function loadPlanned(data) {
       planned = data;
       left--;
       finish();
-    });
+    }
+    /* Prefer LAN hub proxy — avoids sticky CORS/cache and keeps status fresh. */
+    var hubPlanned = "";
+    try {
+      if (!isMixedContentHub()) hubPlanned = apiUrl("/api/power/yasno/planned");
+    } catch (eH) {}
+    if (hubPlanned) {
+      xhrGet(hubPlanned, 10000, function (txt) {
+        try {
+          var wrap = JSON.parse(txt);
+          if (wrap && wrap.ok && wrap.groups) loadPlanned(wrap.groups);
+          else xhrGetJsonCascade(plannedUrl, loadPlanned);
+        } catch (e1) {
+          xhrGetJsonCascade(plannedUrl, loadPlanned);
+        }
+      }, function () {
+        xhrGetJsonCascade(plannedUrl, loadPlanned);
+      });
+    } else {
+      xhrGetJsonCascade(plannedUrl, loadPlanned);
+    }
     xhrGetJsonCascade(probableUrl, function (data) {
       probableGroups = extractProbableGroups(data, cfg.regionId, cfg.dsoId);
       left--;
@@ -1266,7 +1286,10 @@
     }
     m.nextOff = y.nextOff || d.nextOff || "";
     m.nextOn = y.nextOn || d.nextOn || "";
-    m.emergency = !!(y.emergency || d.emergency);
+    /* Yasno status is authoritative for «ЕКСТРЕНІ» mode; DTEK alone must not stick it. */
+    if (y.ok) m.emergency = !!y.emergency;
+    else if (d.ok) m.emergency = !!d.emergency;
+    else m.emergency = false;
     /* DTEK confirms live outage; Yasno EmergencyShutdowns alone ≠ lights off. */
     m.offNow = !!(d.offNow || (y.offNow && !y.emergency));
     m.soon = !!(!m.offNow && !m.emergency && (y.soon || d.soon));
@@ -1334,7 +1357,24 @@
       if (merged.ok) writePowerCache(merged);
       else {
         var cached = readPowerCache();
-        if (cached && cached.ok) merged = cached;
+        if (cached && cached.ok) {
+          var age = nowSec() - (cached.updated || 0);
+          /* Stale emergency cache was sticking after Yasno returned to schedule. */
+          if (cached.emergency && age > 120) {
+            cached = {
+              ok: cached.ok,
+              level: "on",
+              label: "СВІТЛО Є",
+              sub: "оновлення…",
+              emergency: false,
+              offNow: false,
+              soon: false,
+              group: cached.group || getPowerCfg().group,
+              updated: cached.updated
+            };
+          }
+          if (age < 900) merged = cached;
+        }
       }
       try { cb(merged); } catch (e) {}
     }
