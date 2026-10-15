@@ -9,6 +9,7 @@ venv/
 Thumbs.db
 
 # LibreHardwareMonitor binaries (hub downloads v0.9.6 on first run if missing)
+# Runtime .config is local noise — ship .example + README only.
 tools/LibreHardwareMonitor/**
-!tools/LibreHardwareMonitor/LibreHardwareMonitor.config
 !tools/LibreHardwareMonitor/README.md
+!tools/LibreHardwareMonitor/LibreHardwareMonitor.config.example
