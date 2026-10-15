@@ -1,8 +1,8 @@
 /* Textmode Deck app shell — ES5 */
 (function () {
       var IDLE_MS = 45000;
-      var DRIVE_VER = 81;
-      var APP_VER = 81;
+      var DRIVE_VER = 89;
+      var APP_VER = 89;
       var THEME_KEY = "kissaten_deck_theme";
       var IDLE_ART = "art/cafe-yum.gif";
       var GC = window.GadgetCore;
@@ -47,6 +47,17 @@
       var alarmPulse = null;
       var radioAudio = null;
       var alarmAudio = null;
+      var soloFace = (GC && GC.getSoloFace) ? GC.getSoloFace() : "radio";
+      var soloFaceBusy = false;
+      var soloFaceAnimTimer = null;
+      var musicTvPlaying = false;
+      var musicTvPlayGen = 0;
+      var tvSource = "music"; /* music | cs */
+      var csNowLabel = "";
+      var csNowLogin = "";
+      var csNowId = "";
+      var csLiveList = [];
+      var csStatusGen = 0;
       var powerGen = 0;
       var POWER_WARN_KEY = "kissaten_power_warn_key";
       var powerWarnKey = "";
@@ -146,10 +157,15 @@
           (window.matchMedia && window.matchMedia("(display-mode: standalone)").matches);
       }
 
+      function idleSuppressed() {
+        return mode === "solo" && soloFace === "tv";
+      }
+
       function syncBodyClass() {
         var cls = "theme-" + theme;
         if (isStandalone()) cls += " standalone";
         cls += mode === "solo" ? " mode-solo" : " mode-deck";
+        if (mode === "solo" && soloFace === "tv") cls += " solo-face-tv";
         document.body.className = cls;
         document.getElementById("mediaBrand").textContent = names[theme] || names.C;
         var pills = document.querySelectorAll(".theme-pill");
@@ -180,10 +196,12 @@
         mode = next;
         syncBodyClass();
         if (mode === "solo") {
-          syncRadioNowPlaying();
+          syncSoloFaceUI();
+          syncActiveNowPlaying();
           setMeta("<b>standalone</b><br>ожидание хаба");
         } else {
-          try { if (radioPlaying) stopRadio(); } catch (eStop) {}
+          try { if (radioPlaying) stopRadio({ quiet: true }); } catch (eStop) {}
+          try { if (musicTvPlaying) stopMusicTv({ quiet: true }); } catch (eTv) {}
           toast("deck online");
         }
       }
@@ -456,6 +474,8 @@
       }
 
       function showIdle(forced) {
+        /* Auto-screensaver off while watching Music TV (manual Cinema still ok). */
+        if (!forced && idleSuppressed()) return;
         /* Guard must outlast iOS ghost mousedown that hits idleCatch after Cinema */
         ignoreBumpUntil = (new Date()).getTime() + (forced ? 2800 : 1500);
         closeDrawer();
@@ -501,6 +521,10 @@
         }
         lastActivity = now;
         if (idleTimer) clearTimeout(idleTimer);
+        if (idleSuppressed()) {
+          idleTimer = null;
+          return;
+        }
         idleTimer = setTimeout(function () { showIdle(false); }, IDLE_MS);
       }
 
@@ -508,6 +532,7 @@
         if (idleWatch) return;
         idleWatch = setInterval(function () {
           if (idleEl.className === "on") return;
+          if (idleSuppressed()) return;
           var now = (new Date()).getTime();
           if (now < ignoreBumpUntil) return;
           if ((now - lastActivity) >= IDLE_MS) {
@@ -561,7 +586,9 @@
           nowArt.className = "now-art";
         }
         paintIdleChrome();
-        if (radioPlaying) {
+        if (musicTvPlaying || (soloFace === "tv" && mode === "solo")) {
+          try { syncMusicTvNowPlaying(); } catch (eT) {}
+        } else if (radioPlaying) {
           try { syncRadioNowPlaying(); } catch (eR) {}
         }
       }
@@ -1233,18 +1260,20 @@
       function syncRadioNowPlaying() {
         if (!GC) return;
         var st = GC.stationById(GC.getRadioId());
-        document.getElementById("nowTitle").textContent = st.name;
-        document.getElementById("nowArtist").textContent = radioPlaying ? "Radio · live" : "Radio · ready";
-        nowApp.className = "media-app on";
-        nowApp.textContent = "RADIO";
-        nowArt.className = "now-art";
-        nowArt.removeAttribute("src");
-        paintIdleChrome();
+        if (soloFace !== "tv") {
+          document.getElementById("nowTitle").textContent = st.name;
+          document.getElementById("nowArtist").textContent = radioPlaying ? "Radio · live" : "Radio · ready";
+          nowApp.className = "media-app on";
+          nowApp.textContent = "RADIO";
+          nowArt.className = "now-art";
+          nowArt.removeAttribute("src");
+          paintIdleChrome();
+        }
         var playLabel = radioPlaying ? "Stop" : "Play";
         var playBtn = document.getElementById("radioPlayBtn");
         if (playBtn) playBtn.textContent = playLabel;
         var soloPlay = document.getElementById("soloRadioPlayBtn");
-        if (soloPlay) soloPlay.textContent = playLabel;
+        if (soloPlay && soloFace !== "tv") soloPlay.textContent = playLabel;
         if (GC.publishRadioNow) {
           GC.publishRadioNow({
             playing: radioPlaying,
@@ -1253,6 +1282,120 @@
             t: new Date().getTime()
           });
         }
+      }
+
+      function syncMusicTvNowPlaying() {
+        if (!GC) return;
+        if (tvSource === "cs") {
+          document.getElementById("nowTitle").textContent = csNowLabel || (GC.getCsGroup() || "CS").toUpperCase();
+          document.getElementById("nowArtist").textContent = musicTvPlaying
+            ? ("CS · " + (csNowLogin || "live"))
+            : "CS · ready";
+          nowApp.className = "media-app on";
+          nowApp.textContent = "CS";
+        } else {
+          var ch = GC.musicChannelById(GC.getMusicTvId());
+          document.getElementById("nowTitle").textContent = ch.name;
+          document.getElementById("nowArtist").textContent = musicTvPlaying ? "Music TV · live" : "Music TV · ready";
+          nowApp.className = "media-app on";
+          nowApp.textContent = "TV";
+        }
+        nowArt.className = "now-art";
+        nowArt.removeAttribute("src");
+        paintIdleChrome();
+        var soloPlay = document.getElementById("soloRadioPlayBtn");
+        if (soloPlay) soloPlay.textContent = musicTvPlaying ? "Stop" : "Play";
+      }
+
+      function syncActiveNowPlaying() {
+        if (soloFace === "tv") syncMusicTvNowPlaying();
+        else syncRadioNowPlaying();
+      }
+
+      function syncSoloFaceButtons() {
+        var btnR = document.getElementById("soloFaceRadioBtn");
+        var btnTv = document.getElementById("soloFaceTvBtn");
+        if (btnR) btnR.className = soloFace === "radio" ? "solo-face-btn on" : "solo-face-btn";
+        if (btnTv) btnTv.className = soloFace === "tv" ? "solo-face-btn on" : "solo-face-btn";
+      }
+
+      function syncSoloFaceUI() {
+        if (!GC) return;
+        if (soloFaceBusy) {
+          syncSoloFaceButtons();
+          syncActiveNowPlaying();
+          return;
+        }
+        var faceRadio = document.getElementById("soloFaceRadio");
+        var faceTv = document.getElementById("soloFaceTv");
+        var wrap = document.getElementById("soloFaces");
+        if (faceRadio) faceRadio.className = soloFace === "radio" ? "solo-face on" : "solo-face";
+        if (faceTv) faceTv.className = soloFace === "tv" ? "solo-face on" : "solo-face";
+        if (wrap) wrap.className = "solo-faces";
+        syncSoloFaceButtons();
+        syncActiveNowPlaying();
+      }
+
+      function setSoloFaceMode(face) {
+        if (!GC) return;
+        var next = face === "tv" ? "tv" : "radio";
+        if (next === soloFace) {
+          syncSoloFaceUI();
+          syncBodyClass();
+          return;
+        }
+        if (soloFaceBusy) return;
+
+        var prev = soloFace;
+        var faceRadio = document.getElementById("soloFaceRadio");
+        var faceTv = document.getElementById("soloFaceTv");
+        var wrap = document.getElementById("soloFaces");
+        var fromEl = prev === "tv" ? faceTv : faceRadio;
+        var toEl = next === "tv" ? faceTv : faceRadio;
+        if (!fromEl || !toEl || !wrap) {
+          soloFace = next;
+          GC.setSoloFace(soloFace);
+          syncBodyClass();
+          syncSoloFaceUI();
+          return;
+        }
+
+        soloFaceBusy = true;
+        soloFace = next;
+        GC.setSoloFace(soloFace);
+        if (soloFace === "tv") {
+          try { if (radioPlaying) stopRadio({ quiet: true }); } catch (e1) {}
+          if (idleEl && idleEl.className === "on") idleEl.className = "";
+          if (idleTimer) { clearTimeout(idleTimer); idleTimer = null; }
+        } else {
+          try { if (musicTvPlaying) stopMusicTv({ quiet: true }); } catch (e2) {}
+          try { clearCsLiveBar(); } catch (e3) {}
+        }
+
+        var holdH = fromEl.offsetHeight || 0;
+        if (holdH > 0) wrap.style.minHeight = holdH + "px";
+        wrap.className = "solo-faces " + (next === "tv" ? "to-tv" : "to-radio");
+        fromEl.className = "solo-face on face-leave";
+        toEl.className = "solo-face face-enter";
+        /* Force layout so enter starts off-screen before fade-in */
+        try { void toEl.offsetWidth; } catch (eReflow) {}
+        toEl.className = "solo-face face-enter face-in";
+        syncBodyClass();
+        syncSoloFaceButtons();
+        syncActiveNowPlaying();
+
+        if (soloFaceAnimTimer) clearTimeout(soloFaceAnimTimer);
+        soloFaceAnimTimer = setTimeout(function () {
+          fromEl.className = "solo-face";
+          toEl.className = "solo-face on";
+          wrap.className = "solo-faces";
+          wrap.style.minHeight = "";
+          soloFaceBusy = false;
+          syncSoloFaceUI();
+          if (soloFace === "radio") bumpIdle();
+        }, 400);
+
+        toast(soloFace === "tv" ? "TV" : "Radio");
       }
 
       function syncRadioUI() {
@@ -1376,6 +1519,7 @@
           toast("radio · только STANDALONE");
           return;
         }
+        try { if (musicTvPlaying) stopMusicTv({ quiet: true }); } catch (eTv) {}
         unlockRadioAudio();
         var st = GC.stationById(GC.getRadioId());
         radioTryList = [];
@@ -1393,7 +1537,8 @@
         playRadioUrl(radioTryList[0]);
       }
 
-      function stopRadio() {
+      function stopRadio(opts) {
+        opts = opts || {};
         try {
           var el = ensureRadioAudio();
           el.pause();
@@ -1403,7 +1548,7 @@
         } catch (e) {}
         radioPlaying = false;
         syncRadioUI();
-        toast("radio stop");
+        if (!opts.quiet) toast("radio stop");
       }
 
       function toggleRadio() {
@@ -1417,6 +1562,431 @@
         GC.setRadioId(next);
         syncRadioUI();
         if (radioPlaying) playRadio();
+      }
+
+      function musicTvVideo() {
+        return document.getElementById("musicTvVideo");
+      }
+
+      function syncMusicTvStage() {
+        var stage = document.getElementById("musicTvStage");
+        if (!stage) return;
+        stage.className = musicTvPlaying ? "tv-stage playing" : "tv-stage";
+      }
+
+      function syncCsLiveBar() {
+        var bar = document.getElementById("csLiveBar");
+        if (!bar) return;
+        var buttons = bar.getElementsByTagName("button");
+        for (var i = 0; i < buttons.length; i++) {
+          var b = buttons[i];
+          var id = b.getAttribute("data-cs-id");
+          b.className = (tvSource === "cs" && id && id === csNowId) ? "radio-chip on" : "radio-chip";
+        }
+      }
+
+      function clearCsLiveBar() {
+        var bar = document.getElementById("csLiveBar");
+        if (bar) bar.innerHTML = "";
+        csLiveList = [];
+      }
+
+      function syncMusicTvChips() {
+        if (!GC) return;
+        var wrap = document.getElementById("musicTvChipBar");
+        if (!wrap) return;
+        var curMusic = GC.getMusicTvId();
+        var curCs = GC.getCsGroup();
+        var buttons = wrap.getElementsByTagName("button");
+        for (var i = 0; i < buttons.length; i++) {
+          var b = buttons[i];
+          var kind = b.getAttribute("data-kind") || "music";
+          if (kind === "cs") {
+            var gid = b.getAttribute("data-group");
+            b.className = (tvSource === "cs" && gid === curCs) ? "radio-chip on" : "radio-chip";
+          } else {
+            var mid = b.getAttribute("data-id");
+            b.className = (tvSource === "music" && mid === curMusic) ? "radio-chip on" : "radio-chip";
+          }
+        }
+        syncCsLiveBar();
+        syncMusicTvStage();
+        if (soloFace === "tv") syncMusicTvNowPlaying();
+      }
+
+      function renderCsLiveRow(group, channels) {
+        var bar = document.getElementById("csLiveBar");
+        if (!bar) return;
+        bar.innerHTML = "";
+        csLiveList = channels || [];
+        if (!csLiveList.length) {
+          var empty = document.createElement("span");
+          empty.className = "cs-live-empty";
+          empty.textContent = "no live · " + String(group || "").toUpperCase();
+          bar.appendChild(empty);
+          return;
+        }
+        for (var i = 0; i < csLiveList.length; i++) {
+          (function (ch) {
+            var btn = document.createElement("button");
+            btn.type = "button";
+            btn.className = (ch.id === csNowId) ? "radio-chip on" : "radio-chip";
+            btn.setAttribute("data-cs-id", ch.id);
+            btn.textContent = ch.label || ch.login || ch.id;
+            btn.onclick = function () {
+              playCsTv(group, ch.id);
+            };
+            bar.appendChild(btn);
+          })(csLiveList[i]);
+        }
+      }
+
+      function loadCsLiveRow(group) {
+        if (!GC) return;
+        var g = group || GC.getCsGroup() || "live";
+        GC.setCsGroup(g);
+        tvSource = "cs";
+        syncMusicTvChips();
+        if (!GC.canUseHubApi || !GC.canUseHubApi()) {
+          clearCsLiveBar();
+          toast("CS · нужен хаб");
+          return;
+        }
+        var bar = document.getElementById("csLiveBar");
+        if (bar) {
+          bar.innerHTML = "";
+          var wait = document.createElement("span");
+          wait.className = "cs-live-empty";
+          wait.textContent = "ищем…";
+          bar.appendChild(wait);
+        }
+        toast("CS · кто в эфире…");
+        var gen = ++csStatusGen;
+        var url = GC.apiUrl("/api/cs/status?group=" + encodeURIComponent(g) + "&refresh=1");
+        GC.xhrGet(url, 20000, function (txt) {
+          if (gen !== csStatusGen) return;
+          var data = null;
+          try { data = JSON.parse(txt); } catch (eJ) { data = null; }
+          var live = [];
+          var list = (data && data.channels) ? data.channels : [];
+          for (var i = 0; i < list.length; i++) {
+            if (list[i] && list[i].live) live.push(list[i]);
+          }
+          renderCsLiveRow(g, live);
+          if (!live.length) toast("нет эфира · " + g.toUpperCase());
+          else toast("CS · " + live.length + " live");
+        }, function () {
+          if (gen !== csStatusGen) return;
+          clearCsLiveBar();
+          toast("CS · хаб offline");
+        });
+      }
+
+      function initMusicTvUI() {
+        if (!GC) return;
+        var wrap = document.getElementById("musicTvChipBar");
+        if (!wrap) return;
+        wrap.innerHTML = "";
+        var cur = GC.getMusicTvId();
+        for (var i = 0; i < GC.MUSIC_TV_CHANNELS.length; i++) {
+          (function (ch) {
+            var btn = document.createElement("button");
+            btn.type = "button";
+            btn.className = (tvSource === "music" && ch.id === cur) ? "radio-chip on" : "radio-chip";
+            btn.setAttribute("data-kind", "music");
+            btn.setAttribute("data-id", ch.id);
+            btn.textContent = ch.name;
+            btn.onclick = function () {
+              tvSource = "music";
+              csNowLabel = "";
+              csNowLogin = "";
+              csNowId = "";
+              clearCsLiveBar();
+              GC.setMusicTvId(ch.id);
+              syncMusicTvChips();
+              playMusicTv();
+            };
+            wrap.appendChild(btn);
+          })(GC.MUSIC_TV_CHANNELS[i]);
+        }
+        var groups = GC.CS_GROUPS || [];
+        for (var g = 0; g < groups.length; g++) {
+          (function (grp) {
+            var btn = document.createElement("button");
+            btn.type = "button";
+            btn.className = "radio-chip";
+            btn.setAttribute("data-kind", "cs");
+            btn.setAttribute("data-group", grp.id);
+            btn.textContent = grp.name;
+            btn.onclick = function () {
+              loadCsLiveRow(grp.id);
+            };
+            wrap.appendChild(btn);
+          })(groups[g]);
+        }
+        syncMusicTvChips();
+      }
+
+      function playVideoUrl(url, label, opts) {
+        opts = opts || {};
+        var el = musicTvVideo();
+        if (!el || !url) {
+          toast((opts.failToast) || "TV fail");
+          return;
+        }
+        var gen = ++musicTvPlayGen;
+        try { el.pause(); } catch (eP) {}
+        try { el.removeAttribute("src"); } catch (eS) {}
+        try { el.load(); } catch (eL0) {}
+        el.onerror = null;
+        el.onplaying = null;
+        try { el.onstalled = null; } catch (eSt) {}
+        el.setAttribute("playsinline", "true");
+        el.setAttribute("webkit-playsinline", "true");
+        el.setAttribute("controls", "controls");
+        try { el.removeAttribute("crossorigin"); } catch (eC) {}
+        el.src = url;
+        try { el.load(); } catch (eL) {}
+        el.onerror = function () {
+          if (gen !== musicTvPlayGen) return;
+          musicTvPlaying = false;
+          syncMusicTvChips();
+          toast(opts.failToast || ("TV fail · " + (label || "")));
+        };
+        el.onplaying = function () {
+          if (gen !== musicTvPlayGen) return;
+          musicTvPlaying = true;
+          syncMusicTvChips();
+          toast(opts.okToast || ("TV · " + (label || "on")));
+        };
+        var p = null;
+        try {
+          el.muted = false;
+          el.volume = 1;
+          p = el.play();
+        } catch (e2) { p = null; }
+        if (p && typeof p.then === "function") {
+          p.then(function () {
+            if (gen !== musicTvPlayGen) return;
+            musicTvPlaying = true;
+            syncMusicTvChips();
+            toast(opts.okToast || ("TV · " + (label || "on")));
+          }).catch(function () {
+            if (gen !== musicTvPlayGen) return;
+            musicTvPlaying = false;
+            syncMusicTvChips();
+            toast(opts.failToast || "TV fail · tap channel");
+          });
+        } else {
+          musicTvPlaying = true;
+          syncMusicTvChips();
+          toast(opts.okToast || ("TV · " + (label || "on")));
+        }
+      }
+
+      function playMusicTv() {
+        if (!GC) return;
+        if (mode !== "solo") {
+          toast("TV · только STANDALONE");
+          return;
+        }
+        if (soloFace !== "tv") setSoloFaceMode("tv");
+        try { if (radioPlaying) stopRadio({ quiet: true }); } catch (eR) {}
+        tvSource = "music";
+        csNowId = "";
+        clearCsLiveBar();
+        var ch = GC.musicChannelById(GC.getMusicTvId());
+        if (!ch || !ch.url) {
+          toast("TV fail");
+          return;
+        }
+        var urls = [];
+        if (ch.url) urls.push(ch.url);
+        if (ch.url2 && ch.url2 !== ch.url) urls.push(ch.url2);
+        var tryIdx = 0;
+        var gen = ++musicTvPlayGen;
+        function tryOne() {
+          if (gen !== musicTvPlayGen) return;
+          if (tryIdx >= urls.length) {
+            musicTvPlaying = false;
+            syncMusicTvChips();
+            toast("TV fail · " + ch.name);
+            return;
+          }
+          var url = urls[tryIdx];
+          var el = musicTvVideo();
+          if (!el) return;
+          try { el.pause(); } catch (eP) {}
+          try { el.removeAttribute("src"); } catch (eS) {}
+          try { el.load(); } catch (eL0) {}
+          el.onerror = null;
+          el.onplaying = null;
+          el.setAttribute("playsinline", "true");
+          el.setAttribute("webkit-playsinline", "true");
+          el.setAttribute("controls", "controls");
+          try { el.removeAttribute("crossorigin"); } catch (eC) {}
+          el.src = url;
+          try { el.load(); } catch (eL) {}
+          el.onerror = function () {
+            if (gen !== musicTvPlayGen) return;
+            tryIdx++;
+            if (tryIdx < urls.length) toast("TV retry…");
+            tryOne();
+          };
+          el.onplaying = function () {
+            if (gen !== musicTvPlayGen) return;
+            musicTvPlaying = true;
+            syncMusicTvChips();
+            toast("TV · " + ch.name);
+          };
+          var p = null;
+          try {
+            el.muted = false;
+            el.volume = 1;
+            p = el.play();
+          } catch (e2) { p = null; }
+          if (p && typeof p.then === "function") {
+            p.then(function () {
+              if (gen !== musicTvPlayGen) return;
+              musicTvPlaying = true;
+              syncMusicTvChips();
+              toast("TV · " + ch.name);
+            }).catch(function () {
+              if (gen !== musicTvPlayGen) return;
+              tryIdx++;
+              tryOne();
+            });
+          } else {
+            musicTvPlaying = true;
+            syncMusicTvChips();
+            toast("TV · " + ch.name);
+          }
+        }
+        tryOne();
+      }
+
+      function playCsTv(group, presetId) {
+        if (!GC) return;
+        if (mode !== "solo") {
+          toast("CS · только STANDALONE");
+          return;
+        }
+        if (soloFace !== "tv") setSoloFaceMode("tv");
+        try { if (radioPlaying) stopRadio({ quiet: true }); } catch (eR) {}
+        if (!GC.canUseHubApi || !GC.canUseHubApi()) {
+          toast("CS · нужен хаб");
+          musicTvPlaying = false;
+          syncMusicTvChips();
+          return;
+        }
+        var g = group || GC.getCsGroup() || "live";
+        var pid = presetId || csNowId || "";
+        if (!pid) {
+          loadCsLiveRow(g);
+          return;
+        }
+        GC.setCsGroup(g);
+        tvSource = "cs";
+        csNowId = pid;
+        csNowLabel = g.toUpperCase();
+        csNowLogin = "…";
+        syncMusicTvChips();
+        toast("CS · подключаем…");
+        var gen = ++musicTvPlayGen;
+        var url = GC.apiUrl(
+          "/api/cs/play?group=" + encodeURIComponent(g) +
+          "&id=" + encodeURIComponent(pid)
+        );
+        GC.xhrGet(url, 45000, function (txt) {
+          if (gen !== musicTvPlayGen) return;
+          var data = null;
+          try { data = JSON.parse(txt); } catch (eJ) { data = null; }
+          if (!data || !data.ok || !data.url) {
+            musicTvPlaying = false;
+            csNowLogin = "";
+            syncMusicTvChips();
+            var err = data && data.error ? data.error : "нет эфира";
+            toast("CS · " + err);
+            return;
+          }
+          csNowId = data.id || pid;
+          csNowLabel = data.label || data.login || g.toUpperCase();
+          csNowLogin = data.login || "";
+          var playUrl = data.url || "";
+          if (playUrl.charAt(0) === "/") playUrl = GC.apiUrl(playUrl);
+          syncCsLiveBar();
+          playVideoUrl(playUrl, csNowLabel, {
+            okToast: "CS · " + csNowLabel,
+            failToast: "CS fail · " + csNowLabel
+          });
+        }, function () {
+          if (gen !== musicTvPlayGen) return;
+          musicTvPlaying = false;
+          csNowLogin = "";
+          syncMusicTvChips();
+          toast("CS · хаб offline");
+        });
+      }
+
+      function stopMusicTv(opts) {
+        opts = opts || {};
+        musicTvPlayGen++;
+        var el = musicTvVideo();
+        if (el) {
+          try { el.pause(); } catch (eP) {}
+          try { el.removeAttribute("src"); } catch (eS) {}
+          try { el.load(); } catch (eL) {}
+          el.onerror = null;
+          el.onplaying = null;
+        }
+        musicTvPlaying = false;
+        if (tvSource !== "cs") {
+          csNowLabel = "";
+          csNowLogin = "";
+          csNowId = "";
+        }
+        syncMusicTvChips();
+        if (!opts.quiet) toast(tvSource === "cs" ? "CS stop" : "TV stop");
+      }
+
+      function toggleMusicTv() {
+        if (musicTvPlaying) stopMusicTv();
+        else if (tvSource === "cs") {
+          if (csNowId) playCsTv(GC.getCsGroup(), csNowId);
+          else loadCsLiveRow(GC.getCsGroup());
+        } else playMusicTv();
+      }
+
+      function stepMusicTv(delta) {
+        if (!GC) return;
+        if (tvSource === "cs") {
+          if (csLiveList.length) {
+            var idx = 0;
+            for (var i = 0; i < csLiveList.length; i++) {
+              if (csLiveList[i].id === csNowId) { idx = i; break; }
+            }
+            var n = csLiveList.length;
+            idx = ((idx + (delta || 1)) % n + n) % n;
+            playCsTv("live", csLiveList[idx].id);
+            return;
+          }
+          loadCsLiveRow("live");
+          return;
+        }
+        var next = GC.nextMusicChannelId(GC.getMusicTvId(), delta);
+        GC.setMusicTvId(next);
+        syncMusicTvChips();
+        if (musicTvPlaying || soloFace === "tv") playMusicTv();
+      }
+
+      function toggleSoloMedia() {
+        if (soloFace === "tv") toggleMusicTv();
+        else toggleRadio();
+      }
+
+      function stepSoloMedia(delta) {
+        if (soloFace === "tv") stepMusicTv(delta);
+        else stepRadio(delta);
       }
 
       function doAction(name) {
@@ -1586,9 +2156,20 @@
       bindRadioBtn("radioPlayBtn", toggleRadio);
       bindRadioBtn("radioPrevBtn", function () { stepRadio(-1); });
       bindRadioBtn("radioNextBtn", function () { stepRadio(1); });
-      bindRadioBtn("soloRadioPlayBtn", toggleRadio);
-      bindRadioBtn("soloRadioPrevBtn", function () { stepRadio(-1); });
-      bindRadioBtn("soloRadioNextBtn", function () { stepRadio(1); });
+      bindRadioBtn("soloRadioPlayBtn", toggleSoloMedia);
+      bindRadioBtn("soloRadioPrevBtn", function () { stepSoloMedia(-1); });
+      bindRadioBtn("soloRadioNextBtn", function () { stepSoloMedia(1); });
+
+      (function () {
+        var btnR = document.getElementById("soloFaceRadioBtn");
+        var btnTv = document.getElementById("soloFaceTvBtn");
+        if (btnR) {
+          btnR.onclick = function () { setSoloFaceMode("radio"); bumpIdle(); };
+        }
+        if (btnTv) {
+          btnTv.onclick = function () { setSoloFaceMode("tv"); bumpIdle(); };
+        }
+      })();
 
       var themePills = document.querySelectorAll(".theme-pill");
       for (var j = 0; j < themePills.length; j++) {
@@ -1625,6 +2206,12 @@
         if (idleEl.className !== "on") loadIdleFrame(false);
       }, 2500);
       initRadioUI();
+      initMusicTvUI();
+      syncBodyClass();
+      syncSoloFaceUI();
+      if (idleSuppressed()) {
+        if (idleTimer) { clearTimeout(idleTimer); idleTimer = null; }
+      }
       syncAlarmUI();
       armAlarmForToday();
       tickClock();

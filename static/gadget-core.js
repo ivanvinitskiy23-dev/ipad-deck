@@ -75,6 +75,45 @@
     }
   ];
 
+  /* Music TV — English FAST music channels (HTTPS HLS for old iPad). */
+  var MUSIC_TV_KEY = "kissaten_music_tv";
+  var SOLO_FACE_KEY = "kissaten_solo_face";
+  var CS_GROUP_KEY = "kissaten_cs_group";
+  /* CS LIVE whitelist — playback goes through hub Twitch/Kick resolve. */
+  var CS_PRESETS = [
+    { id: "ua_main", group: "ua", platform: "twitch", login: "cs2_maincast", label: "Maincast" },
+    { id: "ua_main2", group: "ua", platform: "twitch", login: "cs2_maincast2", label: "Maincast 2" },
+    { id: "ua_streamcast", group: "ua", platform: "twitch", login: "streamcast_cs", label: "Streamcast" },
+    { id: "ru_bysl4m", group: "ru", platform: "twitch", login: "bysl4m", label: "bysl4m" },
+    { id: "ru_leniniw", group: "ru", platform: "twitch", login: "leniniw", label: "leniniw" },
+    { id: "ru_inkmate0", group: "ru", platform: "twitch", login: "inkmate0", label: "inkmate0" },
+    { id: "ru_aunkere", group: "ru", platform: "twitch", login: "aunkere", label: "aunkere" },
+    { id: "kick_leniniw", group: "kick", platform: "kick", login: "leniniw", label: "leniniw" },
+    { id: "kick_petrov", group: "kick", platform: "kick", login: "petrov1ch_cast", label: "petrov1ch" }
+  ];
+  /* One chip: show everyone live, user picks caster. */
+  var CS_GROUPS = [
+    { id: "live", name: "LIVE" }
+  ];
+  var MUSIC_TV_CHANNELS = [
+    {
+      id: "rock", name: "Rock",
+      /* XITE Rock x Metal — Stingray Classic Rock as fallback */
+      url: "https://d198ro05q94rc4.cloudfront.net/XITE_Rock_On.m3u8",
+      url2: "https://lotus.stingray.com/manifest/ose-101ads-montreal/samsungtvplus/91f1e420-bb65-3ca7-97bd-d01df1ad4df1/690800/manifest.m3u8"
+    },
+    {
+      id: "rap", name: "Rap",
+      url: "https://lightning-traceurban-samsungau.amagi.tv/playlist360p.m3u8",
+      url2: "https://lightning-traceurban-samsungau.amagi.tv/playlist.m3u8"
+    },
+    {
+      id: "pop", name: "Pop",
+      /* Pluto JWT is session-bound — must use jmp2 master (Safari ABR) */
+      url: "https://jmp2.uk/plu-5d14fd1a252d35decbc4080c.m3u8"
+    }
+  ];
+
   /* Retired / old chip ids → closest current station. */
   var RADIO_ID_ALIAS = {
     fluid: "chillout", groove: "chillout", gsclassic: "chillout",
@@ -688,6 +727,72 @@
     var n = RADIO_STATIONS.length;
     i = ((i % n) + n) % n;
     return RADIO_STATIONS[i].id;
+  }
+
+  function getMusicTvId() {
+    try {
+      var id = localStorage.getItem(MUSIC_TV_KEY) || MUSIC_TV_CHANNELS[0].id;
+      for (var i = 0; i < MUSIC_TV_CHANNELS.length; i++) {
+        if (MUSIC_TV_CHANNELS[i].id === id) return id;
+      }
+    } catch (e) {}
+    return MUSIC_TV_CHANNELS[0].id;
+  }
+
+  function setMusicTvId(id) {
+    try { localStorage.setItem(MUSIC_TV_KEY, id); } catch (e) {}
+  }
+
+  function musicChannelById(id) {
+    for (var i = 0; i < MUSIC_TV_CHANNELS.length; i++) {
+      if (MUSIC_TV_CHANNELS[i].id === id) return MUSIC_TV_CHANNELS[i];
+    }
+    return MUSIC_TV_CHANNELS[0];
+  }
+
+  function musicChannelIndex(id) {
+    for (var i = 0; i < MUSIC_TV_CHANNELS.length; i++) {
+      if (MUSIC_TV_CHANNELS[i].id === id) return i;
+    }
+    return 0;
+  }
+
+  function nextMusicChannelId(id, delta) {
+    var i = musicChannelIndex(id) + (delta || 1);
+    var n = MUSIC_TV_CHANNELS.length;
+    i = ((i % n) + n) % n;
+    return MUSIC_TV_CHANNELS[i].id;
+  }
+
+  function getSoloFace() {
+    try {
+      var f = localStorage.getItem(SOLO_FACE_KEY);
+      if (f === "tv" || f === "radio") return f;
+    } catch (e) {}
+    return "radio";
+  }
+
+  function setSoloFace(face) {
+    try {
+      localStorage.setItem(SOLO_FACE_KEY, face === "tv" ? "tv" : "radio");
+    } catch (e) {}
+  }
+
+  function getCsGroup() {
+    return "live";
+  }
+
+  function setCsGroup(id) {
+    try { localStorage.setItem(CS_GROUP_KEY, "live"); } catch (e) {}
+  }
+
+  function csPresetsForGroup(group) {
+    if (group === "live") return CS_PRESETS.slice(0);
+    var out = [];
+    for (var i = 0; i < CS_PRESETS.length; i++) {
+      if (CS_PRESETS[i].group === group) out.push(CS_PRESETS[i]);
+    }
+    return out;
   }
 
   /* ===== Power outages (Kyiv · Yasno primary + DTEK backup) ===== */
@@ -1423,6 +1528,19 @@
     readRadioNow: readRadioNow,
     RADIO_NOW_KEY: RADIO_NOW_KEY,
     RADIO_STATIONS: RADIO_STATIONS,
+    MUSIC_TV_CHANNELS: MUSIC_TV_CHANNELS,
+    getMusicTvId: getMusicTvId,
+    setMusicTvId: setMusicTvId,
+    musicChannelById: musicChannelById,
+    musicChannelIndex: musicChannelIndex,
+    nextMusicChannelId: nextMusicChannelId,
+    CS_PRESETS: CS_PRESETS,
+    CS_GROUPS: CS_GROUPS,
+    getCsGroup: getCsGroup,
+    setCsGroup: setCsGroup,
+    csPresetsForGroup: csPresetsForGroup,
+    getSoloFace: getSoloFace,
+    setSoloFace: setSoloFace,
     getPowerCfg: getPowerCfg,
     setPowerCfg: setPowerCfg,
     fetchPowerBundle: fetchPowerBundle,

@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import base64
 import json
 import os
 import platform
@@ -13,10 +14,11 @@ import subprocess
 import sys
 import threading
 import time
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.error import HTTPError, URLError
-from urllib.parse import urlencode, urlparse
+from urllib.parse import parse_qs, quote, urlencode, urljoin, urlparse
 from urllib.request import Request, build_opener, HTTPCookieProcessor, urlopen
 from http.cookiejar import CookieJar
 
@@ -1498,6 +1500,482 @@ def fetch_dtek_power() -> dict:
     return out
 
 
+# ===== CS LIVE (Twitch / Kick whitelist → HLS for iPad) =====
+TWITCH_GQL_CLIENT_ID = "kimne78kx3ncx6brgo4mv6wki5h1ko"
+CS_PRESETS: list[dict] = [
+    {"id": "ua_main", "group": "ua", "platform": "twitch", "login": "cs2_maincast", "label": "Maincast"},
+    {"id": "ua_main2", "group": "ua", "platform": "twitch", "login": "cs2_maincast2", "label": "Maincast 2"},
+    {"id": "ua_streamcast", "group": "ua", "platform": "twitch", "login": "streamcast_cs", "label": "Streamcast"},
+    {"id": "ru_bysl4m", "group": "ru", "platform": "twitch", "login": "bysl4m", "label": "bysl4m"},
+    {"id": "ru_leniniw", "group": "ru", "platform": "twitch", "login": "leniniw", "label": "leniniw"},
+    {"id": "ru_inkmate0", "group": "ru", "platform": "twitch", "login": "inkmate0", "label": "inkmate0"},
+    {"id": "ru_aunkere", "group": "ru", "platform": "twitch", "login": "aunkere", "label": "aunkere"},
+    {"id": "kick_leniniw", "group": "kick", "platform": "kick", "login": "leniniw", "label": "leniniw"},
+    {"id": "kick_petrov", "group": "kick", "platform": "kick", "login": "petrov1ch_cast", "label": "petrov1ch"},
+]
+_cs_status_lock = threading.Lock()
+_cs_status_cache: dict = {"t": 0.0, "data": None}
+_cs_stream_lock = threading.Lock()
+_cs_stream_session = None
+_cs_watch_lock = threading.Lock()
+_cs_watch_cache: dict[str, dict] = {}
+
+
+def _cs_presets_for_group(group: str) -> list[dict]:
+    g = (group or "live").strip().lower()
+    if g == "live":
+        return list(CS_PRESETS)
+    return [p for p in CS_PRESETS if p.get("group") == g]
+
+
+def _twitch_is_live(login: str) -> bool:
+    body = json.dumps(
+        {
+            "query": "query($login: String!) { user(login: $login) { stream { id } } }",
+            "variables": {"login": login},
+        }
+    ).encode("utf-8")
+    req = Request(
+        "https://gql.twitch.tv/gql",
+        data=body,
+        headers={
+            "Client-ID": TWITCH_GQL_CLIENT_ID,
+            "Content-Type": "application/json",
+            "User-Agent": "ipad-deck-hub/1.0",
+        },
+        method="POST",
+    )
+    try:
+        with urlopen(req, timeout=8) as resp:
+            data = json.loads(resp.read().decode("utf-8", errors="replace"))
+        user = ((data or {}).get("data") or {}).get("user") or {}
+        return bool(user.get("stream"))
+    except Exception:
+        return False
+
+
+def _kick_is_live(login: str) -> bool:
+    url = f"https://kick.com/api/v2/channels/{login}"
+    req = Request(
+        url,
+        headers={
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+            "Accept": "application/json",
+        },
+        method="GET",
+    )
+    try:
+        with urlopen(req, timeout=8) as resp:
+            data = json.loads(resp.read().decode("utf-8", errors="replace"))
+        ls = data.get("livestream") if isinstance(data, dict) else None
+        return bool(ls)
+    except Exception:
+        return False
+
+
+def _preset_is_live(preset: dict) -> bool:
+    platform = str(preset.get("platform") or "")
+    login = str(preset.get("login") or "")
+    if not login:
+        return False
+    if platform == "twitch":
+        return _twitch_is_live(login)
+    if platform == "kick":
+        return _kick_is_live(login)
+    return False
+
+
+def cs_status_payload(group: str = "live", force: bool = False) -> dict:
+    """Who from the whitelist is currently live (cached ~25s unless force)."""
+    now = time.time()
+    g = (group or "live").strip().lower()
+    with _cs_status_lock:
+        cached = _cs_status_cache.get("data")
+        if (
+            not force
+            and cached
+            and (now - float(_cs_status_cache.get("t") or 0)) < 25
+            and cached.get("group") == g
+        ):
+            return cached
+
+    presets = _cs_presets_for_group(g)
+    by_id: dict[str, dict] = {}
+
+    def _check(p: dict) -> dict:
+        live = _preset_is_live(p)
+        return {
+            "id": p["id"],
+            "group": p["group"],
+            "platform": p["platform"],
+            "login": p["login"],
+            "label": p.get("label") or p["login"],
+            "live": live,
+        }
+
+    with ThreadPoolExecutor(max_workers=min(10, max(1, len(presets)))) as pool:
+        futs = {pool.submit(_check, p): p["id"] for p in presets}
+        for fut in as_completed(futs):
+            try:
+                row = fut.result()
+            except Exception:
+                pid = futs[fut]
+                src = next((x for x in presets if x["id"] == pid), None) or {}
+                row = {
+                    "id": pid,
+                    "group": src.get("group"),
+                    "platform": src.get("platform"),
+                    "login": src.get("login"),
+                    "label": src.get("label") or src.get("login"),
+                    "live": False,
+                }
+            by_id[row["id"]] = row
+
+    channels = [by_id[p["id"]] for p in presets if p["id"] in by_id]
+    first_live = next((c for c in channels if c.get("live")), None)
+
+    out = {
+        "ok": True,
+        "group": g,
+        "channels": channels,
+        "live_count": sum(1 for c in channels if c.get("live")),
+        "first": first_live,
+        "t": int(now),
+    }
+    with _cs_status_lock:
+        _cs_status_cache["t"] = now
+        _cs_status_cache["data"] = out
+    return out
+
+
+def _streamlink_session():
+    global _cs_stream_session
+    with _cs_stream_lock:
+        if _cs_stream_session is not None:
+            return _cs_stream_session
+        try:
+            from streamlink import Streamlink
+        except ImportError as exc:
+            raise RuntimeError("streamlink not installed") from exc
+        session = Streamlink()
+        try:
+            session.set_option("twitch-disable-ads", True)
+        except Exception:
+            pass
+        _cs_stream_session = session
+        return session
+
+
+def _stream_page_url(platform: str, login: str) -> str:
+    if platform == "kick":
+        return f"https://kick.com/{login}"
+    return f"https://www.twitch.tv/{login}"
+
+
+def _pick_stream_url(streams: dict) -> str | None:
+    if not streams:
+        return None
+    # Prefer 480p for old iPad via hub proxy; 360p next if missing.
+    prefer = (
+        "480p30",
+        "480p",
+        "360p30",
+        "360p",
+        "720p30",
+        "720p",
+        "worst",
+        "best",
+    )
+    stream = None
+    for key in prefer:
+        if key in streams:
+            stream = streams[key]
+            break
+    if stream is None:
+        # first non-audio
+        for key, val in streams.items():
+            if "audio" in str(key).lower():
+                continue
+            stream = val
+            break
+    if stream is None:
+        stream = next(iter(streams.values()), None)
+    if stream is None:
+        return None
+    url = getattr(stream, "url", None)
+    if url:
+        return str(url)
+    try:
+        return str(stream.to_url())
+    except Exception:
+        return None
+
+
+def resolve_cs_stream(preset: dict) -> dict:
+    platform = str(preset.get("platform") or "twitch")
+    login = str(preset.get("login") or "")
+    page = _stream_page_url(platform, login)
+    try:
+        session = _streamlink_session()
+        streams = session.streams(page)
+    except Exception as exc:  # noqa: BLE001
+        return {
+            "ok": False,
+            "error": "resolve_fail",
+            "detail": str(exc)[:160],
+            "id": preset.get("id"),
+            "login": login,
+            "platform": platform,
+        }
+    url = _pick_stream_url(streams or {})
+    if not url:
+        return {
+            "ok": False,
+            "error": "offline",
+            "id": preset.get("id"),
+            "login": login,
+            "platform": platform,
+            "label": preset.get("label") or login,
+        }
+    return {
+        "ok": True,
+        "url": url,
+        "id": preset.get("id"),
+        "group": preset.get("group"),
+        "login": login,
+        "platform": platform,
+        "label": preset.get("label") or login,
+    }
+
+
+def _b64url_encode(s: str) -> str:
+    return base64.urlsafe_b64encode(s.encode("utf-8")).decode("ascii").rstrip("=")
+
+
+def _b64url_decode(s: str) -> str:
+    pad = "=" * (-len(s) % 4)
+    return base64.urlsafe_b64decode((s or "") + pad).decode("utf-8", errors="replace")
+
+
+def _cs_http_get(url: str, timeout: float = 12.0) -> tuple[int, bytes, str]:
+    req = Request(
+        url,
+        headers={
+            "User-Agent": "Mozilla/5.0 (iPad; CPU OS 12_5 like Mac OS X) AppleWebKit/605.1.15",
+            "Accept": "*/*",
+        },
+        method="GET",
+    )
+    try:
+        with urlopen(req, timeout=timeout) as resp:
+            data = resp.read()
+            ctype = str(resp.headers.get("Content-Type") or "")
+            return int(resp.status), data, ctype
+    except HTTPError as exc:
+        try:
+            body = exc.read()
+        except Exception:
+            body = b""
+        return int(getattr(exc, "code", 502) or 502), body, ""
+    except Exception:
+        return 0, b"", ""
+
+
+def _rewrite_m3u8(text: str, base_url: str) -> str:
+    """Point every media URI in the playlist back through the hub proxy."""
+    lines_out: list[str] = []
+    for line in text.splitlines():
+        stripped = line.strip()
+        if not stripped or stripped.startswith("#"):
+            lines_out.append(line.rstrip("\r"))
+            continue
+        abs_url = urljoin(base_url, stripped)
+        token = quote(_b64url_encode(abs_url), safe="")
+        lines_out.append(f"/api/cs/fetch?u={token}")
+    return "\n".join(lines_out) + "\n"
+
+
+def _cs_watch_key(group: str, preset_id: str | None = None) -> str:
+    g = (group or "live").strip().lower()
+    pid = (preset_id or "").strip()
+    return f"{g}:{pid}" if pid else g
+
+
+def _store_cs_watch(group: str, result: dict) -> dict:
+    g = (group or "live").strip().lower()
+    pid = str(result.get("id") or "")
+    key = _cs_watch_key(g, pid)
+    with _cs_watch_lock:
+        _cs_watch_cache[key] = {
+            "t": time.time(),
+            "upstream": result.get("url"),
+            "meta": {
+                "id": result.get("id"),
+                "login": result.get("login"),
+                "label": result.get("label"),
+                "platform": result.get("platform"),
+                "group": g,
+            },
+        }
+    out = dict(result)
+    out["upstream"] = result.get("url")
+    out["proxy"] = True
+    # iPad plays hub URL — segments rewritten to /api/cs/fetch
+    q = f"group={quote(g, safe='')}"
+    if pid:
+        q += f"&id={quote(pid, safe='')}"
+    out["url"] = f"/api/cs/watch.m3u8?{q}"
+    return out
+
+
+def _preset_by_id(preset_id: str) -> dict | None:
+    pid = (preset_id or "").strip()
+    if not pid:
+        return None
+    for p in CS_PRESETS:
+        if p.get("id") == pid:
+            return p
+    return None
+
+
+def cs_play_payload(group: str = "live", preset_id: str | None = None) -> dict:
+    """Resolve channel (by id or first live); return hub-proxied HLS path for iPad."""
+    g = (group or "live").strip().lower()
+    pid = (preset_id or "").strip() or None
+
+    if pid:
+        preset = _preset_by_id(pid)
+        if not preset:
+            return {"ok": False, "error": "bad_id", "group": g, "id": pid}
+        if g not in ("live", "") and preset.get("group") != g:
+            g = str(preset.get("group") or g)
+        result = resolve_cs_stream(preset)
+        if result.get("ok") and result.get("url"):
+            result["group"] = g
+            return _store_cs_watch(g, result)
+        return {
+            "ok": False,
+            "error": str(result.get("error") or "offline"),
+            "group": g,
+            "id": pid,
+            "login": preset.get("login"),
+            "label": preset.get("label") or preset.get("login"),
+        }
+
+    presets = _cs_presets_for_group(g)
+    if not presets:
+        return {"ok": False, "error": "bad_group", "group": g}
+
+    # Prefer known-live from status cache when fresh.
+    status = cs_status_payload(g)
+    ordered = presets
+    live_ids = {c["id"] for c in status.get("channels") or [] if c.get("live")}
+    if live_ids:
+        ordered = [p for p in presets if p["id"] in live_ids] + [
+            p for p in presets if p["id"] not in live_ids
+        ]
+
+    last_err = "offline"
+    for p in ordered:
+        if live_ids and p["id"] not in live_ids:
+            # Skip known-offline when we have a live set.
+            continue
+        result = resolve_cs_stream(p)
+        if result.get("ok") and result.get("url"):
+            result["group"] = g
+            return _store_cs_watch(g, result)
+        last_err = str(result.get("error") or "offline")
+
+    # If status said someone is live but resolve failed, try full list once.
+    if live_ids:
+        for p in presets:
+            result = resolve_cs_stream(p)
+            if result.get("ok") and result.get("url"):
+                result["group"] = g
+                return _store_cs_watch(g, result)
+            last_err = str(result.get("error") or "offline")
+
+    return {"ok": False, "error": last_err, "group": g, "live_count": status.get("live_count", 0)}
+
+
+def _cs_watch_entry(group: str, preset_id: str | None) -> dict | None:
+    g = (group or "live").strip().lower()
+    pid = (preset_id or "").strip() or None
+    key = _cs_watch_key(g, pid)
+    with _cs_watch_lock:
+        entry = _cs_watch_cache.get(key)
+        if entry:
+            return entry
+        if pid:
+            for _k, v in _cs_watch_cache.items():
+                if (v.get("meta") or {}).get("id") == pid:
+                    return v
+    return None
+
+
+def cs_watch_m3u8(group: str = "live", preset_id: str | None = None) -> tuple[int, bytes, str]:
+    """Serve live playlist via hub. Never block on streamlink during normal HLS polls —
+    only re-resolve when the cached upstream URL actually fails (token death)."""
+    g = (group or "live").strip().lower()
+    pid = (preset_id or "").strip() or None
+    key = _cs_watch_key(g, pid)
+    entry = _cs_watch_entry(g, pid)
+    if not entry or not entry.get("upstream"):
+        played = cs_play_payload(g, pid)
+        if not played.get("ok"):
+            return 404, b"#EXTM3U\n# offline\n", "application/vnd.apple.mpegurl"
+        entry = _cs_watch_entry(g, pid)
+    upstream = (entry or {}).get("upstream") or ""
+    if not upstream:
+        return 404, b"#EXTM3U\n", "application/vnd.apple.mpegurl"
+
+    code, data, _ctype = _cs_http_get(upstream, timeout=8.0)
+    if code != 200 or not data:
+        # Token/playlist died — one resolve, then retry once.
+        with _cs_watch_lock:
+            _cs_watch_cache.pop(key, None)
+        played = cs_play_payload(g, pid)
+        if not played.get("ok"):
+            return 502, b"#EXTM3U\n# upstream fail\n", "application/vnd.apple.mpegurl"
+        entry = _cs_watch_entry(g, pid)
+        upstream = (entry or {}).get("upstream") or ""
+        if not upstream:
+            return 502, b"#EXTM3U\n# upstream fail\n", "application/vnd.apple.mpegurl"
+        code, data, _ctype = _cs_http_get(upstream, timeout=8.0)
+        if code != 200 or not data:
+            return 502, b"#EXTM3U\n# upstream fail\n", "application/vnd.apple.mpegurl"
+
+    text = data.decode("utf-8", errors="replace")
+    rewritten = _rewrite_m3u8(text, upstream)
+    return 200, rewritten.encode("utf-8"), "application/vnd.apple.mpegurl"
+
+
+def cs_fetch_proxy(token: str) -> tuple[int, bytes, str]:
+    try:
+        upstream = _b64url_decode(token)
+    except Exception:
+        return 400, b"bad token", "text/plain"
+    if not upstream.startswith("http://") and not upstream.startswith("https://"):
+        return 400, b"bad url", "text/plain"
+    code, data, ctype = _cs_http_get(upstream, timeout=15.0)
+    if code != 200 or data is None:
+        return 502, b"upstream fail", "text/plain"
+    low = (ctype or "").lower()
+    looks_m3u = (
+        "mpegurl" in low
+        or "m3u8" in low
+        or upstream.lower().split("?", 1)[0].endswith(".m3u8")
+        or data[:7] == b"#EXTM3U"
+    )
+    if looks_m3u:
+        text = data.decode("utf-8", errors="replace")
+        rewritten = _rewrite_m3u8(text, upstream)
+        return 200, rewritten.encode("utf-8"), "application/vnd.apple.mpegurl"
+    if not ctype:
+        ctype = "application/octet-stream"
+    return 200, data, ctype
+
+
 def fetch_yasno_planned_raw() -> dict:
     """Full Yasno planned-outages JSON (hub proxy for the iPad client)."""
     url = "https://app.yasno.ua/api/blackout-service/public/shutdowns/regions/25/dsos/902/planned-outages"
@@ -1610,6 +2088,30 @@ class DeckHandler(SimpleHTTPRequestHandler):
             return
         if path == "/api/power/yasno/planned":
             self._json(200, fetch_yasno_planned_raw())
+            return
+        if path == "/api/cs/status":
+            qs = parse_qs(parsed.query)
+            group = (qs.get("group") or ["live"])[0]
+            force = (qs.get("refresh") or ["0"])[0] in ("1", "true", "yes")
+            self._json(200, cs_status_payload(group, force))
+            return
+        if path == "/api/cs/play":
+            qs = parse_qs(parsed.query)
+            group = (qs.get("group") or ["live"])[0]
+            preset_id = (qs.get("id") or [""])[0] or None
+            self._json(200, cs_play_payload(group, preset_id))
+            return
+        if path == "/api/cs/watch.m3u8":
+            qs = parse_qs(parsed.query)
+            group = (qs.get("group") or ["live"])[0]
+            preset_id = (qs.get("id") or [""])[0] or None
+            code, data, ctype = cs_watch_m3u8(group, preset_id)
+            self._bytes(code, data, ctype)
+            return
+        if path == "/api/cs/fetch":
+            token = (parse_qs(parsed.query).get("u") or [""])[0]
+            code, data, ctype = cs_fetch_proxy(token)
+            self._bytes(code, data, ctype)
             return
         if path in ("/", "/index.html"):
             # Always serve fresh index bytes (bypass SimpleHTTP file cache quirks).

@@ -186,6 +186,34 @@ body.standalone .media-col { height: 120px; }
 }
 .menu-chip:active { background: var(--panel); }
 
+/* R / TV face toggle — sits between SYS and now-playing */
+.solo-face-toggle {
+  display: none;
+  -webkit-flex-shrink: 0; flex-shrink: 0;
+  width: 44px; min-height: 120px; margin: 0 6px 0 0;
+  -webkit-box-orient: vertical; -webkit-flex-direction: column; flex-direction: column;
+  -webkit-box-pack: justify; -webkit-justify-content: space-between; justify-content: space-between;
+}
+body.mode-solo .solo-face-toggle {
+  display: -webkit-box; display: -webkit-flex; display: flex;
+}
+.solo-face-btn {
+  -webkit-appearance: none; appearance: none;
+  -webkit-box-flex: 1; -webkit-flex: 1 1 0; flex: 1 1 0;
+  width: 100%; margin: 0 0 4px; padding: 0;
+  border: 1px solid var(--line); background: #000; color: var(--dim);
+  font-family: inherit; font-size: 11px; font-weight: 700; letter-spacing: .08em;
+  border-radius: 0; text-shadow: none;
+  -webkit-transition: color .25s ease, border-color .25s ease, text-shadow .25s ease;
+  transition: color .25s ease, border-color .25s ease, text-shadow .25s ease;
+}
+.solo-face-btn:last-child { margin-bottom: 0; }
+.solo-face-btn.on {
+  border-color: var(--accent); color: var(--accent);
+  text-shadow: 0 0 6px var(--glow);
+}
+.solo-face-btn:active { background: var(--panel); }
+
 .media-col {
   -webkit-box-flex: 0; -webkit-flex: 0 1 200px; flex: 0 1 200px;
   min-width: 0; max-width: 220px; margin: 0 4px;
@@ -449,6 +477,118 @@ body.mode-deck .radio-only { display: none !important; }
 .solo-panel {
   margin: 10px auto 0; max-width: 460px; width: 92%;
   border: 1px solid var(--line); background: var(--panel); border-radius: 0; padding: 14px 12px;
+  -webkit-transition: max-width .4s ease, width .4s ease, padding .4s ease, margin .4s ease;
+  transition: max-width .4s ease, width .4s ease, padding .4s ease, margin .4s ease;
+}
+/* TV face — stretch the stage wide / tall under header */
+body.mode-solo.solo-face-tv #soloPanel {
+  max-width: 1100px; width: 98%;
+  margin-top: 4px; padding: 8px 10px 10px;
+}
+body.mode-solo.solo-face-tv #soloFaceTv .solo-title { margin-bottom: 2px; }
+body.mode-solo.solo-face-tv #soloFaceTv .solo-note { margin-top: 6px; font-size: 9px; }
+.solo-faces {
+  position: relative;
+  overflow: hidden;
+}
+.solo-face {
+  display: none;
+  opacity: 0;
+  -webkit-transform: translate3d(18px, 0, 0);
+  transform: translate3d(18px, 0, 0);
+  -webkit-transition: opacity .38s ease, -webkit-transform .38s ease;
+  transition: opacity .38s ease, transform .38s ease;
+}
+.solo-face.on {
+  display: block;
+  opacity: 1;
+  -webkit-transform: translate3d(0, 0, 0);
+  transform: translate3d(0, 0, 0);
+}
+/* Crossfade while swapping R ↔ TV */
+.solo-face.face-leave {
+  display: block;
+  position: absolute;
+  left: 0; right: 0; top: 0;
+  width: 100%;
+  opacity: 0;
+  pointer-events: none;
+  z-index: 1;
+}
+.solo-faces.to-tv .solo-face.face-leave {
+  -webkit-transform: translate3d(-18px, 0, 0);
+  transform: translate3d(-18px, 0, 0);
+}
+.solo-faces.to-radio .solo-face.face-leave {
+  -webkit-transform: translate3d(18px, 0, 0);
+  transform: translate3d(18px, 0, 0);
+}
+.solo-face.face-enter {
+  display: block;
+  position: relative;
+  opacity: 0;
+  z-index: 2;
+  pointer-events: none;
+}
+.solo-faces.to-tv .solo-face.face-enter {
+  -webkit-transform: translate3d(22px, 0, 0);
+  transform: translate3d(22px, 0, 0);
+}
+.solo-faces.to-radio .solo-face.face-enter {
+  -webkit-transform: translate3d(-22px, 0, 0);
+  transform: translate3d(-22px, 0, 0);
+}
+.solo-face.face-enter.face-in {
+  opacity: 1;
+  pointer-events: auto;
+  -webkit-transform: translate3d(0, 0, 0);
+  transform: translate3d(0, 0, 0);
+}
+.tv-stage {
+  position: relative; margin: 6px 0 10px;
+  border: 1px solid var(--line); background: #000;
+  width: 100%; height: 0; padding-bottom: 56.25%;
+  overflow: hidden;
+}
+body.mode-solo.solo-face-tv .tv-stage {
+  padding-bottom: 0;
+  height: 54vh; min-height: 320px; max-height: 620px;
+}
+.tv-stage video {
+  position: absolute; left: 0; top: 0; width: 100%; height: 100%;
+  background: #000; object-fit: contain;
+  -webkit-transform: translateZ(0); transform: translateZ(0);
+}
+.tv-idle {
+  position: absolute; left: 0; right: 0; top: 0; bottom: 0;
+  display: -webkit-box; display: -webkit-flex; display: flex;
+  -webkit-box-align: center; -webkit-align-items: center; align-items: center;
+  -webkit-box-pack: center; -webkit-justify-content: center; justify-content: center;
+  color: var(--dim); font-size: 11px; letter-spacing: .14em; text-transform: uppercase;
+  pointer-events: none; z-index: 1;
+}
+.tv-stage.playing .tv-idle { display: none; }
+.tv-chip-bar {
+  margin: 0; padding: 0 0 2px;
+  overflow-x: auto; -webkit-overflow-scrolling: touch; white-space: nowrap;
+  text-align: center; min-height: 32px;
+}
+.cs-live-bar {
+  margin-top: 6px; min-height: 0;
+  border-top: 1px dashed var(--line); padding-top: 6px;
+}
+.cs-live-bar:empty { display: none; margin: 0; padding: 0; border: 0; }
+.cs-live-bar .radio-chip.on {
+  border-color: var(--accent); color: var(--accent);
+}
+.cs-live-empty {
+  display: inline-block; margin: 0 2px; padding: 5px 8px;
+  color: var(--dim); font-size: 10px; letter-spacing: .06em;
+}
+.tv-chip-slot {
+  display: inline-block; margin: 0 2px; padding: 5px 10px;
+  border: 1px dashed var(--line); color: var(--dim); font-size: 10px;
+  letter-spacing: .04em; opacity: .45; min-width: 36px;
 }
 .solo-title {
   font-size: 10px; letter-spacing: .22em; text-transform: uppercase;
@@ -735,6 +875,8 @@ button.pad.warn { color: var(--warn); border-color: var(--warn); background: var
   #deckStack { width: 100% !important; height: 100% !important; left: 0 !important; right: 0 !important; top: 0 !important; bottom: 0 !important; }
   .solo-clock { font-size: 48px; }
   .solo-panel { margin-top: 6px; padding: 10px 10px 8px; }
+  body.mode-solo.solo-face-tv #soloPanel { width: 99%; max-width: none; padding: 6px 8px 8px; }
+  body.mode-solo.solo-face-tv .tv-stage { height: 58vh; min-height: 360px; max-height: none; }
   header { padding-top: 2px; }
   .header-row { max-width: 100%; min-height: 120px; }
   .menu-chip { width: 72px; min-height: 120px; }
@@ -790,7 +932,7 @@ button.pad.warn { color: var(--warn); border-color: var(--warn); background: var
           <span class="brand deck-only">QWIQLY</span>
           <span class="brand solo-only">NIGHTWIRE</span>
           <span class="hub-stats" id="hubStats">—</span>
-          <span class="ver">v62</span>
+          <span class="ver">v89</span>
         </div>
         <div class="hero-mark deck-only" aria-hidden="true">QWIQLY</div>
         <div class="hero-sub deck-only" aria-hidden="true">DECK</div>
@@ -801,6 +943,10 @@ button.pad.warn { color: var(--warn); border-color: var(--warn); background: var
       <header id="header">
         <div class="header-row">
           <button type="button" class="menu-chip" id="infoChip"><span class="menu-chip-label">SYS</span></button>
+          <div class="solo-face-toggle" id="soloFaceToggle" aria-label="Radio or TV">
+            <button type="button" class="solo-face-btn on" id="soloFaceRadioBtn" data-face="radio">R</button>
+            <button type="button" class="solo-face-btn" id="soloFaceTvBtn" data-face="tv">TV</button>
+          </div>
 
           <div class="media-col">
             <div class="media-center">
@@ -866,34 +1012,49 @@ button.pad.warn { color: var(--warn); border-color: var(--warn); background: var
       </div>
 
       <div class="solo-only solo-panel" id="soloPanel">
-        <div class="solo-title">NIGHTWIRE · CLOCK</div>
-        <div class="solo-clock" id="soloClock">--:--</div>
-        <div class="solo-date" id="soloDate">—</div>
+        <div class="solo-faces" id="soloFaces">
+          <div class="solo-face on" id="soloFaceRadio">
+            <div class="solo-title">NIGHTWIRE · CLOCK</div>
+            <div class="solo-clock" id="soloClock">--:--</div>
+            <div class="solo-date" id="soloDate">—</div>
 
-        <div class="radio-dock" id="radioDock">
-          <div class="media-controls" id="mediaControlsRadio">
-            <button type="button" class="media-btn" id="radioPrevBtn">Prev</button>
-            <button type="button" class="media-btn" id="radioPlayBtn">Play</button>
-            <button type="button" class="media-btn" id="radioNextBtn">Next</button>
-          </div>
-          <div class="radio-chip-bar" id="radioChipBar"></div>
-        </div>
-        <audio id="radioNative" class="radio-native" preload="auto" playsinline webkit-playsinline></audio>
+            <div class="radio-dock" id="radioDock">
+              <div class="media-controls" id="mediaControlsRadio">
+                <button type="button" class="media-btn" id="radioPrevBtn">Prev</button>
+                <button type="button" class="media-btn" id="radioPlayBtn">Play</button>
+                <button type="button" class="media-btn" id="radioNextBtn">Next</button>
+              </div>
+              <div class="radio-chip-bar" id="radioChipBar"></div>
+            </div>
+            <audio id="radioNative" class="radio-native" preload="auto" playsinline webkit-playsinline></audio>
 
-        <div class="solo-block">
-          <div class="solo-block-h">ALARM</div>
-          <div class="solo-alarm-box">
-            <div class="solo-alarm-row">
-              <input type="time" id="alarmTime" value="07:00" />
-              <button type="button" class="solo-toggle" id="alarmToggle">Off</button>
+            <div class="solo-block">
+              <div class="solo-block-h">ALARM</div>
+              <div class="solo-alarm-box">
+                <div class="solo-alarm-row">
+                  <input type="time" id="alarmTime" value="07:00" />
+                  <button type="button" class="solo-toggle" id="alarmToggle">Off</button>
+                </div>
+                <div class="solo-alarm-actions">
+                  <button type="button" id="alarmStop">Stop ringing</button>
+                </div>
+                <div class="solo-alarm-status" id="alarmStatus">будильник выкл</div>
+              </div>
             </div>
-            <div class="solo-alarm-actions">
-              <button type="button" id="alarmStop">Stop ringing</button>
+            <div class="solo-note">Радио — Play/Prev/Next. Будильник: экран открыт + STANDALONE. On разблокирует звук на iPad.</div>
+          </div>
+
+          <div class="solo-face" id="soloFaceTv">
+            <div class="solo-title">MUSIC TV</div>
+            <div class="tv-stage" id="musicTvStage">
+              <video id="musicTvVideo" playsinline webkit-playsinline controls preload="none"></video>
+              <div class="tv-idle" id="musicTvIdle">tap channel</div>
             </div>
-            <div class="solo-alarm-status" id="alarmStatus">будильник выкл</div>
+            <div class="tv-chip-bar" id="musicTvChipBar"></div>
+            <div class="tv-chip-bar cs-live-bar" id="csLiveBar" aria-label="CS live channels"></div>
+            <div class="solo-note">Music: Rock/Rap/Pop · CS: LIVE → выбери эфир · fullscreen — на плеере</div>
           </div>
         </div>
-        <div class="solo-note">Радио — Play/Prev/Next. Будильник: экран открыт + STANDALONE. On разблокирует звук на iPad.</div>
       </div>
 
       <div class="grid">
@@ -999,13 +1160,13 @@ button.pad.warn { color: var(--warn); border-color: var(--warn); background: var
     <br><b>Поделиться → На экран «Домой»</b>
     <br>открой ярлык — без строки Safari.
     <br><br>Важно: добавляй URL с версией:
-    <br><b id="tipUrl">http://192.168.0.247:8787/?v=81</b>
+    <br><b id="tipUrl">http://192.168.0.247:8787/?v=89</b>
     <br>(старый ярлык без ?v= кэширует старый UI)
     <br><br>Для старта без ПК — GitHub Pages URL из README.
     <button type="button" id="tipOk">Понятно</button>
   </div>
 
-  <script src="gadget-core.js?v=81"></script>
-  <script src="deck-app.js?v=81"></script>
+  <script src="gadget-core.js?v=89"></script>
+  <script src="deck-app.js?v=89"></script>
 </body>
 </html>
