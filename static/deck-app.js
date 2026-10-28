@@ -1,8 +1,8 @@
 /* Textmode Deck app shell — ES5 */
 (function () {
       var IDLE_MS = 45000;
-      var DRIVE_VER = 92;
-      var APP_VER = 92;
+      var DRIVE_VER = 93;
+      var APP_VER = 93;
       var THEME_KEY = "kissaten_deck_theme";
       var SCENE_KEY = "kissaten_idle_scene";
       var IDLE_SCENES = [

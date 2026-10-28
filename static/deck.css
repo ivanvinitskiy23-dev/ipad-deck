@@ -55,25 +55,33 @@ body.theme-D {
   --warn-bg: #140a06; --glow: rgba(255,176,0,.4);
 }
 
+/* CASIO · PAPER LCD — richer olive + hard ink, no CRT neon */
 body.theme-E {
-  --bg: #7c8b74; --panel: #86967e; --ink: #111610; --dim: #424d3d;
-  --line: #2b3327; --accent: #0a0e0a; --hot: #1e2f23; --warn: #8f1d14;
-  --warn-bg: #786a62; --glow: transparent;
-  background: #7c8b74; color: #111610;
+  --bg: #8a9b7c; --panel: #96a688; --ink: #0c100c; --dim: #3a4536;
+  --line: #1f261c; --accent: #050805; --hot: #1a281c; --warn: #9a1a12;
+  --warn-bg: #8a7468; --glow: transparent;
+  background: #8a9b7c; color: #0c100c;
 }
-body.theme-E #app { background: #7c8b74; }
+body.theme-E .menu-chip, body.theme-E .media-btn, body.theme-E .side-brand,
+body.theme-E .solo-clock, body.theme-E .vol-value, body.theme-E .theme-pill.on,
+body.theme-E .radio-chip.on, body.theme-E .mode-pill.on, body.theme-E .drawer-title,
+body.theme-E .crt-titlebar, body.theme-E .toast { color: #050805; border-color: #1f261c; }
+
+body.theme-E #app { background: #8a9b7c; }
 body.theme-E #app:after {
   background:
-    repeating-linear-gradient(to bottom, transparent 0px, transparent 2px, rgba(17,22,16,.06) 2px, rgba(17,22,16,.06) 3px),
-    repeating-linear-gradient(to right, transparent 0px, transparent 2px, rgba(17,22,16,.05) 2px, rgba(17,22,16,.05) 3px),
-    radial-gradient(ellipse at center, transparent 65%, rgba(17,22,16,.22) 100%);
-  opacity: .75;
+    repeating-linear-gradient(to bottom, transparent 0px, transparent 2px, rgba(12,16,12,.08) 2px, rgba(12,16,12,.08) 3px),
+    repeating-linear-gradient(to right, transparent 0px, transparent 2px, rgba(12,16,12,.06) 2px, rgba(12,16,12,.06) 3px),
+    radial-gradient(ellipse at center, transparent 58%, rgba(12,16,12,.28) 100%);
+  opacity: .85;
 }
 body.theme-E .crt-frame,
 body.theme-E .vol-card,
 body.theme-E .solo-panel,
-body.theme-E .drawer-panel {
-  background: #86967e; border-color: #2b3327; color: #111610;
+body.theme-E .drawer-panel,
+body.theme-E #tip {
+  background: #96a688; border-color: #1f261c; color: #0c100c;
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,.12), 2px 2px 0 rgba(12,16,12,.18);
 }
 body.theme-E .menu-chip,
 body.theme-E .media-center,
@@ -97,21 +105,42 @@ body.theme-E .theme-pill,
 body.theme-E .mode-pill,
 body.theme-E .drawer-btn,
 body.theme-E .fs-btn,
-body.theme-E .hub-field {
-  background: #74836c; color: #111610; border-color: #2b3327;
-  text-shadow: 1px 1px 0 rgba(17,22,16,.22);
-  box-shadow: none;
+body.theme-E .hub-field,
+body.theme-E .scene-pill,
+body.theme-E .solo-markets .mkt,
+body.theme-E .pomo-controls .media-btn {
+  background: #7e8f70; color: #0c100c; border-color: #1f261c;
+  text-shadow: 1px 1px 0 rgba(12,16,12,.28);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.14);
 }
 body.theme-E .hero-mark,
 body.theme-E .solo-clock,
 body.theme-E .vol-value,
 body.theme-E .crt-titlebar,
+body.theme-E .crt-titlebar .hub-stats,
+body.theme-E .drawer-title,
+body.theme-E .side-brand,
+body.theme-E .toast,
+body.theme-E #living .lv-k,
 body.theme-E #living .lv-weather .lv-v,
 body.theme-E #living .lv-power.on .lv-v,
-body.theme-E #living .lv-power.on .pw-slot {
-  color: #0a0e0a;
-  text-shadow: 2px 2px 0 rgba(17,22,16,.25);
+body.theme-E #living .lv-power.on .pw-slot,
+body.theme-E #living .lv-power .pw-slot,
+body.theme-E .solo-title,
+body.theme-E .solo-date,
+body.theme-E .solo-markets .mv {
+  color: #050805;
+  text-shadow: 2px 2px 0 rgba(12,16,12,.3);
 }
+body.theme-E .crt-titlebar .hub-stats.warn { color: #6a4a10; text-shadow: 1px 1px 0 rgba(12,16,12,.2); }
+body.theme-E .crt-titlebar .hub-stats.hot { color: #9a1a12; text-shadow: 1px 1px 0 rgba(12,16,12,.2); }
+body.theme-E #living .lv-sub,
+body.theme-E .meta,
+body.theme-E .hero-sub,
+body.theme-E .drawer-hint,
+body.theme-E .solo-note,
+body.theme-E .crt-titlebar .ver,
+body.theme-E .app-mix-btn .k { color: #2e382c; }
 body.theme-E .theme-pill.on,
 body.theme-E .mode-pill.on,
 body.theme-E .radio-chip.on,
@@ -119,13 +148,102 @@ body.theme-E .vol-preset.on,
 body.theme-E .scene-btn.on,
 body.theme-E .app-mix-btn.on,
 body.theme-E .solo-face-btn.on,
-body.theme-E .solo-toggle.on {
-  background: #111610; color: #86967e; border-color: #111610;
+body.theme-E .solo-toggle.on,
+body.theme-E .scene-pill.on {
+  background: #0c100c; color: #a0b090; border-color: #0c100c;
   text-shadow: none;
+  box-shadow: none;
 }
+body.theme-E .app-mix-btn.clutch.on {
+  background: #9a1a12; color: #d8c8b8; border-color: #5a100c;
+}
+body.theme-E .app-mix-btn.clutch.on .k,
+body.theme-E .app-mix-btn.clutch.on .v { color: #d8c8b8; }
 body.theme-E button.pad .ico {
-  -webkit-filter: brightness(0.12) contrast(1.5);
-  filter: brightness(0.12) contrast(1.5);
+  -webkit-filter: brightness(0.1) contrast(1.65);
+  filter: brightness(0.1) contrast(1.65);
+}
+body.theme-E #living .lv-alert.on,
+body.theme-E #living .lv-power.off,
+body.theme-E #living .lv-power.emergency {
+  background: #8a7468; border-color: #9a1a12; color: #9a1a12;
+}
+body.theme-E #living .lv-power.soon {
+  background: #8a8460; border-color: #6a4a10; color: #4a3408;
+  box-shadow: none;
+}
+body.theme-E #living .lv-power.soon .lv-v,
+body.theme-E #living .lv-power.soon .pw-slot { color: #4a3408; }
+body.theme-E #living .lv-power .pw-bar .h-on { color: #0c100c; }
+body.theme-E #living .lv-power .pw-bar .h-half { color: #6a4a10; }
+body.theme-E #living .lv-power .pw-bar .h-off { color: #9a1a12; opacity: .9; }
+body.theme-E #tip b { color: #050805; }
+body.theme-E #tip button {
+  background: #0c100c; color: #a0b090;
+}
+
+/* CASIO screensaver — keep LCD world, don't fall back to CRT black */
+body.theme-E #idle {
+  background: #7a8a6c;
+  background:
+    radial-gradient(ellipse at center, #93a485 0%, #7a8a6c 70%, #627058 100%);
+}
+body.theme-E #idle:after {
+  content: ""; pointer-events: none; position: absolute; top: 0; right: 0; bottom: 0; left: 0; z-index: 3;
+  background:
+    repeating-linear-gradient(to bottom, transparent 0px, transparent 2px, rgba(12,16,12,.07) 2px, rgba(12,16,12,.07) 3px),
+    repeating-linear-gradient(to right, transparent 0px, transparent 2px, rgba(12,16,12,.05) 2px, rgba(12,16,12,.05) 3px);
+  opacity: .9;
+}
+body.theme-E #idleFrameBox {
+  border: 3px solid #1f261c;
+  background: #96a688;
+  box-shadow:
+    0 0 0 4px #8a9b7c,
+    0 0 0 7px #1f261c,
+    4px 4px 0 rgba(12,16,12,.35);
+}
+body.theme-E #idleFrameBox:before {
+  background: rgba(255,255,255,.22);
+}
+body.theme-E #idlePic {
+  background: #6e7e60;
+  -webkit-filter: sepia(.42) hue-rotate(38deg) saturate(.75) contrast(1.18) brightness(.92);
+  filter: sepia(.42) hue-rotate(38deg) saturate(.75) contrast(1.18) brightness(.92);
+}
+body.theme-E #idleHud .card {
+  background: #96a688;
+  border: 2px solid #1f261c;
+  color: #0c100c;
+  box-shadow: 2px 2px 0 rgba(12,16,12,.28), inset 0 1px 0 rgba(255,255,255,.18);
+}
+body.theme-E #idleHud .k { color: #2e382c; }
+body.theme-E #idleHud .v {
+  color: #050805;
+  text-shadow: 2px 2px 0 rgba(12,16,12,.28);
+  font-weight: 800;
+}
+body.theme-E #idleHud .sub { color: #2e382c; }
+body.theme-E #idleAl.on {
+  background: #8a7468; border-color: #9a1a12; color: #9a1a12;
+}
+body.theme-E #idleAl.on .v { color: #9a1a12; text-shadow: none; }
+body.theme-E #idlePw.on {
+  border-color: #050805; color: #050805;
+  background: #a0b090;
+}
+body.theme-E #idlePw.soon {
+  border-color: #6a4a10; color: #4a3408; background: #8a8460;
+}
+body.theme-E #idlePw.off,
+body.theme-E #idlePw.emergency {
+  border-color: #9a1a12; background: #8a7468; color: #9a1a12;
+}
+body.theme-E #idleTicker {
+  background: #96a688;
+  border-top: 2px solid #1f261c;
+  color: #050805;
+  text-shadow: 1px 1px 0 rgba(12,16,12,.22);
 }
 
 #app {
@@ -1039,12 +1157,4 @@ button.pad.warn { color: var(--warn); border-color: var(--warn); background: var
 }
 .solo-markets .mv {
   display: block; font-size: 16px; font-weight: 800; color: var(--accent);
-}
-body.theme-E .scene-pill,
-body.theme-E .solo-markets .mkt,
-body.theme-E .pomo-controls .media-btn {
-  background: #74836c; color: #111610; border-color: #2b3327;
-}
-body.theme-E .scene-pill.on {
-  background: #111610; color: #86967e; border-color: #111610;
 }
