@@ -14,6 +14,7 @@ import subprocess
 import sys
 import threading
 import time
+from collections import deque
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -1142,12 +1143,29 @@ _hw_cache: dict = {
     "ram_percent": None,
     "ram_used_gb": None,
     "ram_total_gb": None,
+    "cpu_spark": "",
+    "gpu_spark": "",
     "line": "",
     "hot": False,
     "warn": False,
     "source": "",
 }
 _nvml_ok: bool | None = None
+_SPARK_CHARS = "▁▂▃▄▅▆▇█"
+_cpu_hist: deque[float] = deque(maxlen=6)
+_gpu_hist: deque[float] = deque(maxlen=6)
+
+
+def _sparkline(values: deque[float], lo: float = 30.0, hi: float = 90.0) -> str:
+    if not values:
+        return ""
+    out: list[str] = []
+    span = max(1.0, hi - lo)
+    for v in values:
+        norm = max(0.0, min(1.0, (float(v) - lo) / span))
+        idx = int(round(norm * (len(_SPARK_CHARS) - 1)))
+        out.append(_SPARK_CHARS[idx])
+    return "".join(out)
 
 
 def _hw_empty() -> dict:
@@ -1161,6 +1179,8 @@ def _hw_empty() -> dict:
         "ram_percent": None,
         "ram_used_gb": None,
         "ram_total_gb": None,
+        "cpu_spark": "",
+        "gpu_spark": "",
         "line": "",
         "hot": False,
         "warn": False,
@@ -1360,18 +1380,20 @@ def _format_hw_line(hw: dict) -> tuple[str, bool, bool]:
     parts: list[str] = []
     cpu_t = hw.get("cpu_temp_c")
     cpu_l = hw.get("cpu_load")
+    cpu_spark = str(hw.get("cpu_spark") or "")
     if cpu_t is not None:
-        parts.append(f"CPU {int(cpu_t)}°")
+        parts.append(f"CPU {int(cpu_t)}°" + (f" {cpu_spark}" if cpu_spark else ""))
     elif cpu_l is not None:
-        parts.append(f"CPU {int(cpu_l)}%")
+        parts.append(f"CPU {int(cpu_l)}%" + (f" {cpu_spark}" if cpu_spark else ""))
     gpu_t = hw.get("gpu_temp_c")
     gpu_l = hw.get("gpu_load")
+    gpu_spark = str(hw.get("gpu_spark") or "")
     if gpu_t is not None and gpu_l is not None:
-        parts.append(f"GPU {int(gpu_t)}° {int(gpu_l)}%")
+        parts.append(f"GPU {int(gpu_t)}°" + (f" {gpu_spark}" if gpu_spark else "") + f" {int(gpu_l)}%")
     elif gpu_t is not None:
-        parts.append(f"GPU {int(gpu_t)}°")
+        parts.append(f"GPU {int(gpu_t)}°" + (f" {gpu_spark}" if gpu_spark else ""))
     elif gpu_l is not None:
-        parts.append(f"GPU {int(gpu_l)}%")
+        parts.append(f"GPU {int(gpu_l)}%" + (f" {gpu_spark}" if gpu_spark else ""))
     ram = hw.get("ram_percent")
     if ram is not None:
         parts.append(f"RAM {int(ram)}%")
@@ -1410,6 +1432,19 @@ def collect_hw_stats() -> dict:
             _read_gpu_nvidia_smi(out)
     if not got_lhm and not out.get("source"):
         out["source"] = "psutil"
+    cpu_v = out.get("cpu_temp_c")
+    if cpu_v is None:
+        cpu_v = out.get("cpu_load")
+    if cpu_v is not None:
+        _cpu_hist.append(float(cpu_v))
+    gpu_v = out.get("gpu_temp_c")
+    if gpu_v is None:
+        gpu_v = out.get("gpu_load")
+    if gpu_v is not None:
+        _gpu_hist.append(float(gpu_v))
+    # Temps use 30–90°C scale; load% still readable on same bars.
+    out["cpu_spark"] = _sparkline(_cpu_hist, 30.0, 90.0)
+    out["gpu_spark"] = _sparkline(_gpu_hist, 30.0, 90.0)
     line, hot, warn = _format_hw_line(out)
     out["line"] = line
     out["hot"] = hot
