@@ -59,4 +59,3 @@ start.bat
 - `static/deck.css` — полный UI с нуля
 - `static/deck-app.js` — клиентская логика (режимы, idle, radio, POWER, hub)
 - `static/gadget-core.js` — hub base + living/POWER + radio/alarm helpers
-- `static/night-drive.html` — legacy idle page

@@ -5,11 +5,11 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-  <meta name="apple-mobile-web-app-title" content="Qwiqly Deck v81" />
+  <meta name="apple-mobile-web-app-title" content="Qwiqly Deck v90" />
   <meta name="mobile-web-app-capable" content="yes" />
   <meta http-equiv="Cache-Control" content="no-store, no-cache, must-revalidate" />
   <meta http-equiv="Pragma" content="no-cache" />
-  <title>Qwiqly Deck v81</title>
+  <title>Qwiqly Deck v90</title>
   <style>
 /* TEXTMODE DECK — full rebuild UI (CRT / phosphor) */
 * { -webkit-tap-highlight-color: transparent; box-sizing: border-box; }
@@ -65,6 +65,79 @@ body.theme-D {
   --bg: #080604; --panel: #141008; --ink: #f0e0a8; --dim: #7a6438;
   --line: #3a2e18; --accent: #ffb000; --hot: #ffe080; --warn: #ff6644;
   --warn-bg: #140a06; --glow: rgba(255,176,0,.4);
+}
+
+body.theme-E {
+  --bg: #7c8b74; --panel: #86967e; --ink: #111610; --dim: #424d3d;
+  --line: #2b3327; --accent: #0a0e0a; --hot: #1e2f23; --warn: #8f1d14;
+  --warn-bg: #786a62; --glow: transparent;
+  background: #7c8b74; color: #111610;
+}
+body.theme-E #app { background: #7c8b74; }
+body.theme-E #app:after {
+  background:
+    repeating-linear-gradient(to bottom, transparent 0px, transparent 2px, rgba(17,22,16,.06) 2px, rgba(17,22,16,.06) 3px),
+    repeating-linear-gradient(to right, transparent 0px, transparent 2px, rgba(17,22,16,.05) 2px, rgba(17,22,16,.05) 3px),
+    radial-gradient(ellipse at center, transparent 65%, rgba(17,22,16,.22) 100%);
+  opacity: .75;
+}
+body.theme-E .crt-frame,
+body.theme-E .vol-card,
+body.theme-E .solo-panel,
+body.theme-E .drawer-panel {
+  background: #86967e; border-color: #2b3327; color: #111610;
+}
+body.theme-E .menu-chip,
+body.theme-E .media-center,
+body.theme-E #living .lv-weather,
+body.theme-E #living .lv-alert,
+body.theme-E #living .lv-power,
+body.theme-E #living .lv-power .pw-face,
+body.theme-E #ticker,
+body.theme-E .radio-dock,
+body.theme-E button.pad,
+body.theme-E .vol-preset,
+body.theme-E .scene-btn,
+body.theme-E .app-mix-btn,
+body.theme-E .media-btn,
+body.theme-E .radio-chip,
+body.theme-E .solo-face-btn,
+body.theme-E .solo-toggle,
+body.theme-E .solo-alarm-row input[type="time"],
+body.theme-E .solo-alarm-actions button,
+body.theme-E .theme-pill,
+body.theme-E .mode-pill,
+body.theme-E .drawer-btn,
+body.theme-E .fs-btn,
+body.theme-E .hub-field {
+  background: #74836c; color: #111610; border-color: #2b3327;
+  text-shadow: 1px 1px 0 rgba(17,22,16,.22);
+  box-shadow: none;
+}
+body.theme-E .hero-mark,
+body.theme-E .solo-clock,
+body.theme-E .vol-value,
+body.theme-E .crt-titlebar,
+body.theme-E #living .lv-weather .lv-v,
+body.theme-E #living .lv-power.on .lv-v,
+body.theme-E #living .lv-power.on .pw-slot {
+  color: #0a0e0a;
+  text-shadow: 2px 2px 0 rgba(17,22,16,.25);
+}
+body.theme-E .theme-pill.on,
+body.theme-E .mode-pill.on,
+body.theme-E .radio-chip.on,
+body.theme-E .vol-preset.on,
+body.theme-E .scene-btn.on,
+body.theme-E .app-mix-btn.on,
+body.theme-E .solo-face-btn.on,
+body.theme-E .solo-toggle.on {
+  background: #111610; color: #86967e; border-color: #111610;
+  text-shadow: none;
+}
+body.theme-E button.pad .ico {
+  -webkit-filter: brightness(0.12) contrast(1.5);
+  filter: brightness(0.12) contrast(1.5);
 }
 
 #app {
@@ -392,6 +465,23 @@ body.mode-solo #mediaControlsRadio {
   display: block; width: 100%; margin-top: 3px;
   font-size: 9px; letter-spacing: .12em; text-transform: uppercase; color: var(--dim);
 }
+#living .lv-power .pw-bar {
+  display: block; width: 100%; margin: 3px 0 1px;
+  font-size: 10px; line-height: 1.1; letter-spacing: 0;
+  white-space: nowrap; text-align: center; font-weight: 700;
+  font-family: "IBM Plex Mono", "Courier New", monospace;
+}
+#living .lv-power .pw-bar .h-on { color: var(--accent); }
+#living .lv-power .pw-bar .h-half { color: #ffcc33; }
+#living .lv-power .pw-bar .h-off { color: var(--warn); opacity: .75; }
+#living .lv-power .pw-bar .h-sep { color: var(--dim); opacity: .45; padding: 0 1px; }
+#living .lv-power .pw-bar .h-now {
+  border-bottom: 2px solid var(--ink);
+  -webkit-animation: pwBlink .9s steps(2, start) infinite;
+  animation: pwBlink .9s steps(2, start) infinite;
+}
+@-webkit-keyframes pwBlink { 50% { opacity: .35; } }
+@keyframes pwBlink { 50% { opacity: .35; } }
 #living .lv-power.face-1 .lv-k,
 #living .lv-power.face-2 .lv-k { margin-bottom: 2px; font-size: 10px; }
 #living .lv-power.on {
@@ -686,15 +776,21 @@ button.pad.warn { color: var(--warn); border-color: var(--warn); background: var
 }
 .vol-title { font-size: 11px; letter-spacing: .16em; text-transform: uppercase; color: var(--dim); }
 .vol-value { font-size: 16px; font-weight: 700; color: var(--accent); text-shadow: 0 0 6px var(--glow); }
-.vol-presets, .scene-row { display: -webkit-box; display: -webkit-flex; display: flex; margin-bottom: 6px; }
-.vol-preset, .scene-btn {
+.vol-presets, .scene-row, .app-mixer-row { display: -webkit-box; display: -webkit-flex; display: flex; margin-bottom: 6px; }
+.vol-preset, .scene-btn, .app-mix-btn {
   -webkit-box-flex: 1; -webkit-flex: 1; flex: 1;
   margin: 0 2px; min-height: 36px; border: 1px solid var(--line); background: #000;
   color: var(--dim); font-family: inherit; font-size: 10px; font-weight: 700; border-radius: 0;
 }
 .vol-preset.on, .scene-btn.on { border-color: var(--accent); color: var(--accent); }
-.scene-btn.off { opacity: .35; }
+.scene-btn.off, .app-mix-btn.off { opacity: .35; }
 .scene-btn .sub { display: block; font-size: 9px; font-weight: 500; opacity: .7; margin-top: 1px; }
+.app-mix-btn .k { display: block; font-size: 9px; letter-spacing: .08em; color: var(--dim); }
+.app-mix-btn .v { display: block; font-size: 11px; font-weight: 700; color: var(--ink); margin-top: 2px; }
+.app-mix-btn.on { border-color: var(--accent); color: var(--accent); }
+.app-mix-btn.on .k, .app-mix-btn.on .v { color: var(--accent); }
+.app-mix-btn.clutch.on { border-color: var(--warn); color: var(--warn); }
+.app-mix-btn.clutch.on .k, .app-mix-btn.clutch.on .v { color: var(--warn); }
 .vol-slider-wrap { display: none !important; }
 
 /* Drawer = system console */
@@ -794,7 +890,6 @@ button.pad.warn { color: var(--warn); border-color: var(--warn); background: var
   z-index: 100; background: #000;
 }
 #idle.on { display: block; }
-#idle iframe { display: none; }
 #idleFrameBox {
   position: absolute; z-index: 1; margin: 0; padding: 0; overflow: hidden;
   border: 2px solid var(--accent);
@@ -932,7 +1027,7 @@ button.pad.warn { color: var(--warn); border-color: var(--warn); background: var
           <span class="brand deck-only">QWIQLY</span>
           <span class="brand solo-only">NIGHTWIRE</span>
           <span class="hub-stats" id="hubStats">—</span>
-          <span class="ver">v89</span>
+          <span class="ver">v90</span>
         </div>
         <div class="hero-mark deck-only" aria-hidden="true">QWIQLY</div>
         <div class="hero-sub deck-only" aria-hidden="true">DECK</div>
@@ -992,11 +1087,13 @@ button.pad.warn { color: var(--warn); border-color: var(--warn); background: var
                 <div class="pw-face pw-face-1">
                   <span class="lv-k" id="lvPowerDay1K">СЬОГОДНІ</span>
                   <div class="pw-slots" id="lvPowerDay1Slots"></div>
+                  <div class="pw-bar" id="lvPowerDay1Bar" aria-hidden="true"></div>
                   <span class="pw-meta" id="lvPowerDay1Meta">tap · завтра</span>
                 </div>
                 <div class="pw-face pw-face-2">
                   <span class="lv-k" id="lvPowerDay2K">ЗАВТРА</span>
                   <div class="pw-slots" id="lvPowerDay2Slots"></div>
+                  <div class="pw-bar" id="lvPowerDay2Bar" aria-hidden="true"></div>
                   <span class="pw-meta" id="lvPowerDay2Meta">tap · статус</span>
                 </div>
               </div>
@@ -1075,6 +1172,20 @@ button.pad.warn { color: var(--warn); border-color: var(--warn); background: var
             <button type="button" class="scene-btn" id="sceneHp" data-scene="headphones">HP<span class="sub" id="sceneHpSub">—</span></button>
             <button type="button" class="scene-btn" id="sceneSp" data-scene="bluetooth">BT<span class="sub" id="sceneSpSub">offline</span></button>
           </div>
+          <div class="app-mixer-row" id="appMixerRow">
+            <button type="button" class="app-mix-btn off" id="mixDiscord" data-app="discord">
+              <span class="k">DISCORD</span><span class="v" id="mixDiscordVal">—</span>
+            </button>
+            <button type="button" class="app-mix-btn off" id="mixBrowser" data-app="browser">
+              <span class="k">BROWSER</span><span class="v" id="mixBrowserVal">—</span>
+            </button>
+            <button type="button" class="app-mix-btn off" id="mixMusic" data-app="music">
+              <span class="k">MUSIC</span><span class="v" id="mixMusicVal">—</span>
+            </button>
+            <button type="button" class="app-mix-btn clutch" id="mixClutch" data-action="clutch_duck">
+              <span class="k">CLUTCH</span><span class="v" id="mixClutchVal">20% BG</span>
+            </button>
+          </div>
         </div>
 
         <div class="section deck-only">LAUNCH</div>
@@ -1126,6 +1237,7 @@ button.pad.warn { color: var(--warn); border-color: var(--warn); background: var
         <button type="button" class="theme-pill" data-theme="B">PHOSPHOR</button>
         <button type="button" class="theme-pill" data-theme="C">CRT</button>
         <button type="button" class="theme-pill" data-theme="D">AMBER</button>
+        <button type="button" class="theme-pill" data-theme="E">CASIO</button>
       </div>
       <div class="side-brand" id="mediaBrand">CRT · CYAN</div>
 
@@ -1151,7 +1263,6 @@ button.pad.warn { color: var(--warn); border-color: var(--warn); background: var
       <div class="card" id="idleAl"><span class="k">ALERT</span><span class="v" id="idleAlVal">…</span><span class="sub" id="idleAlSub">Kyiv</span></div>
     </div>
     <div id="idleTicker"><div id="idleTickerTrack"><span>лента…</span></div></div>
-    <iframe id="idleFrame" src="about:blank"></iframe>
     <div class="catch" id="idleCatch"></div>
   </div>
 
@@ -1160,13 +1271,13 @@ button.pad.warn { color: var(--warn); border-color: var(--warn); background: var
     <br><b>Поделиться → На экран «Домой»</b>
     <br>открой ярлык — без строки Safari.
     <br><br>Важно: добавляй URL с версией:
-    <br><b id="tipUrl">http://192.168.0.247:8787/?v=89</b>
+    <br><b id="tipUrl">http://192.168.0.247:8787/?v=90</b>
     <br>(старый ярлык без ?v= кэширует старый UI)
     <br><br>Для старта без ПК — GitHub Pages URL из README.
     <button type="button" id="tipOk">Понятно</button>
   </div>
 
-  <script src="gadget-core.js?v=89"></script>
-  <script src="deck-app.js?v=89"></script>
+  <script src="gadget-core.js?v=90"></script>
+  <script src="deck-app.js?v=90"></script>
 </body>
 </html>

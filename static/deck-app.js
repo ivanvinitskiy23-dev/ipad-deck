@@ -1,8 +1,8 @@
 /* Textmode Deck app shell — ES5 */
 (function () {
       var IDLE_MS = 45000;
-      var DRIVE_VER = 89;
-      var APP_VER = 89;
+      var DRIVE_VER = 90;
+      var APP_VER = 90;
       var THEME_KEY = "kissaten_deck_theme";
       var IDLE_ART = "art/cafe-yum.gif";
       var GC = window.GadgetCore;
@@ -73,7 +73,6 @@
       var hubStatsEl = document.getElementById("hubStats");
       var idleEl = document.getElementById("idle");
       var tipEl = document.getElementById("tip");
-      var idleFrame = document.getElementById("idleFrame");
       var drawerEl = document.getElementById("drawer");
       var appEl = document.getElementById("app");
       var nowArt = document.getElementById("nowArt");
@@ -83,7 +82,8 @@
       var names = {
         B: "PHOSPHOR · GREEN",
         C: "CRT · CYAN",
-        D: "AMBER · TERMINAL"
+        D: "AMBER · TERMINAL",
+        E: "CASIO · PAPER LCD"
       };
 
       function localPath(path) {
@@ -143,7 +143,7 @@
       function readTheme() {
         try {
           var t = localStorage.getItem(THEME_KEY);
-          if (t === "B" || t === "C" || t === "D") return t;
+          if (t === "B" || t === "C" || t === "D" || t === "E") return t;
         } catch (e) {}
         return "C";
       }
@@ -219,7 +219,6 @@
           syncBodyClass();
         }
         idleLoadedTheme = null;
-        if (idleFrame) idleFrame.src = "about:blank";
         saveTheme(t);
         if (wasIdle) {
           setTimeout(function () { showIdle(true); }, 80);
@@ -347,6 +346,7 @@
           writeHubHold(true);
           hubQuietUntil = 8640000000000000;
           hubHeld = true;
+          stopEventLoop();
           setMode("solo");
           toast("STANDALONE");
           setMeta("<b>standalone</b><br>к ПК не подключаюсь");
@@ -752,6 +752,52 @@
         el.appendChild(row);
       }
 
+      function parsePowerLabelRange(label) {
+        var s = String(label || "").replace(/[–—]/g, "-");
+        var m = s.match(/(\d{1,2}):(\d{2})\s*-\s*(\d{1,2}):(\d{2})/);
+        if (!m) return null;
+        var a = (parseInt(m[1], 10) * 60) + parseInt(m[2], 10);
+        var b = (parseInt(m[3], 10) * 60) + parseInt(m[4], 10);
+        if (b <= a) b += 24 * 60;
+        return [a, b];
+      }
+
+      function renderPowerAsciiBar(el, day, isToday) {
+        if (!el) return;
+        el.innerHTML = "";
+        var ranges = [];
+        var labels = (day && day.labels) ? day.labels : [];
+        var i, r, h, start, end, offMins, overlap, ch, cls, span, sep;
+        for (i = 0; i < labels.length; i++) {
+          r = parsePowerLabelRange(labels[i]);
+          if (r) ranges.push(r);
+        }
+        var nowH = (new Date()).getHours();
+        for (h = 0; h < 24; h++) {
+          if (h > 0 && (h % 6) === 0) {
+            sep = document.createElement("span");
+            sep.className = "h-sep";
+            sep.textContent = "·";
+            el.appendChild(sep);
+          }
+          start = h * 60;
+          end = start + 60;
+          offMins = 0;
+          for (i = 0; i < ranges.length; i++) {
+            overlap = Math.min(end, ranges[i][1]) - Math.max(start, ranges[i][0]);
+            if (overlap > 0) offMins += overlap;
+          }
+          if (offMins >= 45) { ch = "░"; cls = "h-off"; }
+          else if (offMins >= 15) { ch = "▒"; cls = "h-half"; }
+          else { ch = "█"; cls = "h-on"; }
+          span = document.createElement("span");
+          span.className = cls;
+          if (isToday && h === nowH) span.className = cls + " h-now";
+          span.textContent = ch;
+          el.appendChild(span);
+        }
+      }
+
       function powerStatusSub(p) {
         if (!p) return "Kyiv · POWER";
         var today = p.todaySched;
@@ -808,6 +854,7 @@
         var tom = p && p.tomorrowSched;
         if (d1k) d1k.textContent = "СЬОГОДНІ";
         fillPowerSlots(document.getElementById("lvPowerDay1Slots"), today);
+        renderPowerAsciiBar(document.getElementById("lvPowerDay1Bar"), today, true);
         if (d1m) {
           d1m.textContent = daySourceMark(today) +
             (p && p.group ? (" · " + p.group) : "") +
@@ -815,6 +862,7 @@
         }
         if (d2k) d2k.textContent = "ЗАВТРА";
         fillPowerSlots(document.getElementById("lvPowerDay2Slots"), tom);
+        renderPowerAsciiBar(document.getElementById("lvPowerDay2Bar"), tom, false);
         if (d2m) {
           d2m.textContent = daySourceMark(tom) +
             (p && p.group ? (" · " + p.group) : "") +
@@ -883,8 +931,14 @@
         return (new Date()).getTime() < hubQuietUntil;
       }
 
+      var statusRev = 0;
+      var eventLoopArmed = false;
+      var eventLoopTimer = null;
+      var eventXhr = null;
+
       function markHubDown() {
         failCount++;
+        stopEventLoop();
         setMode("solo", { auto: true });
         writeHubHold(true);
         hubHeld = true;
@@ -903,7 +957,170 @@
         hubQuietUntil = 0;
         hubDownNoted = false;
         setMode("deck", { auto: true });
+        startEventLoop();
         return wasQuiet;
+      }
+
+      function applyStatusPayload(s) {
+        if (!s) return;
+        if (typeof s.rev === "number" && s.rev > 0) statusRev = s.rev;
+        var disk = s.disk_free_gb != null ? s.disk_free_gb + " GB free" : "?";
+        var ip = (s.ips && s.ips[0]) ? s.ips[0] : "—";
+        var shortHost = (s.hostname || "").replace(/^DESKTOP-/, "");
+        setMeta(shortHost + " · " + disk + " · " + ip);
+        if (s.hw && s.hw.line) {
+          setHubStats(s.hw.line, { hot: !!s.hw.hot, warn: !!s.hw.warn });
+        } else {
+          setHubStats(shortHost + " · " + disk, null);
+        }
+        if (typeof s.volume === "number") syncVolumeUI(s.volume, s.muted);
+        if (typeof s.muted === "boolean") isMuted = s.muted;
+        if (s.now_playing) updateNowPlaying(s.now_playing);
+        if (s.audio) syncAudioUI(s.audio);
+        if (s.app_mixer) syncAppMixerUI(s.app_mixer);
+      }
+
+      function syncAppMixerUI(mixer) {
+        if (!mixer) return;
+        var map = [
+          { key: "discord", btn: "mixDiscord", val: "mixDiscordVal" },
+          { key: "browser", btn: "mixBrowser", val: "mixBrowserVal" },
+          { key: "music", btn: "mixMusic", val: "mixMusicVal" }
+        ];
+        for (var i = 0; i < map.length; i++) {
+          var m = map[i];
+          var slot = mixer[m.key] || {};
+          var btn = document.getElementById(m.btn);
+          var valEl = document.getElementById(m.val);
+          if (!btn || !valEl) continue;
+          var active = !!slot.active;
+          var muted = !!slot.muted;
+          var vol = typeof slot.volume === "number" ? slot.volume : 100;
+          var cls = "app-mix-btn";
+          if (!active) cls += " off";
+          else if (muted || vol <= 20) cls += " on";
+          btn.className = cls;
+          if (!active) valEl.textContent = "idle";
+          else if (muted) valEl.textContent = "MUTE";
+          else valEl.textContent = vol + "%";
+        }
+        var clutchBtn = document.getElementById("mixClutch");
+        var clutchVal = document.getElementById("mixClutchVal");
+        var clutchOn = !!(mixer._clutch && mixer._clutch.on);
+        if (clutchBtn) clutchBtn.className = clutchOn ? "app-mix-btn clutch on" : "app-mix-btn clutch";
+        if (clutchVal) clutchVal.textContent = clutchOn ? "ON" : "20% BG";
+      }
+
+      function sendAppVol(appKey) {
+        if (mode !== "deck") { toast("hub offline"); return; }
+        toast("…");
+        var xhr = new XMLHttpRequest();
+        xhr.open("POST", hubPath("/api/action"), true);
+        xhr.setRequestHeader("Content-Type", "application/json");
+        xhr.timeout = 8000;
+        xhr.onreadystatechange = function () {
+          if (xhr.readyState !== 4) return;
+          try {
+            var r = JSON.parse(xhr.responseText || "{}");
+            toast(r.ok ? (r.result || "ok") : (r.error || "fail"));
+            if (r.app_mixer) syncAppMixerUI(r.app_mixer);
+          } catch (e) { toast("fail"); }
+          bumpIdle();
+        };
+        xhr.send(JSON.stringify({ name: "app_vol", app: appKey, value: "cycle" }));
+      }
+
+      function sendClutchDuck() {
+        if (mode !== "deck") { toast("hub offline"); return; }
+        toast("…");
+        var xhr = new XMLHttpRequest();
+        xhr.open("POST", hubPath("/api/action"), true);
+        xhr.setRequestHeader("Content-Type", "application/json");
+        xhr.timeout = 8000;
+        xhr.onreadystatechange = function () {
+          if (xhr.readyState !== 4) return;
+          try {
+            var r = JSON.parse(xhr.responseText || "{}");
+            toast(r.ok ? (r.result || "ok") : (r.error || "fail"));
+            if (r.app_mixer) syncAppMixerUI(r.app_mixer);
+          } catch (e) { toast("fail"); }
+          bumpIdle();
+        };
+        xhr.send(JSON.stringify({ name: "clutch_duck" }));
+      }
+
+      function stopEventLoop() {
+        eventLoopArmed = false;
+        if (eventLoopTimer) {
+          clearTimeout(eventLoopTimer);
+          eventLoopTimer = null;
+        }
+        if (eventXhr) {
+          try { eventXhr.abort(); } catch (eAb) {}
+          eventXhr = null;
+        }
+      }
+
+      function scheduleEventLoop(ms) {
+        if (eventLoopTimer) clearTimeout(eventLoopTimer);
+        eventLoopTimer = setTimeout(function () {
+          eventLoopTimer = null;
+          pollEvents();
+        }, ms || 80);
+      }
+
+      function startEventLoop() {
+        if (eventLoopArmed) return;
+        if (mode !== "deck" || hubIsQuiet() || modeLock === "solo") return;
+        eventLoopArmed = true;
+        scheduleEventLoop(40);
+      }
+
+      function pollEvents() {
+        if (!eventLoopArmed) return;
+        if (mode !== "deck" || hubIsQuiet() || modeLock === "solo") {
+          stopEventLoop();
+          return;
+        }
+        if (GC && GC.isMixedContentHub()) return;
+        if (GC && GC.canUseHubApi && !GC.canUseHubApi()) return;
+        var xhr = new XMLHttpRequest();
+        eventXhr = xhr;
+        xhr.open("GET", hubPath("/api/events?rev=" + encodeURIComponent(String(statusRev)) + "&wait=15"), true);
+        xhr.timeout = 20000;
+        xhr.onreadystatechange = function () {
+          if (xhr.readyState !== 4) return;
+          if (eventXhr === xhr) eventXhr = null;
+          if (!eventLoopArmed) return;
+          if (xhr.status !== 200) {
+            markHubDown();
+            return;
+          }
+          markHubUp();
+          try {
+            applyStatusPayload(JSON.parse(xhr.responseText));
+          } catch (eParse) {
+            setMeta("ошибка статуса");
+            setHubStats("ошибка статуса", null);
+          }
+          scheduleEventLoop(80);
+        };
+        xhr.onerror = function () {
+          if (eventXhr === xhr) eventXhr = null;
+          if (!eventLoopArmed) return;
+          markHubDown();
+        };
+        xhr.ontimeout = function () {
+          if (eventXhr === xhr) eventXhr = null;
+          if (!eventLoopArmed) return;
+          /* Soft timeout — keep polling, don't drop hub yet */
+          scheduleEventLoop(300);
+        };
+        try {
+          xhr.send(null);
+        } catch (eSend) {
+          markHubDown();
+        }
       }
 
       function refreshStatus() {
@@ -929,20 +1146,7 @@
           }
           markHubUp();
           try {
-            var s = JSON.parse(xhr.responseText);
-            var disk = s.disk_free_gb != null ? s.disk_free_gb + " GB free" : "?";
-            var ip = (s.ips && s.ips[0]) ? s.ips[0] : "—";
-            var shortHost = (s.hostname || "").replace(/^DESKTOP-/, "");
-            setMeta(shortHost + " · " + disk + " · " + ip);
-            if (s.hw && s.hw.line) {
-              setHubStats(s.hw.line, { hot: !!s.hw.hot, warn: !!s.hw.warn });
-            } else {
-              setHubStats(shortHost + " · " + disk, null);
-            }
-            if (typeof s.volume === "number") syncVolumeUI(s.volume, s.muted);
-            if (typeof s.muted === "boolean") isMuted = s.muted;
-            if (s.now_playing) updateNowPlaying(s.now_playing);
-            if (s.audio) syncAudioUI(s.audio);
+            applyStatusPayload(JSON.parse(xhr.responseText));
           } catch (e) {
             setMeta("ошибка статуса");
             setHubStats("ошибка статуса", null);
@@ -2105,6 +2309,21 @@
       document.getElementById("sceneHp").onclick = function () { sendAudioScene("headphones"); };
       document.getElementById("sceneSp").onclick = function () { sendAudioScene("bluetooth"); };
 
+      (function bindAppMixer() {
+        var ids = ["mixDiscord", "mixBrowser", "mixMusic"];
+        for (var i = 0; i < ids.length; i++) {
+          (function (el) {
+            if (!el) return;
+            el.onclick = function () {
+              var app = el.getAttribute("data-app");
+              if (app) sendAppVol(app);
+            };
+          })(document.getElementById(ids[i]));
+        }
+        var clutch = document.getElementById("mixClutch");
+        if (clutch) clutch.onclick = function () { sendClutchDuck(); };
+      })();
+
       document.getElementById("alarmToggle").onclick = function () {
         if (!GC) return;
         var a = GC.getAlarm();
@@ -2243,10 +2462,17 @@
       if (!hubHeld) {
         heartbeat();
         refreshStatus();
+        startEventLoop();
       } else {
         setMode("solo", { auto: true });
         setMeta("<b>standalone</b><br>ПК был выключен · DECK когда включишь");
       }
       setInterval(heartbeat, 8000);
-      setInterval(refreshStatus, 8000);
+      /* Status push via /api/events long-poll; slow fallback if loop stopped */
+      setInterval(function () {
+        if (!eventLoopArmed && mode === "deck" && !hubIsQuiet()) {
+          refreshStatus();
+          startEventLoop();
+        }
+      }, 20000);
     })();
