@@ -1,15 +1,32 @@
 /* Textmode Deck app shell — ES5 */
 (function () {
       var IDLE_MS = 45000;
-      var DRIVE_VER = 90;
-      var APP_VER = 90;
+      var DRIVE_VER = 91;
+      var APP_VER = 91;
       var THEME_KEY = "kissaten_deck_theme";
-      var IDLE_ART = "art/cafe-yum.gif";
+      var SCENE_KEY = "kissaten_idle_scene";
+      var IDLE_SCENES = [
+        { id: "auto", name: "AUTO (WX/TIME)", file: "" },
+        { id: "cafe", name: "YUM CAFÉ", file: "art/cafe-yum.gif" },
+        { id: "rain", name: "TOKYO RAIN", file: "art/tokyo-rain.gif" },
+        { id: "highway", name: "NIGHT DRIVE", file: "art/night-highway.gif" },
+        { id: "server", name: "SERVER CORE", file: "art/server-room.gif" }
+      ];
       var GC = window.GadgetCore;
-      // Drop obsolete night-mode / multi-scene flags from older builds
       try { localStorage.removeItem("kissaten_deck_night"); } catch (e0) {}
-      try { localStorage.removeItem("kissaten_idle_scene"); } catch (e1) {}
       var theme = "C";
+      var lastLiving = null;
+      var idleSceneId = "auto";
+      try {
+        var _sc = localStorage.getItem(SCENE_KEY);
+        if (_sc) idleSceneId = _sc;
+      } catch (eSc) {}
+      var soloWidget = "clock"; /* clock | pomo | markets */
+      var pomoPhase = "focus"; /* focus | break */
+      var pomoLeftSec = 25 * 60;
+      var pomoRunning = false;
+      var pomoTimer = null;
+      var marketsCache = null;
       var idleTimer = null;
       var idleLoadedTheme = null;
       var idleFailTimer = null;
@@ -380,8 +397,90 @@
         if (dx < 0) closeDrawer();
       }, false);
 
+      function sceneById(id) {
+        for (var i = 0; i < IDLE_SCENES.length; i++) {
+          if (IDLE_SCENES[i].id === id) return IDLE_SCENES[i];
+        }
+        return IDLE_SCENES[0];
+      }
+
+      function saveIdleScene(id) {
+        idleSceneId = id || "auto";
+        try { localStorage.setItem(SCENE_KEY, idleSceneId); } catch (e) {}
+      }
+
+      function weatherWantsRain() {
+        var label = "";
+        try {
+          if (lastLiving && lastLiving.weather && lastLiving.weather.label) {
+            label = String(lastLiving.weather.label).toLowerCase();
+          }
+        } catch (eW) {}
+        var keys = ["дождь", "морось", "ливень", "гроза", "снег", "туман", "rain", "snow", "storm", "drizzle", "fog"];
+        for (var i = 0; i < keys.length; i++) {
+          if (label.indexOf(keys[i]) >= 0) return true;
+        }
+        return false;
+      }
+
+      function resolveIdleSceneFile() {
+        var fixed = sceneById(idleSceneId);
+        if (fixed && fixed.file) return fixed.file;
+        if (weatherWantsRain()) return "art/tokyo-rain.gif";
+        var h = (new Date()).getHours();
+        if (h >= 22 || h < 6) return "art/night-highway.gif";
+        if (h >= 6 && h < 17 && mode === "deck") return "art/server-room.gif";
+        return "art/cafe-yum.gif";
+      }
+
+      function resolveIdleSceneName() {
+        if (idleSceneId !== "auto") {
+          var s = sceneById(idleSceneId);
+          return s ? s.name : "CINEMA";
+        }
+        var file = resolveIdleSceneFile();
+        for (var i = 0; i < IDLE_SCENES.length; i++) {
+          if (IDLE_SCENES[i].file === file) return "AUTO · " + IDLE_SCENES[i].name;
+        }
+        return "AUTO";
+      }
+
       function idleArtUrl() {
-        return IDLE_ART + "?v=" + APP_VER;
+        return resolveIdleSceneFile() + "?v=" + APP_VER;
+      }
+
+      function syncCinemaSceneUI() {
+        var pills = document.querySelectorAll(".scene-pill");
+        for (var i = 0; i < pills.length; i++) {
+          var p = pills[i];
+          var on = p.getAttribute("data-scene") === idleSceneId;
+          p.className = on ? "scene-pill on" : "scene-pill";
+        }
+        var btn = document.getElementById("cinemaBtn");
+        if (btn) btn.textContent = "Cinema · " + resolveIdleSceneName();
+      }
+
+      function setIdleScene(id, opts) {
+        opts = opts || {};
+        saveIdleScene(id || "auto");
+        syncCinemaSceneUI();
+        idleLoadedTheme = null;
+        if (idleEl.className === "on" || opts.reload) {
+          loadIdleFrame(true);
+        }
+        if (!opts.quiet) toast(resolveIdleSceneName());
+      }
+
+      function stepIdleScene(delta) {
+        var ids = [];
+        for (var i = 0; i < IDLE_SCENES.length; i++) ids.push(IDLE_SCENES[i].id);
+        var idx = 0;
+        for (var j = 0; j < ids.length; j++) {
+          if (ids[j] === idleSceneId) { idx = j; break; }
+        }
+        var n = ids.length;
+        idx = ((idx + (delta || 1)) % n + n) % n;
+        setIdleScene(ids[idx], { reload: true });
       }
 
       function paintIdleChrome() {
@@ -470,7 +569,7 @@
         }
         placeIdlePic();
         paintIdleChrome();
-        idleLoadedTheme = theme + "|v" + DRIVE_VER + "|cafe";
+        idleLoadedTheme = theme + "|v" + DRIVE_VER + "|" + idleSceneId + "|" + resolveIdleSceneFile();
       }
 
       function showIdle(forced) {
@@ -683,6 +782,7 @@
       }
 
       function renderLiving(living) {
+        lastLiving = living || lastLiving;
         if (!living) return;
         var w = living.weather;
         var a = living.alert;
@@ -1231,15 +1331,131 @@
 
       function pad2(n) { return (n < 10 ? "0" : "") + n; }
 
+      function formatPomo(sec) {
+        var s = Math.max(0, sec | 0);
+        return pad2(Math.floor(s / 60)) + ":" + pad2(s % 60);
+      }
+
+      function syncSoloWidgetUI() {
+        var title = document.getElementById("soloTitle");
+        var clock = document.getElementById("soloClock");
+        var dateEl = document.getElementById("soloDate");
+        var markets = document.getElementById("soloMarkets");
+        var pomo = document.getElementById("pomoControls");
+        var d = new Date();
+        var days = ["вс", "пн", "вт", "ср", "чт", "пт", "сб"];
+        if (soloWidget === "pomo") {
+          if (title) title.textContent = "NIGHTWIRE · POMODORO";
+          if (clock) clock.textContent = formatPomo(pomoLeftSec);
+          if (dateEl) {
+            dateEl.textContent = (pomoPhase === "break" ? "BREAK · 5 MIN" : "FOCUS · 25 MIN") +
+              (pomoRunning ? " · RUN" : " · PAUSE");
+          }
+          if (markets) { markets.style.display = "none"; markets.setAttribute("aria-hidden", "true"); }
+          if (pomo) { pomo.style.display = "-webkit-box"; pomo.style.display = "flex"; pomo.setAttribute("aria-hidden", "false"); }
+          var modeBtn = document.getElementById("pomoMode");
+          if (modeBtn) modeBtn.textContent = pomoPhase === "break" ? "5m" : "25m";
+          var startBtn = document.getElementById("pomoStart");
+          if (startBtn) startBtn.textContent = pomoRunning ? "PAUSE" : "START";
+        } else if (soloWidget === "markets") {
+          if (title) title.textContent = "NIGHTWIRE · MARKETS";
+          if (clock) clock.textContent = "";
+          if (dateEl) dateEl.textContent = "NBU + BINANCE · TAP = CLOCK";
+          if (markets) { markets.style.display = "-webkit-box"; markets.style.display = "flex"; markets.setAttribute("aria-hidden", "false"); }
+          if (pomo) { pomo.style.display = "none"; pomo.setAttribute("aria-hidden", "true"); }
+          paintMarketsUI();
+        } else {
+          if (title) title.textContent = "NIGHTWIRE · CLOCK";
+          if (clock) clock.textContent = pad2(d.getHours()) + ":" + pad2(d.getMinutes());
+          if (dateEl) dateEl.textContent = days[d.getDay()] + " · " + pad2(d.getDate()) + "." + pad2(d.getMonth() + 1);
+          if (markets) { markets.style.display = "none"; markets.setAttribute("aria-hidden", "true"); }
+          if (pomo) { pomo.style.display = "none"; pomo.setAttribute("aria-hidden", "true"); }
+        }
+      }
+
+      function paintMarketsUI() {
+        var usd = document.getElementById("mktUsd");
+        var eur = document.getElementById("mktEur");
+        var btc = document.getElementById("mktBtc");
+        var m = marketsCache || {};
+        if (usd) usd.textContent = m.usd != null ? (Number(m.usd).toFixed(2) + " ₴") : "—";
+        if (eur) eur.textContent = m.eur != null ? (Number(m.eur).toFixed(2) + " ₴") : "—";
+        if (btc) {
+          if (m.btc != null) {
+            var n = Math.round(Number(m.btc));
+            btc.textContent = "$" + String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+          } else btc.textContent = "—";
+        }
+      }
+
+      function refreshMarkets() {
+        if (!GC || !GC.fetchMarkets) return;
+        GC.fetchMarkets(function (m) {
+          if (!m || !m.ok) return;
+          marketsCache = m;
+          if (soloWidget === "markets") paintMarketsUI();
+        });
+      }
+
+      function cycleSoloWidget() {
+        if (soloFace !== "radio") return;
+        if (soloWidget === "clock") soloWidget = "pomo";
+        else if (soloWidget === "pomo") {
+          soloWidget = "markets";
+          refreshMarkets();
+        } else soloWidget = "clock";
+        syncSoloWidgetUI();
+        toast(soloWidget === "pomo" ? "POMODORO" : (soloWidget === "markets" ? "MARKETS" : "CLOCK"));
+      }
+
+      function pomoSetPhase(phase) {
+        pomoPhase = phase === "break" ? "break" : "focus";
+        pomoLeftSec = pomoPhase === "break" ? 5 * 60 : 25 * 60;
+        syncSoloWidgetUI();
+      }
+
+      function pomoTick() {
+        if (!pomoRunning) return;
+        pomoLeftSec -= 1;
+        if (pomoLeftSec <= 0) {
+          pomoLeftSec = 0;
+          pomoRunning = false;
+          if (pomoTimer) { clearInterval(pomoTimer); pomoTimer = null; }
+          try {
+            unlockAlarmAudio();
+            playAlarmTone();
+            setTimeout(function () { stopAlarmTone(); }, 3000);
+          } catch (eA) {}
+          var next = pomoPhase === "focus" ? "break" : "focus";
+          pomoSetPhase(next);
+          toast(next === "break" ? "POMODORO · BREAK!" : "POMODORO · FOCUS!");
+          return;
+        }
+        if (soloWidget === "pomo") syncSoloWidgetUI();
+      }
+
+      function pomoToggle() {
+        if (pomoRunning) {
+          pomoRunning = false;
+          if (pomoTimer) { clearInterval(pomoTimer); pomoTimer = null; }
+        } else {
+          pomoRunning = true;
+          if (pomoTimer) clearInterval(pomoTimer);
+          pomoTimer = setInterval(pomoTick, 1000);
+        }
+        syncSoloWidgetUI();
+      }
+
+      function pomoReset() {
+        pomoRunning = false;
+        if (pomoTimer) { clearInterval(pomoTimer); pomoTimer = null; }
+        pomoSetPhase(pomoPhase);
+      }
+
       function tickClock() {
         var d = new Date();
-        var el = document.getElementById("soloClock");
-        if (el) el.textContent = pad2(d.getHours()) + ":" + pad2(d.getMinutes());
-        var dateEl = document.getElementById("soloDate");
-        if (dateEl) {
-          var days = ["вс", "пн", "вт", "ср", "чт", "пт", "сб"];
-          dateEl.textContent = days[d.getDay()] + " · " + pad2(d.getDate()) + "." + pad2(d.getMonth() + 1);
-        }
+        if (soloWidget === "clock") syncSoloWidgetUI();
+        else if (soloWidget === "pomo" && !pomoRunning) syncSoloWidgetUI();
         checkAlarm(d);
       }
 
@@ -2408,13 +2624,83 @@
 
       document.body.addEventListener("touchstart", function (e) { bumpIdle(e); }, false);
       document.body.addEventListener("mousedown", function (e) { bumpIdle(e); }, false);
-      document.getElementById("idleCatch").addEventListener("touchstart", function (e) {
-        e.preventDefault();
-        bumpIdle(e, { dismiss: true });
-      }, false);
-      document.getElementById("idleCatch").addEventListener("mousedown", function (e) {
-        bumpIdle(e, { dismiss: true });
-      }, false);
+
+      (function bindIdleCatchSwipe() {
+        var catchEl = document.getElementById("idleCatch");
+        if (!catchEl) return;
+        var sx = 0;
+        var sy = 0;
+        var tracking = false;
+        function onStart(e) {
+          var t = (e.touches && e.touches[0]) ? e.touches[0] : e;
+          sx = t.clientX || 0;
+          sy = t.clientY || 0;
+          tracking = true;
+        }
+        function onEnd(e) {
+          if (!tracking) return;
+          tracking = false;
+          var t = (e.changedTouches && e.changedTouches[0]) ? e.changedTouches[0] : e;
+          var dx = (t.clientX || 0) - sx;
+          var dy = (t.clientY || 0) - sy;
+          if (Math.abs(dx) > 45 && Math.abs(dx) > Math.abs(dy)) {
+            if (e && e.preventDefault) e.preventDefault();
+            stepIdleScene(dx < 0 ? 1 : -1);
+            return;
+          }
+          if (Math.abs(dx) < 20 && Math.abs(dy) < 20) {
+            if (e && e.preventDefault) e.preventDefault();
+            bumpIdle(e, { dismiss: true });
+          }
+        }
+        catchEl.addEventListener("touchstart", onStart, false);
+        catchEl.addEventListener("touchend", onEnd, false);
+        catchEl.addEventListener("mousedown", function (e) {
+          bumpIdle(e, { dismiss: true });
+        }, false);
+      })();
+
+      (function bindCinemaScenes() {
+        var pills = document.querySelectorAll(".scene-pill");
+        for (var i = 0; i < pills.length; i++) {
+          (function (pill) {
+            pill.onclick = function () {
+              setIdleScene(pill.getAttribute("data-scene") || "auto", { reload: idleEl.className === "on" });
+            };
+          })(pills[i]);
+        }
+        syncCinemaSceneUI();
+      })();
+
+      (function bindSoloWidget() {
+        var clock = document.getElementById("soloClock");
+        var title = document.getElementById("soloTitle");
+        function onTap(e) {
+          if (e && e.preventDefault) e.preventDefault();
+          cycleSoloWidget();
+          bumpIdle();
+        }
+        if (clock) {
+          clock.onclick = onTap;
+          clock.ontouchend = function (e) { onTap(e); };
+        }
+        if (title) {
+          title.onclick = onTap;
+          title.ontouchend = function (e) { onTap(e); };
+        }
+        var ps = document.getElementById("pomoStart");
+        var pr = document.getElementById("pomoReset");
+        var pm = document.getElementById("pomoMode");
+        if (ps) ps.onclick = function () { pomoToggle(); bumpIdle(); };
+        if (pr) pr.onclick = function () { pomoReset(); bumpIdle(); };
+        if (pm) pm.onclick = function () {
+          pomoRunning = false;
+          if (pomoTimer) { clearInterval(pomoTimer); pomoTimer = null; }
+          pomoSetPhase(pomoPhase === "focus" ? "break" : "focus");
+          bumpIdle();
+        };
+        syncSoloWidgetUI();
+      })();
 
       applyTheme(readTheme(), false);
       hideChrome();
@@ -2435,6 +2721,9 @@
       armAlarmForToday();
       tickClock();
       setInterval(tickClock, 1000);
+      marketsCache = (GC && GC.readMarketsCache) ? GC.readMarketsCache() : null;
+      refreshMarkets();
+      setInterval(refreshMarkets, 600000);
       (function () {
         var pw = document.getElementById("lvPower");
         if (!pw) return;

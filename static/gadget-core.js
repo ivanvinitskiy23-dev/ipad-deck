@@ -1503,6 +1503,106 @@
     }, 12000);
   }
 
+  var MARKETS_KEY = "kissaten_markets_cache";
+
+  function readMarketsCache() {
+    try {
+      var raw = localStorage.getItem(MARKETS_KEY);
+      if (!raw) return null;
+      var data = JSON.parse(raw);
+      if (!data || !data.t) return null;
+      return data;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  function writeMarketsCache(m) {
+    try {
+      localStorage.setItem(MARKETS_KEY, JSON.stringify(m));
+    } catch (e) {}
+  }
+
+  function fetchMarkets(cb) {
+    var cached = readMarketsCache();
+    if (cached && cached.ok && (nowSec() - (cached.t || 0) < 600)) {
+      try { cb(cached); } catch (e0) {}
+      return;
+    }
+    var out = { ok: false, usd: null, eur: null, btc: null, t: nowSec() };
+    if (cached && cached.ok) {
+      out.usd = cached.usd;
+      out.eur = cached.eur;
+      out.btc = cached.btc;
+      out.ok = true;
+      try { cb(out); } catch (e1) {}
+    }
+    var nbuDone = false;
+    var btcDone = false;
+    function maybe() {
+      if (!nbuDone || !btcDone) return;
+      if (out.usd != null || out.eur != null || out.btc != null) out.ok = true;
+      out.t = nowSec();
+      if (out.ok) writeMarketsCache(out);
+      try { cb(out); } catch (e2) {}
+    }
+    function parseNbu(txt) {
+      try {
+        var arr = JSON.parse(txt);
+        if (!arr || !arr.length) return;
+        for (var i = 0; i < arr.length; i++) {
+          var row = arr[i] || {};
+          if (row.cc === "USD" && row.rate != null) out.usd = Number(row.rate);
+          if (row.cc === "EUR" && row.rate != null) out.eur = Number(row.rate);
+        }
+      } catch (e) {}
+    }
+    function parseBtc(txt) {
+      try {
+        var data = JSON.parse(txt);
+        if (data && data.price != null) out.btc = Number(data.price);
+        else if (data && data.bitcoin && data.bitcoin.usd != null) out.btc = Number(data.bitcoin.usd);
+      } catch (e) {}
+    }
+    var nbu = "https://bank.gov.ua/NBUStatService/v1/statdirectory/exchange?json";
+    var binance = "https://api.binance.com/api/v3/ticker/price?symbol=BTCUSDT";
+    var gecko = "https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=usd";
+    xhrGet(nbu, 10000, function (txt) {
+      parseNbu(txt);
+      nbuDone = true;
+      maybe();
+    }, function () {
+      xhrGet(corsProxy(nbu), 12000, function (txt) {
+        parseNbu(txt);
+        nbuDone = true;
+        maybe();
+      }, function () {
+        nbuDone = true;
+        maybe();
+      });
+    });
+    xhrGet(binance, 10000, function (txt) {
+      parseBtc(txt);
+      btcDone = true;
+      maybe();
+    }, function () {
+      xhrGet(corsProxy(binance), 12000, function (txt) {
+        parseBtc(txt);
+        btcDone = true;
+        maybe();
+      }, function () {
+        xhrGet(corsProxy(gecko), 12000, function (txt) {
+          parseBtc(txt);
+          btcDone = true;
+          maybe();
+        }, function () {
+          btcDone = true;
+          maybe();
+        });
+      });
+    });
+  }
+
   global.GadgetCore = {
     HUB_KEY: HUB_KEY,
     getHubBase: getHubBase,
@@ -1517,6 +1617,8 @@
     fetchNews: fetchNews,
     fetchLivingBundle: fetchLivingBundle,
     readLivingCache: readLivingCache,
+    fetchMarkets: fetchMarkets,
+    readMarketsCache: readMarketsCache,
     getAlarm: getAlarm,
     setAlarm: setAlarm,
     getRadioId: getRadioId,
