@@ -5,15 +5,16 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-  <meta name="apple-mobile-web-app-title" content="Qwiqly Deck v93" />
+  <meta name="apple-mobile-web-app-title" content="Qwiqly Deck v94" />
   <meta name="mobile-web-app-capable" content="yes" />
   <meta http-equiv="Cache-Control" content="no-store, no-cache, must-revalidate" />
   <meta http-equiv="Pragma" content="no-cache" />
-  <title>Qwiqly Deck v93</title>
+  <title>Qwiqly Deck v94</title>
   <link rel="stylesheet" href="deck.css?v=93" />
 
 </head>
 <body class="theme-C mode-solo">
+  <div id="boot" aria-hidden="true"><pre id="bootLog"></pre></div>
   <div id="app">
     <div id="deckStack">
 
@@ -22,7 +23,7 @@
           <span class="brand deck-only">QWIQLY</span>
           <span class="brand solo-only">NIGHTWIRE</span>
           <span class="hub-stats" id="hubStats">—</span>
-          <span class="ver">v93</span>
+          <span class="ver">v94</span>
         </div>
         <div class="hero-mark deck-only" aria-hidden="true">QWIQLY</div>
         <div class="hero-sub deck-only" aria-hidden="true">DECK</div>
@@ -219,6 +220,7 @@
     </div>
   </div>
 
+  <div id="crtfx" aria-hidden="true"></div>
   <div id="toast" aria-live="polite"></div>
 
   <div id="drawer">
@@ -250,6 +252,10 @@
         <button type="button" class="theme-pill" data-theme="C">CRT</button>
         <button type="button" class="theme-pill" data-theme="D">AMBER</button>
         <button type="button" class="theme-pill" data-theme="E">CASIO</button>
+      </div>
+      <div class="fx-pills">
+        <button type="button" class="drawer-btn" id="crtFxBtn">CRT FX: off</button>
+        <button type="button" class="drawer-btn" id="bootBtn">Boot anim: on</button>
       </div>
       <div class="side-brand" id="mediaBrand">CRT · CYAN</div>
 

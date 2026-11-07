@@ -1174,3 +1174,61 @@ button.pad.warn { color: var(--warn); border-color: var(--warn); background: var
 .solo-markets .mv {
   display: block; font-size: 16px; font-weight: 800; color: var(--accent);
 }
+
+/* ── BOOT sequence ─────────────────────────────── */
+#boot {
+  position: fixed; top: 0; right: 0; bottom: 0; left: 0; z-index: 300; background: #000;
+  display: -webkit-box; display: -webkit-flex; display: flex;
+  -webkit-box-align: center; -webkit-align-items: center; align-items: center;
+  -webkit-box-pack: center; -webkit-justify-content: center; justify-content: center;
+}
+#boot.off { display: none; }
+#boot pre {
+  font-family: inherit; font-size: 13px; line-height: 1.7;
+  color: var(--accent, #39ff14);
+  text-shadow: 0 0 8px var(--glow, rgba(57,255,20,.5));
+  margin: 0; white-space: pre-wrap;
+}
+@-webkit-keyframes crtOn {
+  0% { -webkit-transform: scaleY(0.012); opacity: .4; }
+  55% { -webkit-transform: scaleY(1.03); opacity: 1; }
+  100% { -webkit-transform: scaleY(1); }
+}
+@keyframes crtOn {
+  0% { transform: scaleY(0.012); opacity: .4; }
+  55% { transform: scaleY(1.03); opacity: 1; }
+  100% { transform: scaleY(1); }
+}
+#app.boot-on {
+  -webkit-animation: crtOn .4s ease-out;
+  animation: crtOn .4s ease-out;
+}
+
+/* ── CRT FX (toggle #crtfx.on) ─────────────────── */
+#crtfx {
+  position: fixed; top: 0; right: 0; bottom: 0; left: 0;
+  z-index: 250; pointer-events: none; display: none;
+}
+#crtfx.on { display: block; }
+#crtfx.on:before {
+  content: ""; position: absolute; top: 0; right: 0; bottom: 0; left: 0;
+  background: repeating-linear-gradient(0deg, rgba(0,0,0,.22) 0px, rgba(0,0,0,.22) 1px, transparent 1px, transparent 3px);
+}
+#crtfx.on:after {
+  content: ""; position: absolute; top: 0; right: 0; bottom: 0; left: 0;
+  background: radial-gradient(ellipse at center, transparent 55%, rgba(0,0,0,.35) 100%);
+}
+#crtfx.on.flicker {
+  -webkit-animation: crtFlicker 7s steps(1) infinite;
+  animation: crtFlicker 7s steps(1) infinite;
+}
+@-webkit-keyframes crtFlicker {
+  0%, 91% { opacity: 1; } 92% { opacity: .93; } 93% { opacity: 1; }
+  96% { opacity: .97; } 97%, 100% { opacity: 1; }
+}
+@keyframes crtFlicker {
+  0%, 91% { opacity: 1; } 92% { opacity: .93; } 93% { opacity: 1; }
+  96% { opacity: .97; } 97%, 100% { opacity: 1; }
+}
+.fx-pills { margin: 8px 0 10px; }
+.fx-pills .drawer-btn { width: 100%; margin: 0 0 6px; }

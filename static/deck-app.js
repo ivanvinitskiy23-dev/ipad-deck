@@ -1,8 +1,8 @@
 /* Textmode Deck app shell — ES5 */
 (function () {
       var IDLE_MS = 45000;
-      var DRIVE_VER = 93;
-      var APP_VER = 93;
+      var DRIVE_VER = 94;
+      var APP_VER = 94;
       var THEME_KEY = "kissaten_deck_theme";
       var SCENE_KEY = "kissaten_idle_scene";
       var IDLE_SCENES = [
@@ -103,6 +103,69 @@
         E: "CASIO · PAPER LCD"
       };
 
+      function readFlag(key, dflt) {
+        try {
+          var v = localStorage.getItem(key);
+          return v === null ? dflt : v === "1";
+        } catch (e) { return dflt; }
+      }
+      function writeFlag(key, on) {
+        try { localStorage.setItem(key, on ? "1" : "0"); } catch (e) {}
+      }
+      var crtFx = readFlag("deck.crtfx", false);
+      var bootAnim = readFlag("deck.boot", true);
+      function syncFx() {
+        var el = document.getElementById("crtfx");
+        if (el) el.className = crtFx ? "on flicker" : "";
+        var b = document.getElementById("crtFxBtn");
+        if (b) b.textContent = "CRT FX: " + (crtFx ? "on" : "off");
+        var ab = document.getElementById("bootBtn");
+        if (ab) ab.textContent = "Boot anim: " + (bootAnim ? "on" : "off");
+      }
+
+      /* ── BOOT sequence (раз за сессию; тумблер в MENU) ── */
+      var bootSkip = !bootAnim;
+      try { if (sessionStorage.getItem("booted") === "1") bootSkip = true; } catch (eBoot) {}
+      var BOOT_LINES = [
+        "IPAD-DECK BIOS  v9.4",
+        "",
+        "CPU ......... TEXTMODE-1 @ 33MHz ... OK",
+        "RAM CHECK ... 4096K ................ OK",
+        "PHOSPHOR .... GREEN P1 .............. OK",
+        "SYNC ........ 50Hz .................. OK",
+        "HUB LINK .... PROBING LAN ...........",
+        "",
+        "NIGHTWIRE SHELL READY",
+        ""
+      ];
+      (function runBoot() {
+        var bootEl = document.getElementById("boot");
+        var log = document.getElementById("bootLog");
+        function finish() {
+          try { sessionStorage.setItem("booted", "1"); } catch (e) {}
+          if (bootEl) bootEl.className = "off";
+          if (!bootSkip && appEl) {
+            appEl.className = (appEl.className || "") + " boot-on";
+            setTimeout(function () {
+              appEl.className = (appEl.className || "").replace(/\s*boot-on/g, "");
+            }, 600);
+          }
+        }
+        if (bootSkip || !bootEl || !log) { finish(); return; }
+        var li = 0, ci = 0, buf = "";
+        var iv = setInterval(function () {
+          if (li >= BOOT_LINES.length) {
+            clearInterval(iv);
+            setTimeout(finish, 400);
+            return;
+          }
+          var line = BOOT_LINES[li];
+          if (ci < line.length) { buf += line.charAt(ci); ci++; }
+          else { buf += "\n"; li++; ci = 0; }
+          log.textContent = buf + "\u2588";
+        }, 7);
+      })();
+
       function localPath(path) {
         if (!path) path = "/";
         if (path.charAt(0) === "/") path = path.substring(1);
@@ -199,6 +262,7 @@
           var mp = modePills[mi];
           mp.className = mp.getAttribute("data-mode") === mode ? "mode-pill on" : "mode-pill";
         }
+        syncFx();
       }
 
       function setMode(next, opts) {
@@ -303,6 +367,19 @@
         ignoreBumpUntil = (new Date()).getTime() + 2800;
         setTimeout(function () { showIdle(true); }, 50);
         toast("cinema");
+      };
+      document.getElementById("crtFxBtn").onclick = function () {
+        crtFx = !crtFx;
+        writeFlag("deck.crtfx", crtFx);
+        syncFx();
+        toast(crtFx ? "CRT FX on" : "CRT FX off");
+      };
+      document.getElementById("bootBtn").onclick = function () {
+        bootAnim = !bootAnim;
+        writeFlag("deck.boot", bootAnim);
+        syncFx();
+        try { if (!bootAnim) sessionStorage.setItem("booted", "1"); } catch (e) {}
+        toast(bootAnim ? "boot anim on (next load)" : "boot anim off");
       };
       document.getElementById("infoChip").ontouchend = function (e) {
         if (e && e.preventDefault) e.preventDefault();
