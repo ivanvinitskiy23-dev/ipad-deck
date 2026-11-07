@@ -2716,10 +2716,31 @@
         syncAlarmUI();
       };
 
+      function doMacro(name) {
+        if (!GC || !GC.canUseHubApi()) { toast("hub offline"); return; }
+        toast("…");
+        var xhr = new XMLHttpRequest();
+        xhr.open("POST", hubPath("/api/action"), true);
+        xhr.setRequestHeader("Content-Type", "application/json");
+        xhr.timeout = 8000;
+        xhr.onreadystatechange = function () {
+          if (xhr.readyState !== 4) return;
+          try {
+            var r = JSON.parse(xhr.responseText || "{}");
+            toast(r.ok ? (r.result || "ok") : (r.error || "fail"));
+          } catch (e) { toast("fail"); }
+        };
+        xhr.send(JSON.stringify({ name: "macro", value: name }));
+      }
+
       var actionBtns = document.querySelectorAll("button.pad, #mediaControlsDeck button.media-btn");
       for (var i = 0; i < actionBtns.length; i++) {
         (function (btn) {
-          btn.onclick = function () { doAction(btn.getAttribute("data-action")); };
+          btn.onclick = function () {
+            var m = btn.getAttribute("data-macro");
+            if (m) { doMacro(m); return; }
+            doAction(btn.getAttribute("data-action"));
+          };
         })(actionBtns[i]);
       }
 

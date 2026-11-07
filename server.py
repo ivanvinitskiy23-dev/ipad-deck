@@ -868,6 +868,56 @@ def action_clutch_duck() -> str:
         return "clutch ON · 20% BG"
 
 
+def _macro_flush_dns() -> str:
+    out = subprocess.run(
+        ["ipconfig", "/flushdns"],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    return "dns flushed" if out.returncode == 0 else "flush failed"
+
+
+def _macro_empty_recycle() -> str:
+    out = subprocess.run(
+        [
+            "powershell",
+            "-NoProfile",
+            "-Command",
+            "Clear-RecycleBin -Force -ErrorAction SilentlyContinue",
+        ],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    return "recycle bin emptied" if out.returncode == 0 else "clean failed"
+
+
+def _macro_sleep_pc() -> str:
+    if platform.system() != "Windows":
+        return "windows only"
+    subprocess.Popen(
+        ["rundll32.exe", "powrprof.dll,SetSuspendState", "0,1,0"],
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+    )
+    return "sleep requested"
+
+
+MACROS: dict = {
+    "flush_dns": _macro_flush_dns,
+    "recycle_empty": _macro_empty_recycle,
+    "sleep_pc": _macro_sleep_pc,
+}
+
+
+def action_macro(name: str) -> str:
+    fn = MACROS.get((name or "").strip())
+    if not fn:
+        return f"unknown macro: {name}"
+    return fn()
+
+
 ACTIONS = {
     "mute": action_mute,
     "vol_up": action_vol_up,
@@ -2780,6 +2830,13 @@ class DeckHandler(SimpleHTTPRequestHandler):
         if name == "clip_set":
             try:
                 result = set_clipboard_text(str(data.get("value") or ""))
+                self._json(200, {"ok": True, "action": name, "result": result})
+            except Exception as exc:  # noqa: BLE001
+                self._json(500, {"ok": False, "action": name, "error": str(exc)})
+            return
+        if name == "macro":
+            try:
+                result = action_macro(str(data.get("value") or ""))
                 self._json(200, {"ok": True, "action": name, "result": result})
             except Exception as exc:  # noqa: BLE001
                 self._json(500, {"ok": False, "action": name, "error": str(exc)})
