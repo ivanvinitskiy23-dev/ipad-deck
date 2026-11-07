@@ -1253,3 +1253,211 @@ button.pad.warn { color: var(--warn); border-color: var(--warn); background: var
 }
 .deck-dot.on { background: var(--accent); border-color: var(--accent); }
 body.mode-solo .deck-dots { display: none; }
+
+
+/* ══ THEME F · GLASS — frosted glass / sunset storm ══ */
+body.theme-F {
+  --bg: #17191d;
+  --panel: rgba(255, 255, 255, 0.07);
+  --ink: #ffffff;
+  --dim: rgba(255, 255, 255, 0.55);
+  --line: rgba(255, 255, 255, 0.20);
+  --accent: #56c8dc;
+  --hot: #e89a5a;
+  --warn: #e8755a;
+  --glow: rgba(86, 200, 220, 0.30);
+  font-family: -apple-system, "SF Pro Text", "Helvetica Neue", "Segoe UI", Arial, sans-serif;
+  font-weight: 400;
+  letter-spacing: 0;
+  color: #ffffff;
+  background: #17191d;
+}
+body.theme-F .menu-chip, body.theme-F .media-btn, body.theme-F .side-brand,
+body.theme-F .solo-clock, body.theme-F .vol-value, body.theme-F .theme-pill.on,
+body.theme-F .radio-chip.on, body.theme-F .mode-pill.on, body.theme-F .drawer-title,
+body.theme-F .crt-titlebar, body.theme-F .toast { color: #56c8dc; border-color: rgba(255,255,255,.20); }
+
+#glassBg { position: fixed; top: 0; right: 0; bottom: 0; left: 0; z-index: -1; display: none; }
+body.theme-F #glassBg {
+  display: block;
+  background:
+    radial-gradient(115% 85% at 86% 98%,
+      rgba(224, 160, 96, 0.40) 0%, rgba(198, 128, 80, 0.16) 30%, rgba(0, 0, 0, 0) 60%),
+    radial-gradient(95% 75% at 4% 2%,
+      rgba(86, 200, 220, 0.13) 0%, rgba(0, 0, 0, 0) 55%),
+    linear-gradient(158deg,
+      #17191d 0%, #1c1e23 36%, #26221e 56%, #342820 78%, #221d18 100%);
+}
+body.theme-F #app { background: transparent; }
+body.theme-F #app:after { opacity: .18; }
+
+@supports ((-webkit-backdrop-filter: blur(2px)) or (backdrop-filter: blur(2px))) {
+  body.theme-F .vol-card,
+  body.theme-F #tip,
+  body.theme-F #toast,
+  body.theme-F .drawer-panel {
+    -webkit-backdrop-filter: blur(26px) saturate(140%);
+    backdrop-filter: blur(26px) saturate(140%);
+  }
+}
+
+body.theme-F .vol-card,
+body.theme-F .crt-frame,
+body.theme-F .solo-panel,
+body.theme-F .drawer-panel,
+body.theme-F #tip {
+  background: rgba(255, 255, 255, 0.07);
+  border-color: rgba(255, 255, 255, 0.20);
+  border-radius: 22px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.28);
+}
+body.theme-F .vol-card,
+body.theme-F .app-mix-btn,
+body.theme-F .pad,
+body.theme-F #tip { border-radius: 22px; }
+body.theme-F .vol-preset,
+body.theme-F .media-btn,
+body.theme-F .drawer-btn,
+body.theme-F .theme-pill,
+body.theme-F .mode-pill,
+body.theme-F .fs-btn,
+body.theme-F .solo-toggle,
+body.theme-F .scene-btn,
+body.theme-F .scene-pill,
+body.theme-F .radio-chip { border-radius: 999px; }
+
+body.theme-F .vol-preset,
+body.theme-F .media-btn,
+body.theme-F .drawer-btn,
+body.theme-F .solo-toggle,
+body.theme-F .pad,
+body.theme-F .app-mix-btn,
+body.theme-F .scene-btn,
+body.theme-F .scene-pill,
+body.theme-F .radio-chip,
+body.theme-F .menu-chip,
+body.theme-F .media-center,
+body.theme-F #living .lv-weather,
+body.theme-F #living .lv-alert,
+body.theme-F #living .lv-power,
+body.theme-F #living .lv-power .pw-face,
+body.theme-F #ticker,
+body.theme-F .radio-dock,
+body.theme-F .hub-field,
+body.theme-F .solo-markets .mkt {
+  background: rgba(22, 24, 28, 0.45);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  color: #ffffff;
+  text-shadow: none;
+  box-shadow: none;
+}
+
+body.theme-F .theme-pill.on,
+body.theme-F .mode-pill.on,
+body.theme-F .solo-toggle.on,
+body.theme-F .radio-chip.on,
+body.theme-F .vol-preset.on,
+body.theme-F .scene-btn.on,
+body.theme-F .scene-pill.on,
+body.theme-F .app-mix-btn.on {
+  background: rgba(255, 255, 255, 0.16);
+  border-color: rgba(255, 255, 255, 0.35);
+  color: #ffffff;
+  text-shadow: none;
+}
+
+body.theme-F .section {
+  text-transform: none;
+  letter-spacing: 0.4px;
+  font-size: 12px;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.65);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.25);
+  padding-bottom: 6px;
+}
+body.theme-F .section:before { content: none; }
+
+body.theme-F .vol-title,
+body.theme-F .app-mix-btn .k,
+body.theme-F #living .lv-k,
+body.theme-F #idleHud .k {
+  text-transform: none;
+  letter-spacing: 0.3px;
+  font-size: 11px;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+body.theme-F .solo-clock {
+  font-weight: 200;
+  font-size: 92px;
+  letter-spacing: -0.03em;
+  text-shadow: none;
+  color: #ffffff;
+}
+body.theme-F .solo-title { font-weight: 500; text-transform: none; color: rgba(255,255,255,.75); }
+body.theme-F .vol-value { font-weight: 200; font-size: 34px; color: #ffffff; text-shadow: none; }
+body.theme-F .solo-markets .mv { font-weight: 300; color: #56c8dc; }
+body.theme-F .hero-mark { color: #ffffff; text-shadow: none; font-weight: 200; }
+body.theme-F .crt-titlebar { color: #56c8dc; text-shadow: none; }
+body.theme-F .crt-titlebar .hub-stats { color: rgba(255,255,255,.55); }
+body.theme-F .hub-net { color: rgba(255,255,255,.45); }
+
+body.theme-F #toast {
+  border-radius: 999px;
+  background: rgba(22, 24, 28, 0.70);
+  border: 1px solid rgba(255, 255, 255, 0.20);
+  color: #ffffff;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.40);
+}
+body.theme-F #ticker { color: rgba(255, 255, 255, 0.55); background: rgba(22,24,28,.35); }
+
+body.theme-F #idle { background: #17191d; }
+body.theme-F #idle:after { display: none; }
+body.theme-F #idleFrameBox {
+  border-radius: 28px;
+  border: 1px solid rgba(255, 255, 255, 0.20);
+  overflow: hidden;
+  background: rgba(22,24,28,.55);
+  box-shadow: 0 16px 40px rgba(0,0,0,.45);
+}
+body.theme-F #idlePic {
+  -webkit-filter: none;
+  filter: none;
+  background: #111;
+}
+body.theme-F #idleHud .card {
+  background: rgba(22, 24, 28, 0.55);
+  border: 1px solid rgba(255,255,255,.18);
+  border-radius: 16px;
+  color: #fff;
+  box-shadow: none;
+}
+body.theme-F #idleHud .v { color: #56c8dc; text-shadow: none; }
+body.theme-F #idleTicker {
+  background: rgba(22,24,28,.75);
+  border-top: 1px solid rgba(255,255,255,.16);
+  color: rgba(255,255,255,.7);
+  text-shadow: none;
+}
+body.theme-F #living .lv-power.soon {
+  background: rgba(232,154,90,.18);
+  border-color: #e89a5a;
+  color: #e89a5a;
+  box-shadow: none;
+}
+body.theme-F #living .lv-alert.on,
+body.theme-F #living .lv-power.off,
+body.theme-F #living .lv-power.emergency {
+  background: rgba(232,117,90,.18);
+  border-color: #e8755a;
+  color: #e8755a;
+}
+body.theme-F button.pad .ico {
+  -webkit-filter: brightness(1.2) contrast(1.05);
+  filter: brightness(1.2) contrast(1.05);
+}
+body.theme-F .deck-dot.on { background: #56c8dc; border-color: #56c8dc; }
+body.theme-F #tip button {
+  background: #ffffff; color: #1e1b18; border-radius: 999px;
+}

@@ -1,8 +1,8 @@
 /* Textmode Deck app shell — ES5 */
 (function () {
       var IDLE_MS = 45000;
-      var DRIVE_VER = 94;
-      var APP_VER = 94;
+      var DRIVE_VER = 95;
+      var APP_VER = 95;
       var THEME_KEY = "kissaten_deck_theme";
       var SCENE_KEY = "kissaten_idle_scene";
       var IDLE_SCENES = [
@@ -100,7 +100,8 @@
         B: "PHOSPHOR · GREEN",
         C: "CRT · CYAN",
         D: "AMBER · TERMINAL",
-        E: "CASIO · PAPER LCD"
+        E: "CASIO · PAPER LCD",
+        F: "GLASS · FROST"
       };
 
       function readFlag(key, dflt) {
@@ -116,7 +117,15 @@
       var bootAnim = readFlag("deck.boot", true);
       function syncFx() {
         var el = document.getElementById("crtfx");
-        if (el) el.className = crtFx ? "on flicker" : "";
+        if (el) {
+          if (theme === "F") {
+            el.className = "";
+            el.style.display = "none";
+          } else {
+            el.style.display = "";
+            el.className = crtFx ? "on flicker" : "";
+          }
+        }
         var b = document.getElementById("crtFxBtn");
         if (b) b.textContent = "CRT FX: " + (crtFx ? "on" : "off");
         var ab = document.getElementById("bootBtn");
@@ -239,7 +248,7 @@
       function readTheme() {
         try {
           var t = localStorage.getItem(THEME_KEY);
-          if (t === "B" || t === "C" || t === "D" || t === "E") return t;
+          if (t === "B" || t === "C" || t === "D" || t === "E" || t === "F") return t;
         } catch (e) {}
         return "C";
       }

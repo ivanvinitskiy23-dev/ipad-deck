@@ -20,6 +20,7 @@
 | **CRT** (C) | cyan + magenta overlay |
 | **AMBER** (D) | янтарный terminal |
 | **CASIO** (E) | paper LCD / F-91W |
+| **GLASS** (F) | frosted glass · штормовой закат (по референсам) |
 
 ## Запуск хаба (Windows)
 
