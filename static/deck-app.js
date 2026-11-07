@@ -196,6 +196,22 @@
         }, 2200);
       }
 
+      function fmtKbps(v) {
+        if (v >= 1024) return (v / 1024).toFixed(1) + " Mb";
+        return Math.round(v) + " Kb";
+      }
+      function syncNetLine(st) {
+        var el = document.getElementById("hubNet");
+        if (!el || !st) return;
+        var n = st.net;
+        if (!n) { el.textContent = ""; return; }
+        var s = "\u2193" + fmtKbps(n.down_kbps || 0) + " \u2191" + fmtKbps(n.up_kbps || 0);
+        var disks = st.disks || [];
+        for (var i = 0; i < disks.length; i++) {
+          s += " · " + disks[i].drive + " " + disks[i].free_gb + "G";
+        }
+        el.textContent = s;
+      }
       function setHubStats(text, flags) {
         if (!hubStatsEl) return;
         var t = String(text || "").replace(/\s+/g, " ").replace(/^\s+|\s+$/g, "");
@@ -1199,6 +1215,7 @@
         } else {
           setHubStats(shortHost + " · " + disk, null);
         }
+        syncNetLine(s);
         if (typeof s.volume === "number") syncVolumeUI(s.volume, s.muted);
         if (typeof s.muted === "boolean") isMuted = s.muted;
         if (s.now_playing) updateNowPlaying(s.now_playing);

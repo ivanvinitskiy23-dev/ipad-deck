@@ -300,6 +300,12 @@ body.theme-E #idleTicker {
   text-shadow: none;
   -webkit-transition: color .2s ease, text-shadow .2s ease; transition: color .2s ease, text-shadow .2s ease;
 }
+.hub-net {
+  -webkit-flex-shrink: 0; flex-shrink: 0;
+  color: var(--dim); font-size: 9px; letter-spacing: .4px;
+  margin-right: 6px; white-space: nowrap;
+  max-width: 42%; overflow: hidden; text-overflow: ellipsis;
+}
 .crt-titlebar .hub-stats.warn {
   color: #ffcc33;
   text-shadow: 0 0 6px rgba(255,204,51,.45);

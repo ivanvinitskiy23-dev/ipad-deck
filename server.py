@@ -60,6 +60,42 @@ def disk_free_gb(path: str = "C:\\") -> float | None:
         return None
 
 
+_net_last: tuple[float, tuple[int, int]] | None = None
+
+
+def net_rates() -> dict:
+    """LAN up/down rates from psutil counters (cheap, non-blocking)."""
+    global _net_last
+    try:
+        import psutil
+
+        now = time.time()
+        io = psutil.net_io_counters()
+        cur = (io.bytes_sent, io.bytes_recv)
+        if _net_last is None:
+            _net_last = (now, cur)
+            return {"up_kbps": 0.0, "down_kbps": 0.0}
+        t0, prev = _net_last
+        dt = now - t0
+        if dt <= 0:
+            return {"up_kbps": 0.0, "down_kbps": 0.0}
+        up = max(0.0, (cur[0] - prev[0]) / dt / 1024.0)
+        down = max(0.0, (cur[1] - prev[1]) / dt / 1024.0)
+        _net_last = (now, cur)
+        return {"up_kbps": round(up, 1), "down_kbps": round(down, 1)}
+    except Exception:
+        return {"up_kbps": 0.0, "down_kbps": 0.0}
+
+
+def disks_payload() -> list[dict]:
+    out: list[dict] = []
+    for letter in ("C:", "D:"):
+        free = disk_free_gb(letter + "\\")
+        if free is not None:
+            out.append({"drive": letter, "free_gb": free})
+    return out
+
+
 def key_tap(vk: int) -> None:
     if platform.system() != "Windows":
         return
@@ -1536,6 +1572,14 @@ def _refresh_sys_cache() -> None:
         hw = collect_hw_stats()
     except Exception:
         hw = _hw_empty()
+    try:
+        net = net_rates()
+    except Exception:
+        net = {"up_kbps": 0.0, "down_kbps": 0.0}
+    try:
+        disks = disks_payload()
+    except Exception:
+        disks = []
     with _sys_lock:
         if audio:
             _audio_cache = audio
@@ -1543,6 +1587,8 @@ def _refresh_sys_cache() -> None:
         _sys_meta["ips"] = ips
         _sys_meta["disk_free_gb"] = disk
         _sys_meta["hostname"] = socket.gethostname()
+        _sys_meta["net"] = net
+        _sys_meta["disks"] = disks
         _hw_cache = hw
 
 
@@ -1602,6 +1648,8 @@ def status_payload() -> dict:
         "audio": audio,
         "hw": hw,
         "app_mixer": app_mixer,
+        "net": meta.get("net") or {"up_kbps": 0.0, "down_kbps": 0.0},
+        "disks": meta.get("disks") or [],
     }
 
 
