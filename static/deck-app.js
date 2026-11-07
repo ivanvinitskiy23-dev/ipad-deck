@@ -281,6 +281,29 @@
         syncFx();
       }
 
+      var deckPage = 0;
+      try { deckPage = parseInt(localStorage.getItem("deck.page") || "0", 10) || 0; } catch (ePg) {}
+      function syncDeckPage() {
+        var pages = document.querySelectorAll(".deck-page");
+        var dots = document.getElementById("deckDots");
+        var max = pages.length;
+        if (!max) return;
+        if (deckPage < 0) deckPage = max - 1;
+        if (deckPage >= max) deckPage = 0;
+        for (var i = 0; i < pages.length; i++) {
+          pages[i].className = "deck-page" + (i === deckPage ? " on" : "");
+        }
+        if (dots) {
+          var html = "";
+          for (var d = 0; d < max; d++) {
+            html += '<button type="button" class="deck-dot' + (d === deckPage ? " on" : "") +
+              '" data-pg="' + d + '"></button>';
+          }
+          dots.innerHTML = html;
+        }
+        try { localStorage.setItem("deck.page", String(deckPage)); } catch (e) {}
+      }
+
       function setMode(next, opts) {
         opts = opts || {};
         if (opts.auto && modeLock === "solo" && next === "deck") {
@@ -300,6 +323,7 @@
           try { if (radioPlaying) stopRadio({ quiet: true }); } catch (eStop) {}
           try { if (musicTvPlaying) stopMusicTv({ quiet: true }); } catch (eTv) {}
           toast("deck online");
+          syncDeckPage();
         }
       }
 
@@ -2834,6 +2858,39 @@
           })(pills[i]);
         }
         syncCinemaSceneUI();
+      })();
+
+      (function bindDeckPages() {
+        var gridEl = document.getElementById("deckPages");
+        var dots = document.getElementById("deckDots");
+        if (gridEl) {
+          gridEl.addEventListener("touchstart", function (e) {
+            if (e.touches && e.touches[0]) gridEl._x0 = e.touches[0].clientX;
+          }, false);
+          gridEl.addEventListener("touchend", function (e) {
+            if (!(e.changedTouches && e.changedTouches[0])) return;
+            var dx = (e.changedTouches[0].clientX || 0) - (gridEl._x0 || 0);
+            if (Math.abs(dx) > 44) {
+              deckPage += dx < 0 ? 1 : -1;
+              syncDeckPage();
+            }
+          }, false);
+        }
+        if (dots) {
+          dots.onclick = function (e) {
+            var t = e.target || e.srcElement;
+            while (t && t !== dots) {
+              var pg = t.getAttribute && t.getAttribute("data-pg");
+              if (pg != null) {
+                deckPage = parseInt(pg, 10) || 0;
+                syncDeckPage();
+                return;
+              }
+              t = t.parentNode;
+            }
+          };
+        }
+        syncDeckPage();
       })();
 
       (function bindSoloWidget() {

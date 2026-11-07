@@ -1238,3 +1238,18 @@ button.pad.warn { color: var(--warn); border-color: var(--warn); background: var
 }
 .fx-pills { margin: 8px 0 10px; }
 .fx-pills .drawer-btn { width: 100%; margin: 0 0 6px; }
+
+.deck-page { display: none; }
+.deck-page.on { display: block; }
+.deck-dots {
+  display: -webkit-box; display: -webkit-flex; display: flex;
+  -webkit-box-pack: center; -webkit-justify-content: center; justify-content: center;
+  padding: 10px 0 4px;
+}
+.deck-dot {
+  width: 8px; height: 8px; margin: 0 4px; padding: 0;
+  border: 1px solid var(--dim); background: transparent;
+  border-radius: 0;
+}
+.deck-dot.on { background: var(--accent); border-color: var(--accent); }
+body.mode-solo .deck-dots { display: none; }

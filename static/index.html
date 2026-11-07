@@ -161,66 +161,73 @@
         </div>
       </div>
 
-      <div class="grid">
-        <div class="vol-card deck-only">
-          <div class="vol-top">
-            <div class="vol-title">AUDIO BUS</div>
-            <div class="vol-value" id="volValue">50%</div>
-          </div>
-          <div class="vol-presets">
-            <button type="button" class="vol-preset" data-action="mute">Mute</button>
-            <button type="button" class="vol-preset" data-vol="15">15%</button>
-            <button type="button" class="vol-preset" data-vol="30">30%</button>
-            <button type="button" class="vol-preset" data-vol="50">50%</button>
-            <button type="button" class="vol-preset" data-vol="75">75%</button>
-            <button type="button" class="vol-preset" data-vol="100">100%</button>
-          </div>
-          <div class="scene-row" id="sceneRow">
-            <button type="button" class="scene-btn" id="sceneHp" data-scene="headphones">HP<span class="sub" id="sceneHpSub">—</span></button>
-            <button type="button" class="scene-btn" id="sceneSp" data-scene="bluetooth">BT<span class="sub" id="sceneSpSub">offline</span></button>
-          </div>
-          <div class="app-mixer-row" id="appMixerRow">
-            <button type="button" class="app-mix-btn off" id="mixDiscord" data-app="discord">
-              <span class="k">DISCORD</span><span class="v" id="mixDiscordVal">—</span>
-            </button>
-            <button type="button" class="app-mix-btn off" id="mixBrowser" data-app="browser">
-              <span class="k">BROWSER</span><span class="v" id="mixBrowserVal">—</span>
-            </button>
-            <button type="button" class="app-mix-btn off" id="mixMusic" data-app="music">
-              <span class="k">MUSIC</span><span class="v" id="mixMusicVal">—</span>
-            </button>
-            <button type="button" class="app-mix-btn clutch" id="mixClutch" data-action="clutch_duck">
-              <span class="k">CLUTCH</span><span class="v" id="mixClutchVal">20% BG</span>
-            </button>
+      <div class="grid deck-pages" id="deckPages">
+        <div class="deck-page on" data-page="0">
+          <div class="vol-card deck-only">
+            <div class="vol-top">
+              <div class="vol-title">AUDIO BUS</div>
+              <div class="vol-value" id="volValue">50%</div>
+            </div>
+            <div class="vol-presets">
+              <button type="button" class="vol-preset" data-action="mute">Mute</button>
+              <button type="button" class="vol-preset" data-vol="15">15%</button>
+              <button type="button" class="vol-preset" data-vol="30">30%</button>
+              <button type="button" class="vol-preset" data-vol="50">50%</button>
+              <button type="button" class="vol-preset" data-vol="75">75%</button>
+              <button type="button" class="vol-preset" data-vol="100">100%</button>
+            </div>
+            <div class="scene-row" id="sceneRow">
+              <button type="button" class="scene-btn" id="sceneHp" data-scene="headphones">HP<span class="sub" id="sceneHpSub">—</span></button>
+              <button type="button" class="scene-btn" id="sceneSp" data-scene="bluetooth">BT<span class="sub" id="sceneSpSub">offline</span></button>
+            </div>
+            <div class="app-mixer-row" id="appMixerRow">
+              <button type="button" class="app-mix-btn off" id="mixDiscord" data-app="discord">
+                <span class="k">DISCORD</span><span class="v" id="mixDiscordVal">—</span>
+              </button>
+              <button type="button" class="app-mix-btn off" id="mixBrowser" data-app="browser">
+                <span class="k">BROWSER</span><span class="v" id="mixBrowserVal">—</span>
+              </button>
+              <button type="button" class="app-mix-btn off" id="mixMusic" data-app="music">
+                <span class="k">MUSIC</span><span class="v" id="mixMusicVal">—</span>
+              </button>
+              <button type="button" class="app-mix-btn clutch" id="mixClutch" data-action="clutch_duck">
+                <span class="k">CLUTCH</span><span class="v" id="mixClutchVal">20% BG</span>
+              </button>
+            </div>
           </div>
         </div>
 
-        <div class="section deck-only">LAUNCH</div>
-        <div class="row deck-only">
-          <button class="pad leaf" data-action="telegram"><span class="ico ico-tg"></span><span class="lbl">Telegram</span></button>
-          <button class="pad leaf" data-action="discord"><span class="ico ico-dc"></span><span class="lbl">Discord</span></button>
-          <button class="pad lantern" data-action="chrome"><span class="ico ico-ch"></span><span class="lbl">Chrome</span></button>
-        </div>
-        <div class="row deck-only">
-          <button class="pad lantern" data-action="steam"><span class="ico ico-st"></span><span class="lbl">Steam</span></button>
-          <button class="pad leaf" data-action="faceit"><span class="ico ico-fc"></span><span class="lbl">FACEIT</span></button>
-          <button class="pad lantern" data-action="faceit_stack"><span class="ico ico-fs"></span><span class="lbl">FACEIT+</span></button>
-        </div>
-        <div class="row deck-only">
-          <button class="pad leaf" data-action="cs2"><span class="ico ico-cs"></span><span class="lbl">CS2</span></button>
-          <button class="pad lantern" data-action="pubg"><span class="ico ico-pg"></span><span class="lbl">PUBG</span></button>
+        <div class="deck-page" data-page="1">
+          <div class="section deck-only">LAUNCH</div>
+          <div class="row deck-only">
+            <button class="pad leaf" data-action="telegram"><span class="ico ico-tg"></span><span class="lbl">Telegram</span></button>
+            <button class="pad leaf" data-action="discord"><span class="ico ico-dc"></span><span class="lbl">Discord</span></button>
+            <button class="pad lantern" data-action="chrome"><span class="ico ico-ch"></span><span class="lbl">Chrome</span></button>
+          </div>
+          <div class="row deck-only">
+            <button class="pad lantern" data-action="steam"><span class="ico ico-st"></span><span class="lbl">Steam</span></button>
+            <button class="pad leaf" data-action="faceit"><span class="ico ico-fc"></span><span class="lbl">FACEIT</span></button>
+            <button class="pad lantern" data-action="faceit_stack"><span class="ico ico-fs"></span><span class="lbl">FACEIT+</span></button>
+          </div>
+          <div class="row deck-only">
+            <button class="pad leaf" data-action="cs2"><span class="ico ico-cs"></span><span class="lbl">CS2</span></button>
+            <button class="pad lantern" data-action="pubg"><span class="ico ico-pg"></span><span class="lbl">PUBG</span></button>
+          </div>
         </div>
 
-        <div class="section deck-only">OPS</div>
-        <div class="row deck-only">
-          <button class="pad lantern" data-action="cursor"><span class="ico ico-cu"></span><span class="lbl">Cursor</span></button>
-          <button class="pad warn" data-action="lock"><span class="ico ico-lk"></span><span class="lbl">Lock PC</span></button>
+        <div class="deck-page" data-page="2">
+          <div class="section deck-only">OPS</div>
+          <div class="row deck-only">
+            <button class="pad lantern" data-action="cursor"><span class="ico ico-cu"></span><span class="lbl">Cursor</span></button>
+            <button class="pad warn" data-action="lock"><span class="ico ico-lk"></span><span class="lbl">Lock PC</span></button>
+          </div>
+          <div class="row deck-only">
+            <button class="pad leaf" data-macro="flush_dns"><span class="ico ico-cu"></span><span class="lbl">Flush DNS</span></button>
+            <button class="pad leaf" data-macro="recycle_empty"><span class="ico ico-cu"></span><span class="lbl">Recycle</span></button>
+            <button class="pad warn" data-macro="sleep_pc"><span class="ico ico-lk"></span><span class="lbl">Sleep PC</span></button>
+          </div>
         </div>
-        <div class="row deck-only">
-          <button class="pad leaf" data-macro="flush_dns"><span class="ico ico-cu"></span><span class="lbl">Flush DNS</span></button>
-          <button class="pad leaf" data-macro="recycle_empty"><span class="ico ico-cu"></span><span class="lbl">Recycle</span></button>
-          <button class="pad warn" data-macro="sleep_pc"><span class="ico ico-lk"></span><span class="lbl">Sleep PC</span></button>
-        </div>
+        <div class="deck-dots deck-only" id="deckDots"></div>
       </div>
 
     </div>
