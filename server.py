@@ -166,6 +166,63 @@ def action_lock() -> str:
     return "lock requested"
 
 
+_CLIP_LENGTH_CAP = 20000  # powershell cmdline safety (~32k limit)
+
+
+def get_clipboard_text() -> str:
+    """Read Windows clipboard via PowerShell; base64 avoids codepage issues."""
+    if platform.system() != "Windows":
+        return ""
+    try:
+        out = subprocess.run(
+            [
+                "powershell",
+                "-NoProfile",
+                "-STA",
+                "-Command",
+                "[Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes("
+                "[string](Get-Clipboard -Raw)))",
+            ],
+            capture_output=True,
+            text=True,
+            timeout=4,
+            check=False,
+        )
+        raw = (out.stdout or "").strip()
+        if out.returncode != 0 or not raw:
+            return ""
+        return base64.b64decode(raw).decode("utf-8", "replace")
+    except Exception:
+        return ""
+
+
+def set_clipboard_text(text: str) -> str:
+    if platform.system() != "Windows":
+        return "clipboard: windows only"
+    text = (text or "")[:_CLIP_LENGTH_CAP]
+    if not text.strip():
+        return "empty"
+    b64 = base64.b64encode(text.encode("utf-8")).decode("ascii")
+    try:
+        out = subprocess.run(
+            [
+                "powershell",
+                "-NoProfile",
+                "-STA",
+                "-Command",
+                "Set-Clipboard -Value ([Text.Encoding]::UTF8.GetString("
+                f"[Convert]::FromBase64String('{b64}')))",
+            ],
+            capture_output=True,
+            text=True,
+            timeout=4,
+            check=False,
+        )
+        return "copied to PC" if out.returncode == 0 else "set failed"
+    except Exception as exc:  # noqa: BLE001
+        return f"set failed: {exc}"
+
+
 def _first_existing(candidates: list[Path]) -> Path | None:
     for p in candidates:
         if p and p.exists():
@@ -2514,6 +2571,9 @@ class DeckHandler(SimpleHTTPRequestHandler):
         if path == "/api/ping":
             self._json(200, {"ok": True, "t": int(time.time())})
             return
+        if path == "/api/clipboard":
+            self._json(200, {"ok": True, "text": get_clipboard_text()})
+            return
         if path == "/api/status":
             self._json(200, status_payload())
             return
@@ -2666,6 +2726,13 @@ class DeckHandler(SimpleHTTPRequestHandler):
                 with _sys_lock:
                     mixer = dict(_app_mixer_cache) if _app_mixer_cache else {}
                 self._json(200, {"ok": True, "action": name, "result": result, "app_mixer": mixer})
+            except Exception as exc:  # noqa: BLE001
+                self._json(500, {"ok": False, "action": name, "error": str(exc)})
+            return
+        if name == "clip_set":
+            try:
+                result = set_clipboard_text(str(data.get("value") or ""))
+                self._json(200, {"ok": True, "action": name, "result": result})
             except Exception as exc:  # noqa: BLE001
                 self._json(500, {"ok": False, "action": name, "error": str(exc)})
             return

@@ -944,6 +944,22 @@ button.pad.warn { color: var(--warn); border-color: var(--warn); background: var
   border: 1px solid var(--line); background: #050505; color: var(--ink);
   font-family: inherit; border-radius: 0; -webkit-box-sizing: border-box; box-sizing: border-box;
 }
+.clip-bar { display: block; margin: 8px 0; }
+.clip-bar textarea {
+  width: 100%; -webkit-box-sizing: border-box; box-sizing: border-box;
+  background: var(--panel); color: var(--ink);
+  border: 1px solid var(--line); font: inherit; font-size: 12px; padding: 8px;
+  border-radius: 0; resize: vertical;
+}
+.clip-row {
+  display: -webkit-box; display: -webkit-flex; display: flex;
+  margin-top: 6px;
+}
+.clip-row .drawer-btn {
+  -webkit-box-flex: 1; -webkit-flex: 1; flex: 1;
+  margin: 0 3px 0 0;
+}
+.clip-row .drawer-btn:last-child { margin-right: 0; }
 .mode-badge {
   display: block; font-size: 10px; letter-spacing: .14em; text-transform: uppercase;
   padding: 6px 8px; border: 1px solid var(--accent); color: var(--accent); margin: 0 0 12px;

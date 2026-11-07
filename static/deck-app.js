@@ -329,6 +329,55 @@
         refreshStatus();
       };
 
+      function copyLocalFromClipField() {
+        /* http://LAN — не secure context: navigator.clipboard на iOS заблокирован.
+           execCommand('copy') работает только внутри жеста тапа. */
+        try {
+          var ta = document.getElementById("clipField");
+          if (!ta) return false;
+          ta.focus();
+          ta.setSelectionRange(0, ta.value.length);
+          return document.execCommand("copy");
+        } catch (e) { return false; }
+      }
+
+      function clipPull() {
+        if (!GC || !GC.canUseHubApi()) { toast("hub offline"); return; }
+        toast("…");
+        GC.xhrGet(GC.apiUrl("/api/clipboard"), 6000, function (txt) {
+          try {
+            var r = JSON.parse(txt);
+            document.getElementById("clipField").value = r.text || "";
+            toast("pulled " + (r.text || "").length + " chars");
+          } catch (e) { toast("bad reply"); }
+        }, function () { toast("hub offline"); });
+      }
+
+      function clipPush() {
+        if (!GC || !GC.canUseHubApi()) { toast("hub offline"); return; }
+        var text = document.getElementById("clipField").value || "";
+        if (!text) { toast("empty"); return; }
+        toast("…");
+        var xhr = new XMLHttpRequest();
+        xhr.open("POST", hubPath("/api/action"), true);
+        xhr.setRequestHeader("Content-Type", "application/json");
+        xhr.timeout = 8000;
+        xhr.onreadystatechange = function () {
+          if (xhr.readyState !== 4) return;
+          try {
+            var r = JSON.parse(xhr.responseText || "{}");
+            toast(r.ok ? (r.result || "ok") : (r.error || "fail"));
+          } catch (e) { toast("fail"); }
+        };
+        xhr.send(JSON.stringify({ name: "clip_set", value: text }));
+      }
+
+      document.getElementById("clipPull").onclick = function () { clipPull(); };
+      document.getElementById("clipPush").onclick = function () { clipPush(); };
+      document.getElementById("clipCopy").onclick = function () {
+        toast(copyLocalFromClipField() ? "copied on iPad" : "copy failed");
+      };
+
       function goToHubDeck() {
         var base = GC ? GC.getHubBase() : "";
         if (!base) {
