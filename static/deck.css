@@ -715,10 +715,12 @@ body.mode-solo .solo-face-toggle {
 }
 
 
-/* ── Ticker Strip (#ticker) — CSS scroll only (no JS interval) ─ */
+/* ── Ticker Strip — NO transform animation (iOS 9 paints it over siblings) ─ */
 #ticker {
-  margin: 0 0 10px;
-  height: 26px;
+  position: relative;
+  z-index: 6;
+  margin: 0 0 12px;
+  height: 28px;
   overflow: hidden;
   background: #0d0e10;
   border: 1px solid #2c3038;
@@ -729,36 +731,24 @@ body.mode-solo .solo-face-toggle {
 }
 
 #ticker .ticker-clip {
+  position: relative;
   overflow: hidden;
-  height: 26px;
+  height: 28px;
   width: 100%;
   white-space: nowrap;
 }
 
 #ticker .ticker-track {
+  position: relative;
+  left: 0;
   display: inline-block;
   white-space: nowrap;
-  padding-top: 5px;
+  padding-top: 6px;
   font-family: "Courier New", Courier, monospace;
   font-size: 11px;
   font-weight: 700;
   letter-spacing: 0.04em;
-  -webkit-transform: translate3d(0, 0, 0);
-  transform: translate3d(0, 0, 0);
-}
-
-#ticker .ticker-track.run {
-  -webkit-animation: tickerScroll 95s linear infinite;
-  animation: tickerScroll 95s linear infinite;
-}
-
-@-webkit-keyframes tickerScroll {
-  from { -webkit-transform: translate3d(0, 0, 0); transform: translate3d(0, 0, 0); }
-  to { -webkit-transform: translate3d(-50%, 0, 0); transform: translate3d(-50%, 0, 0); }
-}
-@keyframes tickerScroll {
-  from { -webkit-transform: translate3d(0, 0, 0); transform: translate3d(0, 0, 0); }
-  to { -webkit-transform: translate3d(-50%, 0, 0); transform: translate3d(-50%, 0, 0); }
+  /* left: scrolls via JS — transforms escape overflow on old Safari */
 }
 
 #ticker .ticker-track span {
@@ -1132,6 +1122,8 @@ button.pad.warn:active {
 
 /* ── SOLO (Standalone) Workspace (#soloPanel) ────────────────── */
 .solo-panel {
+  position: relative;
+  z-index: 2;
   -webkit-box-flex: 1;
   -webkit-flex: 1 1 auto;
   flex: 1 1 auto;
@@ -1140,7 +1132,7 @@ button.pad.warn:active {
   background: #1a1c20;
   border: 1px solid #2c3038;
   border-radius: 6px;
-  padding: 14px 16px;
+  padding: 12px 14px;
   box-shadow: inset 0 1px 0 rgba(255,255,255,0.05), 0 2px 0 #090a0c;
   display: -webkit-box;
   display: -webkit-flex;
@@ -1148,6 +1140,7 @@ button.pad.warn:active {
   -webkit-box-orient: vertical;
   -webkit-flex-direction: column;
   flex-direction: column;
+  overflow: hidden;
 }
 
 .solo-faces {
@@ -1171,9 +1164,9 @@ button.pad.warn:active {
   -webkit-box-orient: vertical;
   -webkit-flex-direction: column;
   flex-direction: column;
-  -webkit-box-pack: center;
-  -webkit-justify-content: center;
-  justify-content: center;
+  -webkit-box-pack: start;
+  -webkit-justify-content: flex-start;
+  justify-content: flex-start;
 }
 
 /* Landscape 2-column grid for Radio/Clock/Alarm on iPad 2 */
@@ -1186,14 +1179,15 @@ button.pad.warn:active {
   align-items: stretch;
   width: 100%;
   height: 100%;
+  min-height: 0;
 }
 
 .solo-clock-well {
   -webkit-box-flex: 1;
-  -webkit-flex: 1 1 42%;
-  flex: 1 1 42%;
-  margin-right: 14px;
-  padding: 16px 12px;
+  -webkit-flex: 1 1 40%;
+  flex: 1 1 40%;
+  margin-right: 12px;
+  padding: 14px 10px;
   background: #0d0e10;
   border: 1px solid #2c3038;
   border-radius: 5px;
@@ -1211,33 +1205,30 @@ button.pad.warn:active {
   -webkit-align-items: center;
   align-items: center;
   overflow: hidden;
+  min-height: 0;
 }
 
 .solo-title {
-  position: relative;
-  z-index: 2;
   font-family: "Courier New", Courier, monospace;
   font-size: 10px;
   font-weight: 700;
-  letter-spacing: 0.18em;
+  letter-spacing: 0.16em;
   text-transform: uppercase;
   color: #7c808a;
   text-align: center;
-  margin: 0 0 10px;
+  margin: 0 0 8px;
   -webkit-flex-shrink: 0;
   flex-shrink: 0;
 }
 
 .solo-clock {
-  position: relative;
-  z-index: 1;
   font-family: "Courier New", Courier, monospace;
-  font-size: 56px;
+  font-size: 48px;
   font-weight: 700;
   letter-spacing: 0.02em;
   text-align: center;
   color: #ff5500;
-  line-height: 1.05;
+  line-height: 1.1;
   margin: 0;
   padding: 0;
   -webkit-flex-shrink: 0;
@@ -1245,11 +1236,9 @@ button.pad.warn:active {
 }
 
 .solo-date {
-  position: relative;
-  z-index: 2;
-  margin: 12px 0 0;
+  margin: 10px 0 0;
   font-family: "Courier New", Courier, monospace;
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 700;
   color: #c8c6c0;
   letter-spacing: 0.12em;
@@ -1291,14 +1280,13 @@ button.pad.warn:active {
   -webkit-box-flex: 1;
   -webkit-flex: 1 1 auto;
   flex: 1 1 auto;
-  min-height: 0;
-  overflow: hidden;
+  min-height: 72px;
+  overflow: visible;
 }
 
 .solo-block {
   -webkit-flex-shrink: 0;
   flex-shrink: 0;
-  z-index: 2;
 }
 
 /* Duplicate Prev/Play/Next — header already has solo controls */
@@ -1860,6 +1848,6 @@ button.pad.warn:active {
     margin-bottom: 10px;
   }
   .solo-clock {
-    font-size: 52px;
+    font-size: 44px;
   }
 }

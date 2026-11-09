@@ -1,6 +1,6 @@
 /* Qwiqly Hardware Panel Deck app shell — ES5 (iPad 2 / iOS 9 Safari) */
 (function () {
-  var APP_VER = 102;
+  var APP_VER = 103;
   var GC = window.GadgetCore;
 
   var lastVolume = 50;
@@ -458,6 +458,9 @@
   }
 
   var tickerSig = "";
+  var tickerOffset = 0;
+  var tickerHalf = 0;
+  var tickerTimer = null;
 
   function escHtml(s) {
     return String(s || "")
@@ -467,7 +470,28 @@
       .replace(/"/g, "&quot;");
   }
 
-  /* CSS animation ticker — no JS setInterval (was 33 style writes/sec) */
+  /*
+   * Scroll via style.left (NOT transform). On iOS 9 Safari, transform layers
+   * ignore ancestor overflow:hidden and paint over the solo panel.
+   * Slow cadence keeps A5 calm.
+   */
+  function tickScroll() {
+    var track = document.getElementById("tickerTrack");
+    if (!track) return;
+    if (tickerHalf < 20) {
+      tickerHalf = Math.floor(track.offsetWidth / 2);
+      if (tickerHalf < 20) return;
+    }
+    tickerOffset -= 1;
+    if (-tickerOffset >= tickerHalf) tickerOffset = 0;
+    track.style.left = tickerOffset + "px";
+  }
+
+  function startTickerScroll() {
+    if (tickerTimer) return;
+    tickerTimer = setInterval(tickScroll, 60);
+  }
+
   function renderTicker(ticker) {
     if (!ticker || !ticker.items || !ticker.items.length) return;
     var parts = [];
@@ -484,7 +508,10 @@
     }
     if (!parts.length) return;
     var sig = parts.join("|");
-    if (sig === tickerSig) return;
+    if (sig === tickerSig) {
+      startTickerScroll();
+      return;
+    }
     tickerSig = sig;
     var html = parts.join('<span class="sep"> · </span>');
     var doubled = html + '<span class="sep"> · </span>' + html;
@@ -492,11 +519,15 @@
     if (!track) return;
     track.className = "ticker-track";
     track.innerHTML = doubled;
-    track.style.webkitTransform = "";
-    track.style.transform = "";
-    /* restart CSS animation */
-    try { void track.offsetWidth; } catch (eTw) {}
-    track.className = "ticker-track run";
+    tickerOffset = 0;
+    tickerHalf = 0;
+    track.style.left = "0px";
+    track.style.webkitTransform = "none";
+    track.style.transform = "none";
+    setTimeout(function () {
+      tickerHalf = Math.floor(track.offsetWidth / 2);
+      startTickerScroll();
+    }, 80);
   }
 
   function renderLiving(living) {
