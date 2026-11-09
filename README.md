@@ -20,7 +20,7 @@
 | **CRT** (C) | cyan + magenta overlay |
 | **AMBER** (D) | янтарный terminal |
 | **CASIO** (E) | paper LCD / F-91W |
-| **GLASS** (F) | frosted glass · штормовой закат (по референсам) |
+| **GLASS** (F) | frosted glass · sunset storm · floating dock + sliding pill |
 
 ## Запуск хаба (Windows)
 
@@ -32,7 +32,7 @@ start.bat
 
 На iPad в той же Wi‑Fi:
 
-`http://192.168.x.x:8787/?v=93`
+`http://192.168.x.x:8787/?v=98`
 
 **Поделиться → На экран «Домой»** (URL обязательно с `?v=…`).
 

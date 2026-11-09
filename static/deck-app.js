@@ -1,8 +1,8 @@
 /* Textmode Deck app shell — ES5 */
 (function () {
       var IDLE_MS = 45000;
-      var DRIVE_VER = 95;
-      var APP_VER = 95;
+      var DRIVE_VER = 98;
+      var APP_VER = 98;
       var THEME_KEY = "kissaten_deck_theme";
       var SCENE_KEY = "kissaten_idle_scene";
       var IDLE_SCENES = [
@@ -292,6 +292,20 @@
 
       var deckPage = 0;
       try { deckPage = parseInt(localStorage.getItem("deck.page") || "0", 10) || 0; } catch (ePg) {}
+      var DECK_DOCK = [
+        {
+          label: "Audio",
+          ico: '<svg class="dd-ico" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path fill="currentColor" d="M12 3.2L3.2 11.2h2.4v8.6h5.1v-5.3h2.6v5.3h5.1v-8.6h2.4z"/></svg>'
+        },
+        {
+          label: "Launch",
+          ico: '<svg class="dd-ico" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path fill="currentColor" d="M5 5h5.2v5.2H5zm8.8 0H19v5.2h-5.2zM5 13.8h5.2V19H5zm8.8 0H19V19h-5.2z"/></svg>'
+        },
+        {
+          label: "Ops",
+          ico: '<svg class="dd-ico" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><circle cx="12" cy="12" r="7.2" fill="none" stroke="currentColor" stroke-width="1.7"/><circle cx="12" cy="12" r="3.1" fill="none" stroke="currentColor" stroke-width="1.7"/><path fill="currentColor" d="M12 2.4l1.1 4.2h-2.2z"/></svg>'
+        }
+      ];
       function syncDeckPage() {
         var pages = document.querySelectorAll(".deck-page");
         var dots = document.getElementById("deckDots");
@@ -303,12 +317,16 @@
           pages[i].className = "deck-page" + (i === deckPage ? " on" : "");
         }
         if (dots) {
-          var html = "";
+          var html = '<div class="deck-dock-inner"><span class="deck-dock-pill" aria-hidden="true"></span>';
           for (var d = 0; d < max; d++) {
+            var meta = DECK_DOCK[d] || { label: "Page " + (d + 1), ico: "" };
             html += '<button type="button" class="deck-dot' + (d === deckPage ? " on" : "") +
-              '" data-pg="' + d + '"></button>';
+              '" data-pg="' + d + '" aria-label="' + meta.label + '">' + meta.ico + "</button>";
           }
+          html += "</div>";
           dots.innerHTML = html;
+          dots.setAttribute("data-active", String(deckPage));
+          dots.setAttribute("data-count", String(max));
         }
         try { localStorage.setItem("deck.page", String(deckPage)); } catch (e) {}
       }

@@ -1241,75 +1241,193 @@ button.pad.warn { color: var(--warn); border-color: var(--warn); background: var
 
 .deck-page { display: none; }
 .deck-page.on { display: block; }
+
+/* Soft page dock — all themes (icons centered per slot) */
 .deck-dots {
+  display: block;
+  padding: 14px 0 10px;
+  position: relative;
+  z-index: 3;
+}
+.deck-dock-inner {
   display: -webkit-box; display: -webkit-flex; display: flex;
-  -webkit-box-pack: center; -webkit-justify-content: center; justify-content: center;
-  padding: 10px 0 4px;
+  -webkit-box-orient: horizontal; -webkit-flex-direction: row; flex-direction: row;
+  -webkit-box-align: stretch; -webkit-align-items: stretch; align-items: stretch;
+  position: relative;
+  width: -webkit-calc(100% - 28px);
+  width: calc(100% - 28px);
+  max-width: 340px;
+  margin: 0 auto;
+  padding: 7px;
+  border-radius: 999px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.12), 0 8px 18px rgba(0,0,0,.28);
+  -webkit-box-sizing: border-box; box-sizing: border-box;
+}
+.deck-dock-pill {
+  display: block;
+  position: absolute;
+  top: 7px; left: 7px; bottom: 7px;
+  width: -webkit-calc((100% - 14px) / 3);
+  width: calc((100% - 14px) / 3);
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.38);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  -webkit-transition: -webkit-transform .22s ease-out;
+  transition: transform .22s ease-out;
+  pointer-events: none;
+  z-index: 0;
+}
+#deckDots[data-active="1"] .deck-dock-pill {
+  -webkit-transform: translateX(100%);
+  transform: translateX(100%);
+}
+#deckDots[data-active="2"] .deck-dock-pill {
+  -webkit-transform: translateX(200%);
+  transform: translateX(200%);
 }
 .deck-dot {
-  width: 8px; height: 8px; margin: 0 4px; padding: 0;
-  border: 1px solid var(--dim); background: transparent;
-  border-radius: 0;
+  position: relative;
+  z-index: 1;
+  -webkit-box-flex: 1; -webkit-flex: 1 1 0%; flex: 1 1 0%;
+  width: 0; /* equal slots in old flex */
+  height: 44px;
+  margin: 0; padding: 0;
+  border: none;
+  background: transparent;
+  border-radius: 999px;
+  color: var(--dim);
+  overflow: visible;
+  line-height: 0;
+  -webkit-tap-highlight-color: transparent;
 }
-.deck-dot.on { background: var(--accent); border-color: var(--accent); }
+.deck-dot .dd-ico {
+  display: block;
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 20px;
+  height: 20px;
+  margin: -10px 0 0 -10px;
+  pointer-events: none;
+}
+.deck-dot.on {
+  background: transparent;
+  border: none;
+  color: var(--ink);
+}
+.deck-dot:active { opacity: 0.85; }
 body.mode-solo .deck-dots { display: none; }
 
+/* Dock tint per theme */
+body.theme-B .deck-dock-inner {
+  background: rgba(4, 18, 8, 0.92);
+  border-color: #163a24;
+  box-shadow: inset 0 0 12px rgba(57,255,20,.08), 0 8px 18px rgba(0,0,0,.4);
+}
+body.theme-B .deck-dock-pill { background: rgba(0, 40, 12, 0.7); border-color: #1a4a28; }
+body.theme-B .deck-dot.on { color: #39ff14; }
 
-/* ══ THEME F · GLASS — frosted glass / sunset storm ══ */
+body.theme-C .deck-dock-inner {
+  background: rgba(4, 10, 20, 0.92);
+  border-color: #203048;
+  box-shadow: inset 0 0 12px rgba(0,229,255,.08), 0 8px 18px rgba(0,0,0,.4);
+}
+body.theme-C .deck-dock-pill { background: rgba(0, 24, 40, 0.7); border-color: #284060; }
+body.theme-C .deck-dot.on { color: #00e5ff; }
+
+body.theme-D .deck-dock-inner {
+  background: rgba(12, 8, 4, 0.92);
+  border-color: #3a2e18;
+  box-shadow: inset 0 0 12px rgba(255,176,0,.08), 0 8px 18px rgba(0,0,0,.4);
+}
+body.theme-D .deck-dock-pill { background: rgba(40, 24, 0, 0.7); border-color: #4a3818; }
+body.theme-D .deck-dot.on { color: #ffb000; }
+
+body.theme-E .deck-dock-inner {
+  background: #96a688;
+  border: 2px solid #1f261c;
+  box-shadow: 2px 2px 0 rgba(12,16,12,.28), inset 0 1px 0 rgba(255,255,255,.2);
+}
+body.theme-E .deck-dock-pill {
+  background: #7e8e70;
+  border: 1px solid #1f261c;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.15);
+}
+body.theme-E .deck-dot { color: #2e382c; }
+body.theme-E .deck-dot.on { color: #050805; }
+
+body.theme-F .deck-dock-inner {
+  background: rgba(32, 34, 40, 0.92);
+  border-color: rgba(255, 255, 255, 0.22);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.22), 0 8px 20px rgba(0,0,0,.32);
+}
+body.theme-F .deck-dock-pill {
+  background: rgba(8, 10, 14, 0.55);
+  border-color: rgba(255, 255, 255, 0.10);
+}
+body.theme-F .deck-dot { color: rgba(255, 255, 255, 0.48); }
+body.theme-F .deck-dot.on { color: #ffffff; }
+
+
+/* ══ THEME F · GLASS — frosted glass / sunset storm (1:1 pass) ══ */
 body.theme-F {
-  --bg: #17191d;
-  --panel: rgba(255, 255, 255, 0.07);
+  --bg: #12141a;
+  --panel: rgba(255, 255, 255, 0.08);
   --ink: #ffffff;
-  --dim: rgba(255, 255, 255, 0.55);
-  --line: rgba(255, 255, 255, 0.20);
-  --accent: #56c8dc;
-  --hot: #e89a5a;
-  --warn: #e8755a;
-  --glow: rgba(86, 200, 220, 0.30);
+  --dim: rgba(255, 255, 255, 0.58);
+  --line: rgba(255, 255, 255, 0.22);
+  --accent: #5fd4e6;
+  --hot: #f0a45c;
+  --warn: #ef7a5c;
+  --glow: rgba(95, 212, 230, 0.38);
   font-family: -apple-system, "SF Pro Text", "Helvetica Neue", "Segoe UI", Arial, sans-serif;
   font-weight: 400;
   letter-spacing: 0;
   color: #ffffff;
-  background: #17191d;
+  background: #12141a;
 }
 body.theme-F .menu-chip, body.theme-F .media-btn, body.theme-F .side-brand,
 body.theme-F .solo-clock, body.theme-F .vol-value, body.theme-F .theme-pill.on,
 body.theme-F .radio-chip.on, body.theme-F .mode-pill.on, body.theme-F .drawer-title,
-body.theme-F .crt-titlebar, body.theme-F .toast { color: #56c8dc; border-color: rgba(255,255,255,.20); }
+body.theme-F .crt-titlebar, body.theme-F .toast { color: #5fd4e6; border-color: rgba(255,255,255,.22); }
 
-#glassBg { position: fixed; top: 0; right: 0; bottom: 0; left: 0; z-index: -1; display: none; }
+#glassBg {
+  position: fixed; top: 0; right: 0; bottom: 0; left: 0; z-index: -1; display: none;
+  overflow: hidden; pointer-events: none;
+}
+/* Static gradients only — no live blur/orbs (old iPad GPU dies on those) */
 body.theme-F #glassBg {
   display: block;
   background:
-    radial-gradient(115% 85% at 86% 98%,
-      rgba(224, 160, 96, 0.40) 0%, rgba(198, 128, 80, 0.16) 30%, rgba(0, 0, 0, 0) 60%),
-    radial-gradient(95% 75% at 4% 2%,
-      rgba(86, 200, 220, 0.13) 0%, rgba(0, 0, 0, 0) 55%),
-    linear-gradient(158deg,
-      #17191d 0%, #1c1e23 36%, #26221e 56%, #342820 78%, #221d18 100%);
+    radial-gradient(120% 90% at 88% 100%,
+      rgba(240, 164, 92, 0.50) 0%, rgba(198, 110, 64, 0.18) 28%, rgba(0, 0, 0, 0) 62%),
+    radial-gradient(90% 70% at 8% 0%,
+      rgba(95, 212, 230, 0.16) 0%, rgba(0, 0, 0, 0) 52%),
+    linear-gradient(162deg,
+      #101218 0%, #171a22 34%, #242018 54%, #3a2a1c 78%, #1a1612 100%);
 }
+body.theme-F #glassBg:before,
+body.theme-F #glassBg:after { display: none; content: none; }
+
 body.theme-F #app { background: transparent; }
-body.theme-F #app:after { opacity: .18; }
+body.theme-F #app:after { opacity: .10; }
 
-@supports ((-webkit-backdrop-filter: blur(2px)) or (backdrop-filter: blur(2px))) {
-  body.theme-F .vol-card,
-  body.theme-F #tip,
-  body.theme-F #toast,
-  body.theme-F .drawer-panel {
-    -webkit-backdrop-filter: blur(26px) saturate(140%);
-    backdrop-filter: blur(26px) saturate(140%);
-  }
-}
-
+/* Fake glass: opaque-ish panels, NO backdrop-filter (kills old Safari) */
 body.theme-F .vol-card,
 body.theme-F .crt-frame,
 body.theme-F .solo-panel,
 body.theme-F .drawer-panel,
 body.theme-F #tip {
-  background: rgba(255, 255, 255, 0.07);
-  border-color: rgba(255, 255, 255, 0.20);
-  border-radius: 22px;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.28);
+  background: rgba(28, 30, 36, 0.82);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 26px;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.22),
+    0 10px 28px rgba(0, 0, 0, 0.32);
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
 }
 body.theme-F .vol-card,
 body.theme-F .app-mix-btn,
@@ -1344,12 +1462,15 @@ body.theme-F #living .lv-power .pw-face,
 body.theme-F #ticker,
 body.theme-F .radio-dock,
 body.theme-F .hub-field,
-body.theme-F .solo-markets .mkt {
-  background: rgba(22, 24, 28, 0.45);
+body.theme-F .solo-markets .mkt,
+body.theme-F .theme-pill,
+body.theme-F .mode-pill,
+body.theme-F .fs-btn {
+  background: rgba(22, 24, 30, 0.78);
   border: 1px solid rgba(255, 255, 255, 0.16);
   color: #ffffff;
   text-shadow: none;
-  box-shadow: none;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
 }
 
 body.theme-F .theme-pill.on,
@@ -1360,10 +1481,45 @@ body.theme-F .vol-preset.on,
 body.theme-F .scene-btn.on,
 body.theme-F .scene-pill.on,
 body.theme-F .app-mix-btn.on {
-  background: rgba(255, 255, 255, 0.16);
-  border-color: rgba(255, 255, 255, 0.35);
+  background: rgba(255, 255, 255, 0.18);
+  border-color: rgba(255, 255, 255, 0.40);
   color: #ffffff;
   text-shadow: none;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.28);
+}
+
+/* Book-style white CTA */
+body.theme-F #tip button,
+body.theme-F #tipOk,
+body.theme-F #cinemaBtn {
+  background: #ffffff !important;
+  color: #1a1714 !important;
+  border: none !important;
+  border-radius: 999px !important;
+  font-weight: 700;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.35);
+}
+body.theme-F #tip button:active,
+body.theme-F #tipOk:active,
+body.theme-F #cinemaBtn:active {
+  opacity: 0.88;
+}
+
+body.theme-F .vol-preset:active,
+body.theme-F .media-btn:active,
+body.theme-F .drawer-btn:active,
+body.theme-F .theme-pill:active,
+body.theme-F .mode-pill:active,
+body.theme-F .scene-btn:active,
+body.theme-F .scene-pill:active,
+body.theme-F .app-mix-btn:active,
+body.theme-F .solo-toggle:active,
+body.theme-F .radio-chip:active,
+body.theme-F .menu-chip:active,
+body.theme-F button.pad:active {
+  background: rgba(255, 255, 255, 0.22);
+  border-color: rgba(255, 255, 255, 0.36);
+  opacity: 0.92;
 }
 
 body.theme-F .section {
@@ -1371,8 +1527,8 @@ body.theme-F .section {
   letter-spacing: 0.4px;
   font-size: 12px;
   font-weight: 500;
-  color: rgba(255, 255, 255, 0.65);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.25);
+  color: rgba(255, 255, 255, 0.68);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.22);
   padding-bottom: 6px;
 }
 body.theme-F .section:before { content: none; }
@@ -1385,7 +1541,7 @@ body.theme-F #idleHud .k {
   letter-spacing: 0.3px;
   font-size: 11px;
   font-weight: 500;
-  color: rgba(255, 255, 255, 0.6);
+  color: rgba(255, 255, 255, 0.62);
 }
 
 body.theme-F .solo-clock {
@@ -1395,69 +1551,74 @@ body.theme-F .solo-clock {
   text-shadow: none;
   color: #ffffff;
 }
-body.theme-F .solo-title { font-weight: 500; text-transform: none; color: rgba(255,255,255,.75); }
-body.theme-F .vol-value { font-weight: 200; font-size: 34px; color: #ffffff; text-shadow: none; }
-body.theme-F .solo-markets .mv { font-weight: 300; color: #56c8dc; }
+body.theme-F .solo-title { font-weight: 500; text-transform: none; color: rgba(255,255,255,.78); }
+body.theme-F .vol-value { font-weight: 200; font-size: 36px; color: #ffffff; text-shadow: none; }
+body.theme-F .solo-markets .mv { font-weight: 300; color: #5fd4e6; }
 body.theme-F .hero-mark { color: #ffffff; text-shadow: none; font-weight: 200; }
-body.theme-F .crt-titlebar { color: #56c8dc; text-shadow: none; }
+body.theme-F .crt-titlebar { color: #5fd4e6; text-shadow: none; }
 body.theme-F .crt-titlebar .hub-stats { color: rgba(255,255,255,.55); }
 body.theme-F .hub-net { color: rgba(255,255,255,.45); }
 
 body.theme-F #toast {
   border-radius: 999px;
-  background: rgba(22, 24, 28, 0.70);
-  border: 1px solid rgba(255, 255, 255, 0.20);
+  background: rgba(18, 20, 26, 0.72);
+  border: 1px solid rgba(255, 255, 255, 0.22);
   color: #ffffff;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.40);
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,.2),
+    0 12px 32px rgba(0, 0, 0, 0.42);
 }
-body.theme-F #ticker { color: rgba(255, 255, 255, 0.55); background: rgba(22,24,28,.35); }
+body.theme-F #ticker { color: rgba(255, 255, 255, 0.55); background: rgba(18,20,26,.38); }
 
-body.theme-F #idle { background: #17191d; }
+/* Solid screensaver — no see-through glassBg bleed */
+body.theme-F #idle { background: #0a0c10; }
 body.theme-F #idle:after { display: none; }
 body.theme-F #idleFrameBox {
   border-radius: 28px;
-  border: 1px solid rgba(255, 255, 255, 0.20);
+  border: 1px solid rgba(255, 255, 255, 0.22);
   overflow: hidden;
-  background: rgba(22,24,28,.55);
-  box-shadow: 0 16px 40px rgba(0,0,0,.45);
+  background: #0a0c10;
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,.18),
+    0 18px 48px rgba(0,0,0,.55);
 }
 body.theme-F #idlePic {
   -webkit-filter: none;
   filter: none;
-  background: #111;
+  opacity: 1;
+  background: #000;
 }
 body.theme-F #idleHud .card {
-  background: rgba(22, 24, 28, 0.55);
-  border: 1px solid rgba(255,255,255,.18);
+  background: rgba(10, 12, 16, 0.94);
+  border: 1px solid rgba(255,255,255,.20);
   border-radius: 16px;
   color: #fff;
-  box-shadow: none;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.10);
 }
-body.theme-F #idleHud .v { color: #56c8dc; text-shadow: none; }
+body.theme-F #idleHud .v { color: #5fd4e6; text-shadow: none; }
 body.theme-F #idleTicker {
-  background: rgba(22,24,28,.75);
-  border-top: 1px solid rgba(255,255,255,.16);
-  color: rgba(255,255,255,.7);
+  background: rgba(10,12,16,.96);
+  border-top: 1px solid rgba(255,255,255,.18);
+  color: rgba(255,255,255,.78);
   text-shadow: none;
 }
 body.theme-F #living .lv-power.soon {
-  background: rgba(232,154,90,.18);
-  border-color: #e89a5a;
-  color: #e89a5a;
+  background: rgba(240,164,92,.22);
+  border-color: #f0a45c;
+  color: #f0a45c;
   box-shadow: none;
 }
 body.theme-F #living .lv-alert.on,
 body.theme-F #living .lv-power.off,
 body.theme-F #living .lv-power.emergency {
-  background: rgba(232,117,90,.18);
-  border-color: #e8755a;
-  color: #e8755a;
+  background: rgba(239,122,92,.22);
+  border-color: #ef7a5c;
+  color: #ef7a5c;
+  box-shadow: none;
 }
 body.theme-F button.pad .ico {
-  -webkit-filter: brightness(1.2) contrast(1.05);
-  filter: brightness(1.2) contrast(1.05);
+  -webkit-filter: brightness(1.25) contrast(1.05);
+  filter: brightness(1.25) contrast(1.05);
 }
-body.theme-F .deck-dot.on { background: #56c8dc; border-color: #56c8dc; }
-body.theme-F #tip button {
-  background: #ffffff; color: #1e1b18; border-radius: 999px;
-}
+
+/* no page enter animation — old iPad */
