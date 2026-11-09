@@ -1,6 +1,6 @@
 /* Qwiqly Hardware Panel Deck app shell — ES5 (iPad 2 / iOS 9 Safari) */
 (function () {
-  var APP_VER = 101;
+  var APP_VER = 102;
   var GC = window.GadgetCore;
 
   var lastVolume = 50;

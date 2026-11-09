@@ -748,8 +748,8 @@ body.mode-solo .solo-face-toggle {
 }
 
 #ticker .ticker-track.run {
-  -webkit-animation: tickerScroll 55s linear infinite;
-  animation: tickerScroll 55s linear infinite;
+  -webkit-animation: tickerScroll 95s linear infinite;
+  animation: tickerScroll 95s linear infinite;
 }
 
 @-webkit-keyframes tickerScroll {
@@ -1190,14 +1190,14 @@ button.pad.warn:active {
 
 .solo-clock-well {
   -webkit-box-flex: 1;
-  -webkit-flex: 1 1 45%;
-  flex: 1 1 45%;
+  -webkit-flex: 1 1 42%;
+  flex: 1 1 42%;
   margin-right: 14px;
-  padding: 18px 14px;
+  padding: 16px 12px;
   background: #0d0e10;
   border: 1px solid #2c3038;
   border-radius: 5px;
-  box-shadow: inset 0 2px 5px rgba(0,0,0,0.75);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.04);
   display: -webkit-box;
   display: -webkit-flex;
   display: flex;
@@ -1210,39 +1210,53 @@ button.pad.warn:active {
   -webkit-box-align: center;
   -webkit-align-items: center;
   align-items: center;
+  overflow: hidden;
 }
 
 .solo-title {
+  position: relative;
+  z-index: 2;
   font-family: "Courier New", Courier, monospace;
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 700;
-  letter-spacing: 0.2em;
+  letter-spacing: 0.18em;
   text-transform: uppercase;
   color: #7c808a;
   text-align: center;
-  margin-bottom: 8px;
+  margin: 0 0 10px;
+  -webkit-flex-shrink: 0;
+  flex-shrink: 0;
 }
 
 .solo-clock {
+  position: relative;
+  z-index: 1;
   font-family: "Courier New", Courier, monospace;
-  font-size: 72px;
-  font-weight: 800;
-  letter-spacing: 0.04em;
+  font-size: 56px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
   text-align: center;
   color: #ff5500;
-  line-height: 1;
-  margin: 6px 0;
+  line-height: 1.05;
+  margin: 0;
+  padding: 0;
+  -webkit-flex-shrink: 0;
+  flex-shrink: 0;
 }
 
 .solo-date {
-  margin-top: 8px;
+  position: relative;
+  z-index: 2;
+  margin: 12px 0 0;
   font-family: "Courier New", Courier, monospace;
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 700;
-  color: #eceae4;
+  color: #c8c6c0;
   letter-spacing: 0.12em;
   text-transform: uppercase;
   text-align: center;
+  -webkit-flex-shrink: 0;
+  flex-shrink: 0;
 }
 
 .solo-side-col {
@@ -1263,10 +1277,13 @@ button.pad.warn:active {
 
 .radio-dock,
 .solo-block {
+  position: relative;
   padding: 10px 12px;
   background: #0d0e10;
   border: 1px solid #2c3038;
   border-radius: 5px;
+  -webkit-box-sizing: border-box;
+  box-sizing: border-box;
 }
 
 .radio-dock {
@@ -1275,6 +1292,13 @@ button.pad.warn:active {
   -webkit-flex: 1 1 auto;
   flex: 1 1 auto;
   min-height: 0;
+  overflow: hidden;
+}
+
+.solo-block {
+  -webkit-flex-shrink: 0;
+  flex-shrink: 0;
+  z-index: 2;
 }
 
 /* Duplicate Prev/Play/Next — header already has solo controls */
@@ -1313,17 +1337,18 @@ button.pad.warn:active {
 .radio-chip-bar,
 .tv-chip-bar {
   margin: 0;
-  padding: 2px 0;
+  padding: 4px 0;
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
   white-space: nowrap;
+  text-align: center;
 }
 
 .radio-chip {
   -webkit-appearance: none;
   appearance: none;
   display: inline-block;
-  margin: 0 4px 4px 0;
+  margin: 0 3px 4px;
   padding: 7px 10px;
   min-height: 34px;
   background: #23262c;
@@ -1336,6 +1361,7 @@ button.pad.warn:active {
   letter-spacing: 0.04em;
   box-shadow: inset 0 1px 0 rgba(255,255,255,0.06), 0 2px 0 #090a0c;
   cursor: pointer;
+  vertical-align: middle;
 }
 
 .radio-chip.on {
@@ -1362,26 +1388,39 @@ button.pad.warn:active {
   -webkit-box-align: center;
   -webkit-align-items: center;
   align-items: center;
+  -webkit-box-pack: center;
+  -webkit-justify-content: center;
+  justify-content: center;
+}
+
+.solo-alarm-time-row {
+  margin-bottom: 8px;
 }
 
 .solo-alarm-row input[type="time"] {
-  -webkit-box-flex: 1;
-  -webkit-flex: 1 1 auto;
-  flex: 1 1 auto;
-  min-width: 96px;
+  display: block;
+  width: 100%;
   height: 44px;
-  margin-right: 8px;
+  margin: 0;
   padding: 6px 8px;
-  background: #16181c;
+  background: #16181c !important;
   border: 1px solid #363b44;
   border-radius: 4px;
-  color: #eceae4;
+  color: #eceae4 !important;
   font-family: "Courier New", Courier, monospace;
   font-size: 18px;
   font-weight: 800;
   text-align: center;
   -webkit-appearance: none;
   appearance: none;
+  opacity: 1;
+}
+
+.solo-alarm-actions .solo-toggle,
+.solo-alarm-actions .solo-stop-btn {
+  -webkit-box-flex: 1;
+  -webkit-flex: 1 1 0;
+  flex: 1 1 0;
 }
 
 .solo-toggle,
