@@ -110,15 +110,33 @@ def key_tap(vk: int) -> None:
 # Remember last set level for the tablet UI.
 _last_volume = 50
 _muted = False
+_com_local = threading.local()
+
+
+def _com_init() -> None:
+    """pycaw/comtypes need COM initialised once per thread (HTTP threads are fresh)."""
+    if platform.system() != "Windows" or getattr(_com_local, "ok", False):
+        return
+    try:
+        import comtypes  # type: ignore
+
+        comtypes.CoInitialize()
+    except Exception:
+        pass
+    _com_local.ok = True
+
+
+def _endpoint_volume():
+    from pycaw.pycaw import AudioUtilities
+
+    _com_init()
+    return AudioUtilities.GetSpeakers().EndpointVolume
 
 
 def _set_volume_windows(percent: int) -> bool:
     """Absolute master volume via pycaw."""
     try:
-        from pycaw.pycaw import AudioUtilities
-
-        spk = AudioUtilities.GetSpeakers()
-        ev = spk.EndpointVolume
+        ev = _endpoint_volume()
         ev.SetMute(0, None)
         ev.SetMasterVolumeLevelScalar(max(0.0, min(1.0, percent / 100.0)), None)
         return True
@@ -128,11 +146,14 @@ def _set_volume_windows(percent: int) -> bool:
 
 def _get_volume_windows() -> int | None:
     try:
-        from pycaw.pycaw import AudioUtilities
+        return int(round(_endpoint_volume().GetMasterVolumeLevelScalar() * 100))
+    except Exception:
+        return None
 
-        spk = AudioUtilities.GetSpeakers()
-        ev = spk.EndpointVolume
-        return int(round(ev.GetMasterVolumeLevelScalar() * 100))
+
+def _get_mute_windows() -> bool | None:
+    try:
+        return bool(_endpoint_volume().GetMute())
     except Exception:
         return None
 
@@ -173,10 +194,16 @@ def action_vol_set(percent: int | float | str) -> str:
 
 
 def action_mute() -> str:
-    global _muted, _last_volume
+    global _muted
     if platform.system() == "Windows":
-        key_tap(0xAD)
-        _muted = not _muted
+        try:
+            ev = _endpoint_volume()
+            want = not bool(ev.GetMute())
+            ev.SetMute(1 if want else 0, None)
+            _muted = want
+        except Exception:
+            key_tap(0xAD)
+            _muted = not _muted
         return "muted" if _muted else f"unmuted ({_last_volume}%)"
     key_tap(0xAD)
     return "mute toggled"
@@ -200,63 +227,6 @@ def action_lock() -> str:
         return "locked"
     subprocess.Popen(["loginctl", "lock-session"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     return "lock requested"
-
-
-_CLIP_LENGTH_CAP = 20000  # powershell cmdline safety (~32k limit)
-
-
-def get_clipboard_text() -> str:
-    """Read Windows clipboard via PowerShell; base64 avoids codepage issues."""
-    if platform.system() != "Windows":
-        return ""
-    try:
-        out = subprocess.run(
-            [
-                "powershell",
-                "-NoProfile",
-                "-STA",
-                "-Command",
-                "[Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes("
-                "[string](Get-Clipboard -Raw)))",
-            ],
-            capture_output=True,
-            text=True,
-            timeout=4,
-            check=False,
-        )
-        raw = (out.stdout or "").strip()
-        if out.returncode != 0 or not raw:
-            return ""
-        return base64.b64decode(raw).decode("utf-8", "replace")
-    except Exception:
-        return ""
-
-
-def set_clipboard_text(text: str) -> str:
-    if platform.system() != "Windows":
-        return "clipboard: windows only"
-    text = (text or "")[:_CLIP_LENGTH_CAP]
-    if not text.strip():
-        return "empty"
-    b64 = base64.b64encode(text.encode("utf-8")).decode("ascii")
-    try:
-        out = subprocess.run(
-            [
-                "powershell",
-                "-NoProfile",
-                "-STA",
-                "-Command",
-                "Set-Clipboard -Value ([Text.Encoding]::UTF8.GetString("
-                f"[Convert]::FromBase64String('{b64}')))",
-            ],
-            capture_output=True,
-            text=True,
-            timeout=4,
-            check=False,
-        )
-        return "copied to PC" if out.returncode == 0 else "set failed"
-    except Exception as exc:  # noqa: BLE001
-        return f"set failed: {exc}"
 
 
 def _first_existing(candidates: list[Path]) -> Path | None:
@@ -570,6 +540,7 @@ def get_audio_payload() -> dict:
     try:
         from pycaw.pycaw import AudioUtilities
 
+        _com_init()
         default = AudioUtilities.GetSpeakers()
         default_id = getattr(default, "id", "") or ""
         default_name = getattr(default, "FriendlyName", "") or ""
@@ -680,192 +651,6 @@ def action_audio_scene(scene: str) -> str:
         return "switch failed"
     time.sleep(0.15)
     return f"{scene}: {sc.get('name') or scene}"
-
-
-APP_AUDIO_GROUPS: dict[str, tuple[str, ...]] = {
-    "discord": ("discord.exe",),
-    "browser": ("chrome.exe", "msedge.exe", "firefox.exe", "brave.exe", "opera.exe"),
-    "music": ("spotify.exe", "yandexmusic.exe", "itunes.exe", "music.ui.exe", "aimp.exe", "vlc.exe"),
-    "game": ("cs2.exe", "tslgame.exe", "dota2.exe", "hl2.exe", "valorant-win64-shipping.exe"),
-}
-APP_MIXER_LABELS = {
-    "discord": "Discord",
-    "browser": "Browser",
-    "music": "Music",
-    "game": "Game",
-}
-_APP_VOL_CYCLE = (100, 20, 50, "mute")
-_clutch_lock = threading.Lock()
-_clutch_on = False
-_clutch_saved: dict = {}
-
-
-def _empty_mixer_slot(key: str) -> dict:
-    return {
-        "label": APP_MIXER_LABELS.get(key, key),
-        "active": False,
-        "volume": 100,
-        "muted": False,
-    }
-
-
-def get_app_mixer_payload() -> dict:
-    """Per-app session volumes via pycaw. Call from worker / action threads only."""
-    out = {k: _empty_mixer_slot(k) for k in APP_AUDIO_GROUPS}
-    if platform.system() != "Windows":
-        return out
-    try:
-        from pycaw.pycaw import AudioUtilities
-
-        sessions = AudioUtilities.GetAllSessions()
-    except Exception:
-        return out
-    for key, exes in APP_AUDIO_GROUPS.items():
-        want = set(exes)
-        found_vol = None
-        found_mute = False
-        found_label = APP_MIXER_LABELS.get(key, key)
-        active = False
-        for sess in sessions:
-            try:
-                proc = sess.Process
-                if not proc:
-                    continue
-                pname = (proc.name() or "").lower()
-                if pname not in want:
-                    continue
-                active = True
-                pretty = pname[:-4] if pname.endswith(".exe") else pname
-                if key == "browser":
-                    found_label = pretty.title()
-                elif key == "music":
-                    found_label = pretty.title()
-                elif key == "game":
-                    found_label = "CS2" if pretty == "cs2" else pretty.upper()
-                else:
-                    found_label = pretty.title()
-                sav = sess.SimpleAudioVolume
-                found_vol = int(round(float(sav.GetMasterVolume()) * 100))
-                found_mute = bool(sav.GetMute())
-                break
-            except Exception:
-                continue
-        out[key] = {
-            "label": found_label,
-            "active": active,
-            "volume": 100 if found_vol is None else max(0, min(100, found_vol)),
-            "muted": found_mute if active else False,
-        }
-    with _clutch_lock:
-        out["_clutch"] = {"on": _clutch_on}
-    return out
-
-
-def _set_group_sessions(app_key: str, volume: float | None, mute: bool | None) -> int:
-    """Apply volume (0..1) and/or mute to all sessions in group. Returns touched count."""
-    exes = APP_AUDIO_GROUPS.get(app_key)
-    if not exes or platform.system() != "Windows":
-        return 0
-    want = set(exes)
-    touched = 0
-    try:
-        from pycaw.pycaw import AudioUtilities
-
-        sessions = AudioUtilities.GetAllSessions()
-    except Exception:
-        return 0
-    for sess in sessions:
-        try:
-            proc = sess.Process
-            if not proc:
-                continue
-            pname = (proc.name() or "").lower()
-            if pname not in want:
-                continue
-            sav = sess.SimpleAudioVolume
-            if volume is not None:
-                sav.SetMasterVolume(max(0.0, min(1.0, float(volume))), None)
-            if mute is not None:
-                sav.SetMute(1 if mute else 0, None)
-            touched += 1
-        except Exception:
-            continue
-    return touched
-
-
-def action_app_vol(app_key: str, percent: int | str) -> str:
-    app_key = (app_key or "").strip().lower()
-    if app_key not in APP_AUDIO_GROUPS:
-        return "bad app"
-    raw = percent
-    if isinstance(raw, str) and raw.strip().lower() == "toggle_mute":
-        cur = get_app_mixer_payload().get(app_key) or {}
-        want_mute = not bool(cur.get("muted"))
-        n = _set_group_sessions(app_key, None, want_mute)
-        if not n:
-            return f"{app_key} idle"
-        return f"{app_key} {'muted' if want_mute else 'unmuted'}"
-    if isinstance(raw, str) and raw.strip().lower() == "cycle":
-        cur = get_app_mixer_payload().get(app_key) or {}
-        if not cur.get("active"):
-            return f"{app_key} idle"
-        if cur.get("muted"):
-            idx = 0  # after mute → 100
-        else:
-            v = int(cur.get("volume") or 100)
-            idx = 0
-            for i, step in enumerate(_APP_VOL_CYCLE):
-                if step == "mute":
-                    continue
-                if abs(int(step) - v) <= 5:
-                    idx = (i + 1) % len(_APP_VOL_CYCLE)
-                    break
-            else:
-                idx = 1  # duck next
-        nxt = _APP_VOL_CYCLE[idx]
-        if nxt == "mute":
-            n = _set_group_sessions(app_key, 0.0, True)
-            return f"{app_key} MUTE" if n else f"{app_key} idle"
-        n = _set_group_sessions(app_key, int(nxt) / 100.0, False)
-        return f"{app_key} {int(nxt)}%" if n else f"{app_key} idle"
-    try:
-        p = int(round(float(raw)))  # type: ignore[arg-type]
-    except (TypeError, ValueError):
-        return "bad volume"
-    p = max(0, min(100, p))
-    n = _set_group_sessions(app_key, p / 100.0, False)
-    if not n:
-        return f"{app_key} idle"
-    return f"{app_key} {p}%"
-
-
-def action_clutch_duck() -> str:
-    """CS2 clutch: Discord/Browser → 20%, Music → 0%. Toggle restores."""
-    global _clutch_on, _clutch_saved
-    with _clutch_lock:
-        if _clutch_on:
-            for key, saved in list(_clutch_saved.items()):
-                if not isinstance(saved, dict):
-                    continue
-                if saved.get("muted"):
-                    _set_group_sessions(key, None, True)
-                else:
-                    vol = int(saved.get("volume") if saved.get("volume") is not None else 100)
-                    _set_group_sessions(key, max(0, min(100, vol)) / 100.0, False)
-            _clutch_on = False
-            _clutch_saved = {}
-            return "clutch OFF"
-        snap = get_app_mixer_payload()
-        _clutch_saved = {
-            "discord": dict(snap.get("discord") or {}),
-            "browser": dict(snap.get("browser") or {}),
-            "music": dict(snap.get("music") or {}),
-        }
-        _set_group_sessions("discord", 0.20, False)
-        _set_group_sessions("browser", 0.20, False)
-        _set_group_sessions("music", 0.0, False)
-        _clutch_on = True
-        return "clutch ON · 20% BG"
 
 
 def _macro_flush_dns() -> str:
@@ -1206,7 +991,6 @@ _audio_cache: dict = {
         "bluetooth": {"id": "", "name": "Bluetooth", "available": False},
     },
 }
-_app_mixer_cache: dict = {}
 _sys_meta = {
     "hostname": socket.gethostname(),
     "os": f"{platform.system()} {platform.release()}",
@@ -1235,13 +1019,10 @@ def _state_signature() -> str:
     with _sys_lock:
         audio = _audio_cache or {}
         hw = _hw_cache or {}
-        mixer = _app_mixer_cache or {}
         def_id = str(audio.get("default_id") or "")
         hw_line = str(hw.get("line") or "")
-        apps_sig = "|".join(
-            f"{k}:{int(bool((v or {}).get('active')))}:{(v or {}).get('volume')}:{(v or {}).get('muted')}"
-            for k, v in sorted(mixer.items())
-        )
+        net = _sys_meta.get("net") or {}
+        net_sig = f"{int(net.get('up_kbps') or 0) // 50}:{int(net.get('down_kbps') or 0) // 50}"
     return "|".join(
         [
             str(_last_volume),
@@ -1252,7 +1033,7 @@ def _state_signature() -> str:
             str(np.get("artist") or ""),
             str(np.get("art_rev") or 0),
             hw_line,
-            apps_sig,
+            net_sig,
         ]
     )
 
@@ -1600,22 +1381,22 @@ def get_audio_cached() -> dict:
 
 
 def _refresh_sys_cache() -> None:
-    global _last_volume, _audio_cache, _hw_cache, _app_mixer_cache
+    global _last_volume, _muted, _audio_cache, _hw_cache
+    _com_init()
     try:
         if platform.system() == "Windows":
             real = _get_volume_windows()
             if real is not None:
                 _last_volume = real
+            m = _get_mute_windows()
+            if m is not None:
+                _muted = m
     except Exception:
         pass
     try:
         audio = get_audio_payload()
     except Exception:
         audio = None
-    try:
-        mixer = get_app_mixer_payload()
-    except Exception:
-        mixer = {k: _empty_mixer_slot(k) for k in APP_AUDIO_GROUPS}
     ips = lan_ips()
     disk = disk_free_gb()
     try:
@@ -1633,7 +1414,6 @@ def _refresh_sys_cache() -> None:
     with _sys_lock:
         if audio:
             _audio_cache = audio
-        _app_mixer_cache = mixer
         _sys_meta["ips"] = ips
         _sys_meta["disk_free_gb"] = disk
         _sys_meta["hostname"] = socket.gethostname()
@@ -1642,8 +1422,18 @@ def _refresh_sys_cache() -> None:
         _hw_cache = hw
 
 
+_sys_wake = threading.Event()
+_refresh_lock = threading.Lock()
+
+
+def request_refresh() -> None:
+    """Ask the sys worker to re-read audio/hw now (keeps COM work off HTTP threads)."""
+    _sys_wake.set()
+
+
 def _sys_worker() -> None:
     time.sleep(0.3)
+    _com_init()
     # Prime CPU% baseline for psutil
     try:
         import psutil  # type: ignore
@@ -1653,11 +1443,13 @@ def _sys_worker() -> None:
         pass
     while True:
         try:
-            _refresh_sys_cache()
+            with _refresh_lock:
+                _refresh_sys_cache()
             _maybe_bump_state()
         except Exception:
             pass
-        time.sleep(2.0)
+        _sys_wake.wait(2.0)
+        _sys_wake.clear()
 
 
 def start_sys_worker() -> None:
@@ -1679,7 +1471,6 @@ def status_payload() -> dict:
         audio = dict(_audio_cache)
         meta = dict(_sys_meta)
         hw = dict(_hw_cache)
-        app_mixer = dict(_app_mixer_cache) if _app_mixer_cache else {}
     with _state_cond:
         rev = _state_rev
     return {
@@ -1697,7 +1488,6 @@ def status_payload() -> dict:
         "now_playing": np,
         "audio": audio,
         "hw": hw,
-        "app_mixer": app_mixer,
         "net": meta.get("net") or {"up_kbps": 0.0, "down_kbps": 0.0},
         "disks": meta.get("disks") or [],
     }
@@ -2552,6 +2342,29 @@ def cs_watch_m3u8(group: str = "live", preset_id: str | None = None) -> tuple[in
     return 200, rewritten.encode("utf-8"), "application/vnd.apple.mpegurl"
 
 
+_CS_PROXY_HOST_SUFFIXES = (
+    ".ttvnw.net",
+    ".twitch.tv",
+    ".jtvnw.net",
+    ".live-video.net",
+    ".kick.com",
+    ".cloudfront.net",
+    ".akamaized.net",
+    ".fastly.net",
+)
+
+
+def _cs_host_allowed(url: str) -> bool:
+    """Only proxy known streaming CDNs — never become an open LAN proxy."""
+    try:
+        host = (urlparse(url).hostname or "").lower()
+    except ValueError:
+        return False
+    if not host:
+        return False
+    return any(host == s.lstrip(".") or host.endswith(s) for s in _CS_PROXY_HOST_SUFFIXES)
+
+
 def cs_fetch_proxy(token: str) -> tuple[int, bytes, str]:
     try:
         upstream = _b64url_decode(token)
@@ -2559,6 +2372,8 @@ def cs_fetch_proxy(token: str) -> tuple[int, bytes, str]:
         return 400, b"bad token", "text/plain"
     if not upstream.startswith("http://") and not upstream.startswith("https://"):
         return 400, b"bad url", "text/plain"
+    if not _cs_host_allowed(upstream):
+        return 403, b"host not allowed", "text/plain"
     code, data, ctype = _cs_http_get(upstream, timeout=15.0)
     if code != 200 or data is None:
         return 502, b"upstream fail", "text/plain"
@@ -2595,23 +2410,6 @@ def fetch_yasno_planned_raw() -> dict:
     return out
 
 
-def fetch_yasno_power() -> dict:
-    wrap = fetch_yasno_planned_raw()
-    if not wrap.get("ok"):
-        return {"ok": False, "error": wrap.get("error") or "yasno_http", "group": POWER_GROUP}
-    data = wrap.get("groups") or {}
-    g = data.get(POWER_GROUP) or {}
-    today = g.get("today") or {}
-    return {
-        "ok": True,
-        "group": POWER_GROUP,
-        "status": today.get("status"),
-        "emergency": str(today.get("status") or "") == "EmergencyShutdowns",
-        "slots": today.get("slots") or [],
-        "updatedOn": g.get("updatedOn") or today.get("date"),
-    }
-
-
 class DeckHandler(SimpleHTTPRequestHandler):
     # Old iOS Safari often hangs on HTTP/1.1 keep-alive.
     protocol_version = "HTTP/1.0"
@@ -2623,36 +2421,28 @@ class DeckHandler(SimpleHTTPRequestHandler):
         if os.environ.get("IPAD_DECK_DEBUG") == "1":
             sys.stderr.write("[%s] %s\n" % (self.log_date_time_string(), fmt % args))
 
+    def _send(self, code: int, data: bytes, content_type: str) -> None:
+        try:
+            self.send_response(code)
+            self.send_header("Content-Type", content_type)
+            self.send_header("Content-Length", str(len(data)))
+            self.send_header("Access-Control-Allow-Origin", "*")
+            self.end_headers()
+            self.wfile.write(data)
+        except (BrokenPipeError, ConnectionResetError, ConnectionAbortedError, socket.timeout):
+            # Tablet went to sleep / switched page mid-response — not an error.
+            pass
+
     def _json(self, code: int, data: dict) -> None:
         body = json.dumps(data, ensure_ascii=False).encode("utf-8")
-        self.send_response(code)
-        self.send_header("Content-Type", "application/json; charset=utf-8")
-        self.send_header("Content-Length", str(len(body)))
-        self.send_header("Cache-Control", "no-store")
-        self.send_header("Connection", "close")
-        self.send_header("Access-Control-Allow-Origin", "*")
-        self.end_headers()
-        self.wfile.write(body)
-
-    def _bytes(self, code: int, data: bytes, content_type: str) -> None:
-        self.send_response(code)
-        self.send_header("Content-Type", content_type)
-        self.send_header("Content-Length", str(len(data)))
-        self.send_header("Cache-Control", "no-cache")
-        self.send_header("Connection", "close")
-        self.send_header("Access-Control-Allow-Origin", "*")
-        self.end_headers()
-        self.wfile.write(data)
+        self._send(code, body, "application/json; charset=utf-8")
 
     def end_headers(self) -> None:
         # Kill caching — iOS "Add to Home Screen" keeps a separate sticky cache.
-        try:
-            self.send_header("Cache-Control", "no-store, no-cache, must-revalidate, max-age=0")
-            self.send_header("Pragma", "no-cache")
-            self.send_header("Expires", "0")
-            self.send_header("Connection", "close")
-        except Exception:
-            pass
+        self.send_header("Cache-Control", "no-store, no-cache, must-revalidate, max-age=0")
+        self.send_header("Pragma", "no-cache")
+        self.send_header("Expires", "0")
+        self.send_header("Connection", "close")
         super().end_headers()
 
     def do_OPTIONS(self) -> None:  # noqa: N802
@@ -2660,206 +2450,124 @@ class DeckHandler(SimpleHTTPRequestHandler):
         self.send_header("Access-Control-Allow-Origin", "*")
         self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
         self.send_header("Access-Control-Allow-Headers", "Content-Type")
-        self.send_header("Connection", "close")
         self.end_headers()
+
+    # ---------- GET ----------
+    def _events(self, qs: dict) -> None:
+        try:
+            since = int((qs.get("rev") or ["0"])[0] or 0)
+        except (TypeError, ValueError):
+            since = 0
+        try:
+            timeout_s = float((qs.get("wait") or ["15"])[0] or 15)
+        except (TypeError, ValueError):
+            timeout_s = 15.0
+        timeout_s = min(20.0, max(1.0, timeout_s))
+        try:
+            self.request.settimeout(timeout_s + 5.0)
+        except Exception:
+            pass
+        deadline = time.time() + timeout_s
+        with _state_cond:
+            while _state_rev <= since:
+                rem = deadline - time.time()
+                if rem <= 0:
+                    break
+                _state_cond.wait(timeout=min(rem, 0.5))
+        self._json(200, status_payload())
 
     def do_GET(self) -> None:  # noqa: N802
         parsed = urlparse(self.path)
         path = parsed.path
-        if path == "/api/ping":
-            self._json(200, {"ok": True, "t": int(time.time())})
-            return
-        if path == "/api/clipboard":
-            self._json(200, {"ok": True, "text": get_clipboard_text()})
-            return
-        if path == "/api/status":
-            self._json(200, status_payload())
-            return
-        if path == "/api/events":
-            qs = parse_qs(parsed.query)
-            try:
-                since = int((qs.get("rev") or ["0"])[0] or 0)
-            except (TypeError, ValueError):
-                since = 0
-            try:
-                timeout_s = float((qs.get("wait") or ["15"])[0] or 15)
-            except (TypeError, ValueError):
-                timeout_s = 15.0
-            timeout_s = min(20.0, max(1.0, timeout_s))
-            try:
-                self.request.settimeout(timeout_s + 5.0)
-            except Exception:
-                pass
-            deadline = time.time() + timeout_s
-            with _state_cond:
-                while _state_rev <= since:
-                    rem = deadline - time.time()
-                    if rem <= 0:
-                        break
-                    _state_cond.wait(timeout=min(rem, 0.5))
-            self._json(200, status_payload())
-            return
-        if path == "/api/nowplaying":
-            self._json(200, {"ok": True, **get_now_playing()})
-            return
-        if path == "/api/cover":
-            data, ctype = get_cover()
-            if not data:
-                self._json(404, {"ok": False, "error": "no cover"})
-                return
-            self._bytes(200, data, ctype or "image/jpeg")
-            return
-        if path == "/api/power/dtek":
-            self._json(200, fetch_dtek_power())
-            return
-        if path == "/api/power/yasno":
-            self._json(200, fetch_yasno_power())
-            return
-        if path == "/api/power/yasno/planned":
-            self._json(200, fetch_yasno_planned_raw())
-            return
-        if path == "/api/cs/status":
-            qs = parse_qs(parsed.query)
-            group = (qs.get("group") or ["live"])[0]
-            force = (qs.get("refresh") or ["0"])[0] in ("1", "true", "yes")
-            self._json(200, cs_status_payload(group, force))
-            return
-        if path == "/api/cs/play":
-            qs = parse_qs(parsed.query)
-            group = (qs.get("group") or ["live"])[0]
-            preset_id = (qs.get("id") or [""])[0] or None
-            self._json(200, cs_play_payload(group, preset_id))
-            return
-        if path == "/api/cs/watch.m3u8":
-            qs = parse_qs(parsed.query)
-            group = (qs.get("group") or ["live"])[0]
-            preset_id = (qs.get("id") or [""])[0] or None
-            code, data, ctype = cs_watch_m3u8(group, preset_id)
-            self._bytes(code, data, ctype)
-            return
-        if path == "/api/cs/fetch":
-            token = (parse_qs(parsed.query).get("u") or [""])[0]
-            code, data, ctype = cs_fetch_proxy(token)
-            self._bytes(code, data, ctype)
-            return
-        if path in ("/", "/index.html"):
-            # Always serve fresh index bytes (bypass SimpleHTTP file cache quirks).
-            index_path = STATIC / "index.html"
-            try:
-                raw = index_path.read_bytes()
-            except OSError:
-                self._json(500, {"ok": False, "error": "missing index"})
-                return
-            self.send_response(200)
-            self.send_header("Content-Type", "text/html; charset=utf-8")
-            self.send_header("Content-Length", str(len(raw)))
-            self.send_header("Cache-Control", "no-store, no-cache, must-revalidate, max-age=0")
-            self.send_header("Pragma", "no-cache")
-            self.send_header("Expires", "0")
-            self.send_header("Connection", "close")
-            self.end_headers()
-            self.wfile.write(raw)
-            return
-        return super().do_GET()
+        qs = parse_qs(parsed.query)
+        try:
+            if path == "/api/ping":
+                self._json(200, {"ok": True, "t": int(time.time())})
+            elif path == "/api/status":
+                self._json(200, status_payload())
+            elif path == "/api/events":
+                self._events(qs)
+            elif path == "/api/cover":
+                data, ctype = get_cover()
+                if data:
+                    self._send(200, data, ctype or "image/jpeg")
+                else:
+                    self._json(404, {"ok": False, "error": "no cover"})
+            elif path == "/api/power/dtek":
+                self._json(200, fetch_dtek_power())
+            elif path == "/api/power/yasno/planned":
+                self._json(200, fetch_yasno_planned_raw())
+            elif path == "/api/cs/status":
+                group = (qs.get("group") or ["live"])[0]
+                force = (qs.get("refresh") or ["0"])[0] in ("1", "true", "yes")
+                self._json(200, cs_status_payload(group, force))
+            elif path == "/api/cs/play":
+                group = (qs.get("group") or ["live"])[0]
+                preset_id = (qs.get("id") or [""])[0] or None
+                self._json(200, cs_play_payload(group, preset_id))
+            elif path == "/api/cs/watch.m3u8":
+                group = (qs.get("group") or ["live"])[0]
+                preset_id = (qs.get("id") or [""])[0] or None
+                code, data, ctype = cs_watch_m3u8(group, preset_id)
+                self._send(code, data, ctype)
+            elif path == "/api/cs/fetch":
+                token = (qs.get("u") or [""])[0]
+                code, data, ctype = cs_fetch_proxy(token)
+                self._send(code, data, ctype)
+            elif path.startswith("/api/"):
+                self._json(404, {"ok": False, "error": "not found"})
+            else:
+                super().do_GET()
+        except (BrokenPipeError, ConnectionResetError, ConnectionAbortedError, socket.timeout):
+            pass
+        except Exception as exc:  # noqa: BLE001
+            self._json(500, {"ok": False, "error": str(exc)[:200]})
 
+    # ---------- POST ----------
     def do_POST(self) -> None:  # noqa: N802
         path = urlparse(self.path).path
         if path != "/api/action":
             self._json(404, {"ok": False, "error": "not found"})
             return
-        length = int(self.headers.get("Content-Length", "0") or 0)
+        try:
+            length = min(int(self.headers.get("Content-Length", "0") or 0), 64 * 1024)
+        except ValueError:
+            length = 0
         raw = self.rfile.read(length) if length else b"{}"
         try:
             data = json.loads(raw.decode("utf-8") or "{}")
-        except json.JSONDecodeError:
+            if not isinstance(data, dict):
+                raise ValueError
+        except (ValueError, UnicodeDecodeError):
             self._json(400, {"ok": False, "error": "bad json"})
             return
         name = str(data.get("name", "")).strip()
-        if name == "vol_set":
-            try:
-                result = action_vol_set(data.get("value", 50))
-                try:
-                    _refresh_sys_cache()
-                except Exception:
-                    pass
-                _maybe_bump_state()
-                self._json(200, {"ok": True, "action": name, "result": result, "volume": _last_volume})
-            except Exception as exc:  # noqa: BLE001
-                self._json(500, {"ok": False, "action": name, "error": str(exc)})
-            return
-        if name == "audio_scene":
-            try:
-                result = action_audio_scene(str(data.get("value") or data.get("scene") or ""))
-                try:
-                    _refresh_sys_cache()
-                except Exception:
-                    pass
-                _maybe_bump_state()
-                self._json(200, {"ok": True, "action": name, "result": result, "audio": get_audio_cached()})
-            except Exception as exc:  # noqa: BLE001
-                self._json(500, {"ok": False, "action": name, "error": str(exc)})
-            return
-        if name == "app_vol":
-            try:
-                result = action_app_vol(str(data.get("app") or ""), data.get("value", "cycle"))
-                try:
-                    _refresh_sys_cache()
-                except Exception:
-                    pass
-                _maybe_bump_state()
-                with _sys_lock:
-                    mixer = dict(_app_mixer_cache) if _app_mixer_cache else {}
-                self._json(200, {"ok": True, "action": name, "result": result, "app_mixer": mixer})
-            except Exception as exc:  # noqa: BLE001
-                self._json(500, {"ok": False, "action": name, "error": str(exc)})
-            return
-        if name == "clutch_duck":
-            try:
-                result = action_clutch_duck()
-                try:
-                    _refresh_sys_cache()
-                except Exception:
-                    pass
-                _maybe_bump_state()
-                with _sys_lock:
-                    mixer = dict(_app_mixer_cache) if _app_mixer_cache else {}
-                self._json(200, {"ok": True, "action": name, "result": result, "app_mixer": mixer})
-            except Exception as exc:  # noqa: BLE001
-                self._json(500, {"ok": False, "action": name, "error": str(exc)})
-            return
-        if name == "clip_set":
-            try:
-                result = set_clipboard_text(str(data.get("value") or ""))
-                self._json(200, {"ok": True, "action": name, "result": result})
-            except Exception as exc:  # noqa: BLE001
-                self._json(500, {"ok": False, "action": name, "error": str(exc)})
-            return
-        if name == "macro":
-            try:
-                result = action_macro(str(data.get("value") or ""))
-                self._json(200, {"ok": True, "action": name, "result": result})
-            except Exception as exc:  # noqa: BLE001
-                self._json(500, {"ok": False, "action": name, "error": str(exc)})
-            return
-        fn = ACTIONS.get(name)
-        if not fn:
-            self._json(400, {"ok": False, "error": f"unknown action: {name}"})
-            return
+        value = data.get("value")
         try:
-            result = fn()
-            payload = {"ok": True, "action": name, "result": result}
-            if name in ("mute", "vol_up", "vol_down", "vol_set"):
-                payload["volume"] = _last_volume
-                payload["muted"] = _muted
-                try:
-                    _refresh_sys_cache()
-                except Exception:
-                    pass
-            if name.startswith("media_") or name in ("mute", "vol_up", "vol_down", "vol_set"):
-                _maybe_bump_state()
-            self._json(200, payload)
+            if name == "vol_set":
+                result = action_vol_set(value if value is not None else 50)
+            elif name == "audio_scene":
+                result = action_audio_scene(str(value or data.get("scene") or ""))
+            elif name == "macro":
+                result = action_macro(str(value or ""))
+            elif name in ACTIONS:
+                result = ACTIONS[name]()
+            else:
+                self._json(400, {"ok": False, "error": f"unknown action: {name}"})
+                return
         except Exception as exc:  # noqa: BLE001
-            self._json(500, {"ok": False, "action": name, "error": str(exc)})
+            self._json(500, {"ok": False, "action": name, "error": str(exc)[:200]})
+            return
+        if name in ("mute", "vol_up", "vol_down", "vol_set", "audio_scene") or name.startswith("media_"):
+            _maybe_bump_state()
+            request_refresh()
+        self._json(200, {"ok": True, "action": name, "result": result, "volume": _last_volume, "muted": _muted})
+
+
+class DeckServer(ThreadingHTTPServer):
+    daemon_threads = True
+    allow_reuse_address = False  # Windows: reuse lets two hubs bind the same port.
+    request_queue_size = 32
 
 
 def open_firewall_hint(port: int) -> None:
@@ -2868,20 +2576,14 @@ def open_firewall_hint(port: int) -> None:
     try:
         subprocess.run(
             [
-                "netsh",
-                "advfirewall",
-                "firewall",
-                "add",
-                "rule",
-                "name=Textmode Deck Hub",
-                "dir=in",
-                "action=allow",
-                "protocol=TCP",
-                f"localport={port}",
+                "netsh", "advfirewall", "firewall", "add", "rule",
+                "name=iPad Deck Hub", "dir=in", "action=allow",
+                "protocol=TCP", f"localport={port}",
             ],
             capture_output=True,
             text=True,
             check=False,
+            creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
         )
     except OSError:
         pass
@@ -2895,16 +2597,15 @@ def main() -> None:
     start_sys_worker()
     start_now_playing_worker()
     open_firewall_hint(PORT)
-    httpd = ThreadingHTTPServer((HOST, PORT), DeckHandler)
-    # Avoid hanging forever on a dead half-open tablet connection.
     try:
-        httpd.timeout = 2
-    except Exception:
-        pass
+        httpd = DeckServer((HOST, PORT), DeckHandler)
+    except OSError as exc:
+        print(f"Port {PORT} busy ({exc}). Is another hub running? Use restart-hub.vbs.", file=sys.stderr)
+        sys.exit(2)
     ips = lan_ips() or ["127.0.0.1"]
 
     print("=" * 48)
-    print("  Textmode Deck Hub")
+    print("  iPad Deck Hub")
     print("=" * 48)
     print(f"  Local:   http://127.0.0.1:{PORT}/")
     for ip in ips:

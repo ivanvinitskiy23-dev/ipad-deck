@@ -5,37 +5,34 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-  <meta name="apple-mobile-web-app-title" content="Qwiqly Deck v98" />
+  <meta name="apple-mobile-web-app-title" content="Qwiqly Deck v100" />
   <meta name="mobile-web-app-capable" content="yes" />
   <meta http-equiv="Cache-Control" content="no-store, no-cache, must-revalidate" />
   <meta http-equiv="Pragma" content="no-cache" />
-  <title>Qwiqly Deck v98</title>
-  <link rel="stylesheet" href="deck.css?v=98" />
-
+  <title>Qwiqly Deck v100</title>
+  <link rel="stylesheet" href="deck.css?v=100" />
 </head>
-<body class="theme-C mode-solo">
-  <div id="glassBg" aria-hidden="true"></div>
-  <div id="boot" aria-hidden="true"><pre id="bootLog"></pre></div>
+<body class="mode-solo">
   <div id="app">
     <div id="deckStack">
 
       <div class="crt-frame">
         <div class="crt-titlebar">
-          <span class="brand deck-only">QWIQLY</span>
-          <span class="brand solo-only">NIGHTWIRE</span>
+          <span class="brand deck-only">QWIQLY // DECK</span>
+          <span class="brand solo-only">NIGHTWIRE // SOLO</span>
           <span class="hub-stats" id="hubStats">—</span>
           <span class="hub-net" id="hubNet"></span>
-          <span class="ver">v98</span>
+          <span class="ver">v100</span>
         </div>
-        <div class="hero-mark deck-only" aria-hidden="true">QWIQLY</div>
-        <div class="hero-sub deck-only" aria-hidden="true">DECK</div>
-        <div class="hero-mark solo-only" aria-hidden="true">NIGHTWIRE</div>
-        <div class="hero-sub solo-only" aria-hidden="true">STANDALONE</div>
       </div>
 
       <header id="header">
         <div class="header-row">
-          <button type="button" class="menu-chip" id="infoChip"><span class="menu-chip-label">SYS</span></button>
+          <button type="button" class="menu-chip" id="infoChip">
+            <span class="menu-chip-led" aria-hidden="true"></span>
+            <span class="menu-chip-label">SYS</span>
+          </button>
+
           <div class="solo-face-toggle" id="soloFaceToggle" aria-label="Radio or TV">
             <button type="button" class="solo-face-btn on" id="soloFaceRadioBtn" data-face="radio">R</button>
             <button type="button" class="solo-face-btn" id="soloFaceTvBtn" data-face="tv">TV</button>
@@ -44,7 +41,7 @@
           <div class="media-col">
             <div class="media-center">
               <div class="media-main">
-                <img class="now-art" id="nowArt" alt="" width="52" height="52" />
+                <img class="now-art" id="nowArt" alt="" width="48" height="48" />
                 <div class="media-text">
                   <div class="media-title" id="nowTitle">-- NO SIGNAL --</div>
                   <div class="media-sub">
@@ -67,7 +64,7 @@
 
           <div id="living">
             <div class="lv-weather" id="lvWeather">
-              <span class="lv-k">WX</span>
+              <span class="lv-k">WX · KYIV</span>
               <span class="lv-v" id="lvWeatherVal">Kyiv · …</span>
             </div>
             <div class="lv-alert" id="lvAlert">
@@ -78,7 +75,7 @@
             <div class="lv-power face-0" id="lvPower" title="tap: статус → сьогодні → завтра">
               <div class="pw-inner" id="lvPowerInner">
                 <div class="pw-face pw-face-0">
-                  <span class="lv-k">POWER</span>
+                  <span class="lv-k">POWER · GRID</span>
                   <span class="lv-v" id="lvPowerVal">…</span>
                   <span class="lv-sub" id="lvPowerSub">45.1 · Kyiv</span>
                 </div>
@@ -109,203 +106,146 @@
       <div class="solo-only solo-panel" id="soloPanel">
         <div class="solo-faces" id="soloFaces">
           <div class="solo-face on" id="soloFaceRadio">
-            <div class="solo-title" id="soloTitle">NIGHTWIRE · CLOCK</div>
-            <div class="solo-clock" id="soloClock">--:--</div>
-            <div class="solo-date" id="soloDate">—</div>
-            <div class="solo-markets" id="soloMarkets" style="display:none" aria-hidden="true">
-              <div class="mkt"><span class="mk">USD</span><span class="mv" id="mktUsd">—</span></div>
-              <div class="mkt"><span class="mk">EUR</span><span class="mv" id="mktEur">—</span></div>
-              <div class="mkt"><span class="mk">BTC</span><span class="mv" id="mktBtc">—</span></div>
-            </div>
-            <div class="pomo-controls" id="pomoControls" style="display:none" aria-hidden="true">
-              <button type="button" class="media-btn" id="pomoStart">START</button>
-              <button type="button" class="media-btn" id="pomoReset">RESET</button>
-              <button type="button" class="media-btn" id="pomoMode">25m</button>
-            </div>
-
-            <div class="radio-dock" id="radioDock">
-              <div class="media-controls" id="mediaControlsRadio">
-                <button type="button" class="media-btn" id="radioPrevBtn">Prev</button>
-                <button type="button" class="media-btn" id="radioPlayBtn">Play</button>
-                <button type="button" class="media-btn" id="radioNextBtn">Next</button>
+            <div class="solo-radio-grid">
+              <div class="solo-clock-well">
+                <div class="solo-title" id="soloTitle">CHRONO // KYIV</div>
+                <div class="solo-clock" id="soloClock">--:--</div>
+                <div class="solo-date" id="soloDate">—</div>
               </div>
-              <div class="radio-chip-bar" id="radioChipBar"></div>
+
+              <div class="solo-side-col">
+                <div class="radio-dock" id="radioDock">
+                  <div class="solo-block-h">FM / STREAM TUNER</div>
+                  <div class="media-controls" id="mediaControlsRadio">
+                    <button type="button" class="media-btn" id="radioPrevBtn">Prev</button>
+                    <button type="button" class="media-btn" id="radioPlayBtn">Play</button>
+                    <button type="button" class="media-btn" id="radioNextBtn">Next</button>
+                  </div>
+                  <div class="radio-chip-bar" id="radioChipBar"></div>
+                </div>
+
+                <div class="solo-block">
+                  <div class="solo-block-h">ALARM MODULE</div>
+                  <div class="solo-alarm-box">
+                    <div class="solo-alarm-row">
+                      <input type="time" id="alarmTime" value="07:00" />
+                      <button type="button" class="solo-toggle" id="alarmToggle">Off</button>
+                      <button type="button" class="solo-stop-btn" id="alarmStop">Stop</button>
+                    </div>
+                    <div class="solo-alarm-status" id="alarmStatus">будильник выкл</div>
+                  </div>
+                </div>
+              </div>
             </div>
             <audio id="radioNative" class="radio-native" preload="auto" playsinline webkit-playsinline></audio>
-
-            <div class="solo-block">
-              <div class="solo-block-h">ALARM</div>
-              <div class="solo-alarm-box">
-                <div class="solo-alarm-row">
-                  <input type="time" id="alarmTime" value="07:00" />
-                  <button type="button" class="solo-toggle" id="alarmToggle">Off</button>
-                </div>
-                <div class="solo-alarm-actions">
-                  <button type="button" id="alarmStop">Stop ringing</button>
-                </div>
-                <div class="solo-alarm-status" id="alarmStatus">будильник выкл</div>
-              </div>
-            </div>
-            <div class="solo-note">Радио — Play/Prev/Next. Будильник: экран открыт + STANDALONE. On разблокирует звук на iPad.</div>
           </div>
 
           <div class="solo-face" id="soloFaceTv">
-            <div class="solo-title">MUSIC TV</div>
             <div class="tv-stage" id="musicTvStage">
               <video id="musicTvVideo" playsinline webkit-playsinline controls preload="none"></video>
-              <div class="tv-idle" id="musicTvIdle">tap channel</div>
+              <div class="tv-idle" id="musicTvIdle">SELECT CHANNEL</div>
             </div>
             <div class="tv-chip-bar" id="musicTvChipBar"></div>
             <div class="tv-chip-bar cs-live-bar" id="csLiveBar" aria-label="CS live channels"></div>
-            <div class="solo-note">Music: Rock/Rap/Pop · CS: LIVE → выбери эфир · fullscreen — на плеере</div>
           </div>
         </div>
       </div>
 
-      <div class="grid deck-pages" id="deckPages">
-        <div class="deck-page on" data-page="0">
-          <div class="vol-card deck-only">
-            <div class="vol-top">
-              <div class="vol-title">AUDIO BUS</div>
-              <div class="vol-value" id="volValue">50%</div>
-            </div>
-            <div class="vol-presets">
-              <button type="button" class="vol-preset" data-action="mute">Mute</button>
-              <button type="button" class="vol-preset" data-vol="15">15%</button>
-              <button type="button" class="vol-preset" data-vol="30">30%</button>
-              <button type="button" class="vol-preset" data-vol="50">50%</button>
-              <button type="button" class="vol-preset" data-vol="75">75%</button>
-              <button type="button" class="vol-preset" data-vol="100">100%</button>
-            </div>
-            <div class="scene-row" id="sceneRow">
-              <button type="button" class="scene-btn" id="sceneHp" data-scene="headphones">HP<span class="sub" id="sceneHpSub">—</span></button>
-              <button type="button" class="scene-btn" id="sceneSp" data-scene="bluetooth">BT<span class="sub" id="sceneSpSub">offline</span></button>
-            </div>
-            <div class="app-mixer-row" id="appMixerRow">
-              <button type="button" class="app-mix-btn off" id="mixDiscord" data-app="discord">
-                <span class="k">DISCORD</span><span class="v" id="mixDiscordVal">—</span>
-              </button>
-              <button type="button" class="app-mix-btn off" id="mixBrowser" data-app="browser">
-                <span class="k">BROWSER</span><span class="v" id="mixBrowserVal">—</span>
-              </button>
-              <button type="button" class="app-mix-btn off" id="mixMusic" data-app="music">
-                <span class="k">MUSIC</span><span class="v" id="mixMusicVal">—</span>
-              </button>
-              <button type="button" class="app-mix-btn clutch" id="mixClutch" data-action="clutch_duck">
-                <span class="k">CLUTCH</span><span class="v" id="mixClutchVal">20% BG</span>
-              </button>
-            </div>
-          </div>
-        </div>
+      <div class="grid deck-pages deck-only" id="deckPages">
+        <div class="deck-console">
 
-        <div class="deck-page" data-page="1">
-          <div class="section deck-only">LAUNCH</div>
-          <div class="row deck-only">
-            <button class="pad leaf" data-action="telegram"><span class="ico ico-tg"></span><span class="lbl">Telegram</span></button>
-            <button class="pad leaf" data-action="discord"><span class="ico ico-dc"></span><span class="lbl">Discord</span></button>
-            <button class="pad lantern" data-action="chrome"><span class="ico ico-ch"></span><span class="lbl">Chrome</span></button>
+          <div class="deck-page on" data-page="0">
+            <div class="vol-card">
+              <div class="vol-top">
+                <div class="vol-title">MASTER AUDIO BUS</div>
+                <div class="vol-value" id="volValue">50%</div>
+              </div>
+              <div class="vol-presets">
+                <button type="button" class="vol-preset" data-action="mute">MUTE</button>
+                <button type="button" class="vol-preset" data-vol="15">15%</button>
+                <button type="button" class="vol-preset" data-vol="30">30%</button>
+                <button type="button" class="vol-preset" data-vol="50">50%</button>
+                <button type="button" class="vol-preset" data-vol="75">75%</button>
+                <button type="button" class="vol-preset" data-vol="100">100%</button>
+              </div>
+              <div class="vol-sub-title">OUTPUT ROUTING</div>
+              <div class="scene-row" id="sceneRow">
+                <button type="button" class="scene-btn" id="sceneHp" data-scene="headphones">
+                  <span class="k">OUT A · HEADPHONES</span>
+                  <span class="sub" id="sceneHpSub">—</span>
+                </button>
+                <button type="button" class="scene-btn" id="sceneSp" data-scene="bluetooth">
+                  <span class="k">OUT B · BLUETOOTH</span>
+                  <span class="sub" id="sceneSpSub">offline</span>
+                </button>
+              </div>
+            </div>
           </div>
-          <div class="row deck-only">
-            <button class="pad lantern" data-action="steam"><span class="ico ico-st"></span><span class="lbl">Steam</span></button>
-            <button class="pad leaf" data-action="faceit"><span class="ico ico-fc"></span><span class="lbl">FACEIT</span></button>
-            <button class="pad lantern" data-action="faceit_stack"><span class="ico ico-fs"></span><span class="lbl">FACEIT+</span></button>
-          </div>
-          <div class="row deck-only">
-            <button class="pad leaf" data-action="cs2"><span class="ico ico-cs"></span><span class="lbl">CS2</span></button>
-            <button class="pad lantern" data-action="pubg"><span class="ico ico-pg"></span><span class="lbl">PUBG</span></button>
-          </div>
-        </div>
 
-        <div class="deck-page" data-page="2">
-          <div class="section deck-only">OPS</div>
-          <div class="row deck-only">
-            <button class="pad lantern" data-action="cursor"><span class="ico ico-cu"></span><span class="lbl">Cursor</span></button>
-            <button class="pad warn" data-action="lock"><span class="ico ico-lk"></span><span class="lbl">Lock PC</span></button>
+          <div class="deck-page" data-page="1">
+            <div class="hw-module">
+              <div class="section">LAUNCH MATRIX</div>
+              <div class="row">
+                <button type="button" class="pad leaf" data-action="telegram"><span class="ico ico-tg"></span><span class="lbl">Telegram</span></button>
+                <button type="button" class="pad leaf" data-action="discord"><span class="ico ico-dc"></span><span class="lbl">Discord</span></button>
+                <button type="button" class="pad lantern" data-action="chrome"><span class="ico ico-ch"></span><span class="lbl">Chrome</span></button>
+                <button type="button" class="pad lantern" data-action="steam"><span class="ico ico-st"></span><span class="lbl">Steam</span></button>
+              </div>
+              <div class="row">
+                <button type="button" class="pad leaf" data-action="faceit"><span class="ico ico-fc"></span><span class="lbl">FACEIT</span></button>
+                <button type="button" class="pad lantern" data-action="faceit_stack"><span class="ico ico-fs"></span><span class="lbl">FACEIT+</span></button>
+                <button type="button" class="pad leaf" data-action="cs2"><span class="ico ico-cs"></span><span class="lbl">CS2</span></button>
+                <button type="button" class="pad lantern" data-action="pubg"><span class="ico ico-pg"></span><span class="lbl">PUBG</span></button>
+              </div>
+            </div>
           </div>
-          <div class="row deck-only">
-            <button class="pad leaf" data-macro="flush_dns"><span class="ico ico-cu"></span><span class="lbl">Flush DNS</span></button>
-            <button class="pad leaf" data-macro="recycle_empty"><span class="ico ico-cu"></span><span class="lbl">Recycle</span></button>
-            <button class="pad warn" data-macro="sleep_pc"><span class="ico ico-lk"></span><span class="lbl">Sleep PC</span></button>
+
+          <div class="deck-page" data-page="2">
+            <div class="hw-module">
+              <div class="section">SYSTEM OPS</div>
+              <div class="row">
+                <button type="button" class="pad lantern" data-action="cursor"><span class="ico ico-cu"></span><span class="lbl">Cursor</span></button>
+                <button type="button" class="pad leaf" data-macro="flush_dns"><span class="ico ico-cu"></span><span class="lbl">Flush DNS</span></button>
+                <button type="button" class="pad leaf" data-macro="recycle_empty"><span class="ico ico-cu"></span><span class="lbl">Recycle</span></button>
+              </div>
+              <div class="row">
+                <button type="button" class="pad warn" data-action="lock"><span class="ico ico-lk"></span><span class="lbl">Lock PC</span></button>
+                <button type="button" class="pad warn" data-macro="sleep_pc"><span class="ico ico-lk"></span><span class="lbl">Sleep PC</span></button>
+              </div>
+            </div>
           </div>
+
         </div>
-        <div class="deck-dots deck-only" id="deckDots"></div>
+        <div class="deck-dots" id="deckDots"></div>
       </div>
 
     </div>
   </div>
 
-  <div id="crtfx" aria-hidden="true"></div>
   <div id="toast" aria-live="polite"></div>
 
   <div id="drawer">
     <div class="drawer-back" id="drawerBack"></div>
     <div class="drawer-panel">
-      <div class="drawer-title">sys</div>
+      <div class="drawer-title">SYSTEM CONSOLE</div>
       <div class="mode-badge" id="modeBadge">…</div>
 
-      <div class="drawer-section">Mode</div>
+      <div class="drawer-section">Operating Mode</div>
       <div class="mode-pills">
         <button type="button" class="mode-pill" id="modeDeckBtn" data-mode="deck">DECK</button>
         <button type="button" class="mode-pill" id="modeSoloBtn" data-mode="solo">STANDALONE</button>
       </div>
-      <div class="drawer-hint">DECK = звук / ПК · STANDALONE = радио / будильник</div>
+      <div class="drawer-hint">DECK = управление ПК и звуком · STANDALONE = радио, ТВ и будильник без ПК</div>
 
-      <div class="drawer-section">Now</div>
-      <button class="drawer-btn" id="cinemaBtn" type="button">Cinema</button>
-      <div class="scene-pills" id="cinemaScenes">
-        <button type="button" class="scene-pill" data-scene="auto">AUTO</button>
-        <button type="button" class="scene-pill" data-scene="cafe">CAFÉ</button>
-        <button type="button" class="scene-pill" data-scene="rain">RAIN</button>
-        <button type="button" class="scene-pill" data-scene="highway">DRIVE</button>
-        <button type="button" class="scene-pill" data-scene="server">CORE</button>
-      </div>
+      <div class="drawer-section">LAN Hub Endpoint</div>
+      <input class="hub-field" id="hubInput" type="text" placeholder="http://192.168.0.247:8787" />
+      <button class="drawer-btn" id="hubSave" type="button">Save Hub URL</button>
 
-      <div class="drawer-section">Look</div>
-      <div class="theme-pills" id="drawerThemes">
-        <button type="button" class="theme-pill" data-theme="B">PHOSPHOR</button>
-        <button type="button" class="theme-pill" data-theme="C">CRT</button>
-        <button type="button" class="theme-pill" data-theme="D">AMBER</button>
-        <button type="button" class="theme-pill" data-theme="E">CASIO</button>
-        <button type="button" class="theme-pill" data-theme="F">GLASS</button>
-      </div>
-      <div class="fx-pills">
-        <button type="button" class="drawer-btn" id="crtFxBtn">CRT FX: off</button>
-        <button type="button" class="drawer-btn" id="bootBtn">Boot anim: on</button>
-      </div>
-      <div class="side-brand" id="mediaBrand">CRT · CYAN</div>
-
-      <button type="button" class="drawer-fold-btn" id="hubFoldBtn">Hub &amp; help</button>
-      <div class="drawer-fold" id="hubFold">
-        <div class="drawer-section" style="margin-top:4px">Hub URL</div>
-        <input class="hub-field" id="hubInput" type="text" placeholder="http://192.168.0.247:8787" />
-        <button class="drawer-btn" id="hubSave" type="button">Save hub URL</button>
-        <div class="clip-bar">
-          <textarea id="clipField" rows="3" spellcheck="false"
-            placeholder="CLIPBOARD — мост iPad ⇄ ПК"></textarea>
-          <div class="clip-row">
-            <button type="button" class="drawer-btn" id="clipPull">↑ Pull с ПК</button>
-            <button type="button" class="drawer-btn" id="clipPush">↓ Send на ПК</button>
-            <button type="button" class="drawer-btn" id="clipCopy">⧉ Копир. на iPad</button>
-          </div>
-        </div>
-        <div class="meta" id="meta">подключение…</div>
-        <button class="fs-btn" id="fsBtn" type="button">Fullscreen tip</button>
-        <div class="meta" id="buildMeta">build</div>
-      </div>
+      <div class="drawer-section">Telemetry &amp; Display</div>
+      <div class="meta" id="meta">подключение…</div>
+      <button class="fs-btn" id="fsBtn" type="button">Fullscreen tip</button>
+      <div class="meta" id="buildMeta">build v100 · hardware panel</div>
     </div>
-  </div>
-
-  <div id="idle">
-    <div id="idleFrameBox">
-      <img id="idlePic" alt="YUM cafe" />
-    </div>
-    <div id="idleHud">
-      <div class="card" id="idleWx"><span class="k">WX</span><span class="v" id="idleWxVal">…</span></div>
-      <div class="card" id="idlePw"><span class="k">POWER</span><span class="v" id="idlePwVal">…</span><span class="sub" id="idlePwSub">45.1</span></div>
-      <div class="card" id="idleAl"><span class="k">ALERT</span><span class="v" id="idleAlVal">…</span><span class="sub" id="idleAlSub">Kyiv</span></div>
-    </div>
-    <div id="idleTicker"><div id="idleTickerTrack"><span>лента…</span></div></div>
-    <div class="catch" id="idleCatch"></div>
   </div>
 
   <div id="tip">
@@ -313,13 +253,13 @@
     <br><b>Поделиться → На экран «Домой»</b>
     <br>открой ярлык — без строки Safari.
     <br><br>Важно: добавляй URL с версией:
-    <br><b id="tipUrl">http://192.168.0.247:8787/?v=98</b>
+    <br><b id="tipUrl">http://192.168.0.247:8787/?v=100</b>
     <br>(старый ярлык без ?v= кэширует старый UI)
     <br><br>Для старта без ПК — GitHub Pages URL из README.
     <button type="button" id="tipOk">Понятно</button>
   </div>
 
-  <script src="gadget-core.js?v=98"></script>
-  <script src="deck-app.js?v=98"></script>
+  <script src="gadget-core.js?v=100"></script>
+  <script src="deck-app.js?v=100"></script>
 </body>
 </html>

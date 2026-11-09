@@ -1,66 +1,55 @@
-# Textmode Deck / iPad Hub
+# Qwiqly Deck // Hardware Panel (v100)
 
-Гибрид: планшет — constantly-on textmode-гаджет; Windows-ПК — Stream Deck API.  
-Визуальный стиль: CRT / phosphor / monospace (в духе textmode.art).
+Гибридный пульт управления ПК и автономный настольный прибор для **iPad 2** (iOS 9 Safari, горизонтальная ориентация `1024×768`).
+Единый индустриальный дизайн **Hardware Panel** в духе приборов **Teenage Engineering / Braun**: матовый графитовый корпус, тактильные клавиши, сигнальный оранжевый акцент (`#ff5500`) и лёгкие аппаратные анимации на `transform`/`opacity` без нагрузки на GPU Apple A5.
 
-## Режимы
+## Режимы работы
 
-| Режим | Когда | Что видно |
-|--------|--------|-----------|
-| **STANDALONE** | хаб не отвечает | заставка, погода, POWER, тревога, лента, часы / pomo / markets, будильник, радио, Music TV / CS LIVE |
-| **DECK** | `http://<PC>:8787` online | звук, per-app mixer + CLUTCH, bluetooth/headphones, apps, lock, now playing, vitals |
+| Режим | Когда активен | Функции |
+|---|---|---|
+| **DECK** (`QWIQLY // DECK`) | ПК включён (`http://<PC>:8787`) | Мастер-громкость + Mute, переключение выходов `HP`/`BT`, быстрый запуск игр и приложений (`Telegram`, `Discord`, `Chrome`, `Steam`, `FACEIT`, `FACEIT+`, `CS2`, `PUBG`), системные макросы (`Cursor`, `Flush DNS`, `Recycle`, `Lock PC`, `Sleep PC`), Now Playing с обложкой из Windows SMTC, телеметрия ПК (`CPU`, `GPU`, `RAM`, диски, сеть) |
+| **STANDALONE** (`NIGHTWIRE // SOLO`) | ПК выключен или выбран вручную | Крупные настольные часы + дата, FM/интернет-радио, будильник (`Web Audio` + `alarm-beep.wav`), видеоплеер **Music TV** (Rock / Rap / Pop) + **CS LIVE** (прямые трансляции Twitch/Kick через хаб) |
 
-Переключение: MENU → DECK / STANDALONE (heartbeat `/api/ping` + long-poll `/api/events` в DECK).
+Постоянно на экране в обоих режимах (**INFO**):
+- **WX · KYIV** — актуальная погода в Киеве (Open-Meteo / wttr.in)
+- **ALERT** — статус воздушной тревоги в Киеве
+- **POWER · GRID** — 3-гранная карточка отключений света (`Статус` ↔ `Сьогодні` ↔ `Завтра`) с данными Yasno + ДТЕК и 24-часовой шкалой суток (`█` свет есть / `▒` полчаса / `░` отключение)
+- **TICKER** — бегущая строка новостей (RSS)
 
-## Палитры
+Переключение режимов: кнопка **SYS** → **DECK** / **STANDALONE** (автоматический переход через `/api/ping` и мгновенные обновления через long-polling `/api/events`).
 
-| Theme | Look |
-|--------|------|
-| **PHOSPHOR** (B) | зелёный phosphor CRT |
-| **CRT** (C) | cyan + magenta overlay |
-| **AMBER** (D) | янтарный terminal |
-| **CASIO** (E) | paper LCD / F-91W |
-| **GLASS** (F) | frosted glass · sunset storm · floating dock + sliding pill |
-
-## Запуск хаба (Windows)
+## Запуск хаба на Windows
 
 ```bat
 start.bat
 ```
 
-или `python server.py` → порт **8787**.
+или напрямую:
 
-На iPad в той же Wi‑Fi:
+```powershell
+python server.py
+```
 
-`http://192.168.x.x:8787/?v=98`
+Сервер слушает порт **8787**.
 
-**Поделиться → На экран «Домой»** (URL обязательно с `?v=…`).
+На iPad в локальной Wi‑Fi сети открой:
+
+`http://192.168.0.247:8787/?v=100`
+
+Нажми **Поделиться → На экран «Домой»**, чтобы запускать пульт в полноэкранном режиме без адресной строки Safari.
 
 ## Холодный старт без ПК (GitHub Pages)
 
-1. В GitHub: Settings → Pages → Source = **GitHub Actions**.
-2. Запушьте репо — workflow `.github/workflows/pages.yml` выложит папку `static/`.
-3. На iPad откройте `https://ivanvinitskiy23-dev.github.io/ipad-deck/?v=93` → на Home Screen.
-4. MENU → вставьте URL хаба, например `http://192.168.0.247:8787` → **Save hub URL**.
-5. Чтобы войти в **DECK** с Pages: MENU → **DECK** — страница откроет LAN-хаб  
-   (браузер **блокирует** HTTPS→HTTP XHR / mixed content; поэтому с Pages нельзя «тихо» пинговать хаб).
+1. В настройках репозитория GitHub: **Settings → Pages → Source = GitHub Actions** (workflow `.github/workflows/pages.yml` публикует каталог `static/`).
+2. На iPad открой `https://ivanvinitskiy23-dev.github.io/ipad-deck/?v=100` и добавь ярлык на экран «Домой».
+3. Нажми **SYS** → укажи адрес домашнего ПК (`http://192.168.0.247:8787`) → **Save Hub URL**.
+4. Пока ПК выключен — планшет работает в режиме **STANDALONE** (часы, радио, ТВ, погода, свет, тревога). Когда включишь ПК — нажми **SYS → DECK** для перехода на LAN-хаб.
 
-Пока ПК выкл — Solo на Pages. Когда ПК включится — жми **DECK** (или открой LAN URL напрямую).
+## Структура проекта
 
-## Что на клиенте / что на ПК
-
-- **Планшет (JS):** погода, POWER (Yasno + DTEK + ASCII-шкала суток), тревога, лента, радио, будильник, Cinema (AUTO/CAFÉ/RAIN/DRIVE/CORE), Nightwire CLOCK↔POMODORO↔MARKETS.
-- **Windows hub:** volume / mute / scenes / **app mixer + CLUTCH** / lock / apps / SMTC / long-poll `/api/events` / CS LIVE proxy / POWER proxies / PC vitals + sparklines (NVML/psutil; LHM only if you start it yourself).
-- **Twitch:** native GQL resolve + `tools/crypto_shim` so Smart App Control can’t block pycryptodome `.pyd`.
-
-Будильник и радио работают только пока Web App открыт на экране (лимит iOS).
-
-## Файлы
-
-- `server.py` — PC hub
-- `static/index.html` — shell
-- `static/deck.css` — UI
-- `static/deck-app.js` — режимы, idle, radio/TV, POWER, hub
-- `static/gadget-core.js` — hub base + living/POWER + radio/alarm/markets
-- `tools/build_cinema_gifs.py` — генерация cinema GIF
-- `tools/crypto_shim/` — Crypto API на cryptography (Windows)
+- `server.py` — HTTP-сервер Windows-хаба (SMTC, pycaw, AudioConfig, виталсы CPU/GPU/RAM/LAN, прокси Yasno/DTEK и Twitch/Kick HLS)
+- `static/index.html` — разметка интерфейса Hardware Panel (`v100`)
+- `static/deck.css` — единая таблица стилей аппаратной панели (`v100`)
+- `static/deck-app.js` — клиентская логика (strict ES5 для iOS 9 Safari)
+- `static/gadget-core.js` — ядро автономных сервисов (погода, тревога, графики света, радио, каналы ТВ, кэш)
+- `tools/crypto_shim/` — обёртка Crypto API поверх `cryptography` для совместимости со Smart App Control в Windows
