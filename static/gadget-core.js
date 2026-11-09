@@ -558,14 +558,14 @@
   function fetchOneFeed(feed, cb) {
     if (hostBlocked(feed.url)) { cb([]); return; }
     xhrGet(rss2jsonUrl(feed.url), 12000, function (txt) {
-      var items = parseRss2Json(txt, feed.source, 3);
+      var items = parseRss2Json(txt, feed.source, 2);
       if (items.length) { cb(items); return; }
       xhrGet(corsProxy(feed.url), 10000, function (xml) {
-        cb(parseRssTitles(xml, feed.source, 3));
+        cb(parseRssTitles(xml, feed.source, 2));
       }, function () { cb([]); });
     }, function () {
       xhrGet(corsProxy(feed.url), 10000, function (xml) {
-        cb(parseRssTitles(xml, feed.source, 3));
+        cb(parseRssTitles(xml, feed.source, 2));
       }, function () { cb([]); });
     });
   }
@@ -587,7 +587,7 @@
               if (seen[key]) continue;
               seen[key] = 1;
               unique.push(all[k]);
-              if (unique.length >= 18) break;
+              if (unique.length >= 8) break;
             }
             cb({ ok: true, items: unique, updated: nowSec() });
           }

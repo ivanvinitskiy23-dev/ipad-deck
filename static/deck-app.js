@@ -1,6 +1,6 @@
 /* Qwiqly Hardware Panel Deck app shell — ES5 (iPad 2 / iOS 9 Safari) */
 (function () {
-  var APP_VER = 100;
+  var APP_VER = 101;
   var GC = window.GadgetCore;
 
   var lastVolume = 50;
@@ -208,9 +208,15 @@
     mode = next;
     syncBodyClass();
     if (mode === "solo") {
+      var hn = document.getElementById("hubNet");
+      if (hn) hn.textContent = "";
       syncSoloFaceUI();
       syncActiveNowPlaying();
-      setMeta("<b>standalone</b><br>ожидание хаба");
+      if (hubHeld || hubIsQuiet()) {
+        setMeta("<b>standalone</b><br>к ПК не подключаюсь");
+      } else {
+        setMeta("<b>standalone</b><br>ожидание хаба");
+      }
     } else {
       try { if (radioPlaying) stopRadio({ quiet: true }); } catch (eStop) {}
       try { if (musicTvPlaying) stopMusicTv({ quiet: true }); } catch (eTv) {}
@@ -378,26 +384,17 @@
     }, false);
   }
 
-  /* Segmented level meter in Now Playing */
+  /* Static level meter — no interval (old iPad cannot afford 16 style writes @140ms) */
   var nowPlaying = false;
   var nowBars = document.getElementById("nowBars");
-  var barNodes = [];
   if (nowBars) {
-    for (var bi = 0; bi < 16; bi++) {
+    nowBars.innerHTML = "";
+    for (var bi = 0; bi < 8; bi++) {
       var sp = document.createElement("span");
+      sp.style.height = (3 + (bi % 4) * 2) + "px";
       nowBars.appendChild(sp);
-      barNodes.push(sp);
     }
   }
-  setInterval(function () {
-    var maxH = 10;
-    for (var i = 0; i < barNodes.length; i++) {
-      var h = nowPlaying
-        ? (2 + Math.floor(Math.random() * maxH))
-        : (2 + (i % 2));
-      barNodes[i].style.height = h + "px";
-    }
-  }, 140);
 
   function updateNowPlaying(np) {
     if (!np) np = {};
@@ -461,9 +458,6 @@
   }
 
   var tickerSig = "";
-  var tickerOffset = 0;
-  var tickerHalf = 0;
-  var tickerTimer = null;
 
   function escHtml(s) {
     return String(s || "")
@@ -473,29 +467,12 @@
       .replace(/"/g, "&quot;");
   }
 
-  function tickScroll() {
-    var track = document.getElementById("tickerTrack");
-    if (!track) return;
-    if (tickerHalf < 20) {
-      tickerHalf = Math.floor(track.offsetWidth / 2);
-      if (tickerHalf < 20) return;
-    }
-    tickerOffset -= 1;
-    if (-tickerOffset >= tickerHalf) tickerOffset = 0;
-    var shift = "translate3d(" + tickerOffset + "px, 0, 0)";
-    track.style.webkitTransform = shift;
-    track.style.transform = shift;
-  }
-
-  function startTickerScroll() {
-    if (tickerTimer) return;
-    tickerTimer = setInterval(tickScroll, 30);
-  }
-
+  /* CSS animation ticker — no JS setInterval (was 33 style writes/sec) */
   function renderTicker(ticker) {
     if (!ticker || !ticker.items || !ticker.items.length) return;
     var parts = [];
-    for (var i = 0; i < ticker.items.length; i++) {
+    var maxItems = 8;
+    for (var i = 0; i < ticker.items.length && parts.length < maxItems; i++) {
       var it = ticker.items[i];
       var t = escHtml(it.text || "");
       if (!t) continue;
@@ -507,24 +484,19 @@
     }
     if (!parts.length) return;
     var sig = parts.join("|");
-    if (sig === tickerSig) {
-      startTickerScroll();
-      return;
-    }
+    if (sig === tickerSig) return;
     tickerSig = sig;
     var html = parts.join('<span class="sep"> · </span>');
     var doubled = html + '<span class="sep"> · </span>' + html;
     var track = document.getElementById("tickerTrack");
     if (!track) return;
+    track.className = "ticker-track";
     track.innerHTML = doubled;
-    tickerOffset = 0;
-    tickerHalf = 0;
-    track.style.webkitTransform = "translate3d(0, 0, 0)";
-    track.style.transform = "translate3d(0, 0, 0)";
-    setTimeout(function () {
-      tickerHalf = Math.floor(track.offsetWidth / 2);
-      startTickerScroll();
-    }, 50);
+    track.style.webkitTransform = "";
+    track.style.transform = "";
+    /* restart CSS animation */
+    try { void track.offsetWidth; } catch (eTw) {}
+    track.className = "ticker-track run";
   }
 
   function renderLiving(living) {
@@ -893,6 +865,7 @@
   }
 
   function refreshStatus() {
+    if (mode === "solo" && (hubHeld || modeLock === "solo")) return;
     if (GC && GC.isMixedContentHub()) {
       setMeta("<b>Pages · Solo</b><br>DECK = открыть LAN hub");
       return;
@@ -927,6 +900,7 @@
   }
 
   function heartbeat() {
+    if (mode === "solo" && (hubHeld || modeLock === "solo")) return;
     if (GC && GC.isMixedContentHub()) {
       if (mode !== "solo" && modeLock !== "deck") setMode("solo", { auto: true });
       return;
@@ -1318,23 +1292,12 @@
       syncBodyClass();
       return;
     }
-    if (soloFaceBusy) return;
-
-    var prev = soloFace;
-    var faceRadio = document.getElementById("soloFaceRadio");
-    var faceTv = document.getElementById("soloFaceTv");
-    var wrap = document.getElementById("soloFaces");
-    var fromEl = prev === "tv" ? faceTv : faceRadio;
-    var toEl = next === "tv" ? faceTv : faceRadio;
-    if (!fromEl || !toEl || !wrap) {
-      soloFace = next;
-      GC.setSoloFace(soloFace);
-      syncBodyClass();
-      syncSoloFaceUI();
-      return;
+    /* Instant switch — face slide/reflow was janky on iPad 2 */
+    if (soloFaceAnimTimer) {
+      clearTimeout(soloFaceAnimTimer);
+      soloFaceAnimTimer = null;
     }
-
-    soloFaceBusy = true;
+    soloFaceBusy = false;
     soloFace = next;
     GC.setSoloFace(soloFace);
     if (soloFace === "tv") {
@@ -1343,28 +1306,8 @@
       try { if (musicTvPlaying) stopMusicTv({ quiet: true }); } catch (e2) {}
       try { clearCsLiveBar(); } catch (e3) {}
     }
-
-    var holdH = fromEl.offsetHeight || 0;
-    if (holdH > 0) wrap.style.minHeight = holdH + "px";
-    wrap.className = "solo-faces " + (next === "tv" ? "to-tv" : "to-radio");
-    fromEl.className = "solo-face on face-leave";
-    toEl.className = "solo-face face-enter";
-    try { void toEl.offsetWidth; } catch (eReflow) {}
-    toEl.className = "solo-face face-enter face-in";
     syncBodyClass();
-    syncSoloFaceButtons();
-    syncActiveNowPlaying();
-
-    if (soloFaceAnimTimer) clearTimeout(soloFaceAnimTimer);
-    soloFaceAnimTimer = setTimeout(function () {
-      fromEl.className = "solo-face";
-      toEl.className = "solo-face on";
-      wrap.className = "solo-faces";
-      wrap.style.minHeight = "";
-      soloFaceBusy = false;
-      syncSoloFaceUI();
-    }, 300);
-
+    syncSoloFaceUI();
     toast(soloFace === "tv" ? "TV" : "Radio");
   }
 
@@ -2230,13 +2173,11 @@
   })();
 
   refreshLivingClient();
-  setInterval(refreshLivingClient, 30000);
-  setTimeout(refreshLivingClient, 3000);
-  setTimeout(refreshLivingClient, 10000);
+  setInterval(refreshLivingClient, 60000);
+  setTimeout(refreshLivingClient, 4000);
   refreshPowerClient();
-  setInterval(refreshPowerClient, 45000);
-  setTimeout(refreshPowerClient, 2500);
-  setTimeout(refreshPowerClient, 12000);
+  setInterval(refreshPowerClient, 60000);
+  setTimeout(refreshPowerClient, 3500);
 
   if (!hubHeld) {
     heartbeat();

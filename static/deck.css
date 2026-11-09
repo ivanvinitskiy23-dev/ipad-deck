@@ -662,8 +662,7 @@ body.mode-solo .solo-face-toggle {
 #living .lv-power .pw-bar .h-sep { color: #555962; padding: 0 1px; }
 #living .lv-power .pw-bar .h-now {
   border-bottom: 2px solid #eceae4;
-  -webkit-animation: pwBlink 0.9s steps(2, start) infinite;
-  animation: pwBlink 0.9s steps(2, start) infinite;
+  color: #ff5500;
 }
 
 #living .lv-power .pw-meta {
@@ -712,20 +711,11 @@ body.mode-solo .solo-face-toggle {
 }
 
 #living .lv-power.blink {
-  -webkit-animation: pwBlink 0.7s steps(2, start) infinite;
-  animation: pwBlink 0.7s steps(2, start) infinite;
+  border-color: #ff5500;
 }
 
-@-webkit-keyframes pwBlink {
-  0%, 49% { opacity: 1; }
-  50%, 100% { opacity: 0.35; }
-}
-@keyframes pwBlink {
-  0%, 49% { opacity: 1; }
-  50%, 100% { opacity: 0.35; }
-}
 
-/* ── Ticker Strip (#ticker) ──────────────────────────────────── */
+/* ── Ticker Strip (#ticker) — CSS scroll only (no JS interval) ─ */
 #ticker {
   margin: 0 0 10px;
   height: 26px;
@@ -753,6 +743,22 @@ body.mode-solo .solo-face-toggle {
   font-size: 11px;
   font-weight: 700;
   letter-spacing: 0.04em;
+  -webkit-transform: translate3d(0, 0, 0);
+  transform: translate3d(0, 0, 0);
+}
+
+#ticker .ticker-track.run {
+  -webkit-animation: tickerScroll 55s linear infinite;
+  animation: tickerScroll 55s linear infinite;
+}
+
+@-webkit-keyframes tickerScroll {
+  from { -webkit-transform: translate3d(0, 0, 0); transform: translate3d(0, 0, 0); }
+  to { -webkit-transform: translate3d(-50%, 0, 0); transform: translate3d(-50%, 0, 0); }
+}
+@keyframes tickerScroll {
+  from { -webkit-transform: translate3d(0, 0, 0); transform: translate3d(0, 0, 0); }
+  to { -webkit-transform: translate3d(-50%, 0, 0); transform: translate3d(-50%, 0, 0); }
 }
 
 #ticker .ticker-track span {
@@ -1156,11 +1162,6 @@ button.pad.warn:active {
 .solo-face {
   display: none;
   height: 100%;
-  opacity: 0;
-  -webkit-transform: translate3d(16px, 0, 0);
-  transform: translate3d(16px, 0, 0);
-  -webkit-transition: opacity 0.28s ease-out, -webkit-transform 0.28s ease-out;
-  transition: opacity 0.28s ease-out, transform 0.28s ease-out;
 }
 
 .solo-face.on {
@@ -1173,56 +1174,6 @@ button.pad.warn:active {
   -webkit-box-pack: center;
   -webkit-justify-content: center;
   justify-content: center;
-  opacity: 1;
-  -webkit-transform: translate3d(0, 0, 0);
-  transform: translate3d(0, 0, 0);
-}
-
-.solo-face.face-leave {
-  display: block;
-  position: absolute;
-  left: 0;
-  right: 0;
-  top: 0;
-  width: 100%;
-  opacity: 0;
-  pointer-events: none;
-  z-index: 1;
-}
-
-.solo-faces.to-tv .solo-face.face-leave {
-  -webkit-transform: translate3d(-16px, 0, 0);
-  transform: translate3d(-16px, 0, 0);
-}
-
-.solo-faces.to-radio .solo-face.face-leave {
-  -webkit-transform: translate3d(16px, 0, 0);
-  transform: translate3d(16px, 0, 0);
-}
-
-.solo-face.face-enter {
-  display: block;
-  position: relative;
-  opacity: 0;
-  z-index: 2;
-  pointer-events: none;
-}
-
-.solo-faces.to-tv .solo-face.face-enter {
-  -webkit-transform: translate3d(18px, 0, 0);
-  transform: translate3d(18px, 0, 0);
-}
-
-.solo-faces.to-radio .solo-face.face-enter {
-  -webkit-transform: translate3d(-18px, 0, 0);
-  transform: translate3d(-18px, 0, 0);
-}
-
-.solo-face.face-enter.face-in {
-  opacity: 1;
-  pointer-events: auto;
-  -webkit-transform: translate3d(0, 0, 0);
-  transform: translate3d(0, 0, 0);
 }
 
 /* Landscape 2-column grid for Radio/Clock/Alarm on iPad 2 */
@@ -1274,7 +1225,7 @@ button.pad.warn:active {
 
 .solo-clock {
   font-family: "Courier New", Courier, monospace;
-  font-size: 86px;
+  font-size: 72px;
   font-weight: 800;
   letter-spacing: 0.04em;
   text-align: center;
@@ -1305,14 +1256,14 @@ button.pad.warn:active {
   -webkit-box-orient: vertical;
   -webkit-flex-direction: column;
   flex-direction: column;
-  -webkit-box-pack: justify;
-  -webkit-justify-content: space-between;
-  justify-content: space-between;
+  -webkit-box-pack: start;
+  -webkit-justify-content: flex-start;
+  justify-content: flex-start;
 }
 
 .radio-dock,
 .solo-block {
-  padding: 12px 14px;
+  padding: 10px 12px;
   background: #0d0e10;
   border: 1px solid #2c3038;
   border-radius: 5px;
@@ -1320,6 +1271,15 @@ button.pad.warn:active {
 
 .radio-dock {
   margin-bottom: 10px;
+  -webkit-box-flex: 1;
+  -webkit-flex: 1 1 auto;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+/* Duplicate Prev/Play/Next — header already has solo controls */
+#mediaControlsRadio {
+  display: none !important;
 }
 
 .solo-block-h {
@@ -1364,14 +1324,14 @@ button.pad.warn:active {
   appearance: none;
   display: inline-block;
   margin: 0 4px 4px 0;
-  padding: 8px 12px;
-  min-height: 36px;
+  padding: 7px 10px;
+  min-height: 34px;
   background: #23262c;
   border: 1px solid #363b44;
   border-radius: 4px;
   color: #d4d2cc;
   font-family: inherit;
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 700;
   letter-spacing: 0.04em;
   box-shadow: inset 0 1px 0 rgba(255,255,255,0.06), 0 2px 0 #090a0c;
@@ -1406,19 +1366,22 @@ button.pad.warn:active {
 
 .solo-alarm-row input[type="time"] {
   -webkit-box-flex: 1;
-  -webkit-flex: 1;
-  flex: 1;
+  -webkit-flex: 1 1 auto;
+  flex: 1 1 auto;
+  min-width: 96px;
   height: 44px;
   margin-right: 8px;
-  padding: 6px 10px;
+  padding: 6px 8px;
   background: #16181c;
   border: 1px solid #363b44;
   border-radius: 4px;
   color: #eceae4;
   font-family: "Courier New", Courier, monospace;
-  font-size: 20px;
+  font-size: 18px;
   font-weight: 800;
   text-align: center;
+  -webkit-appearance: none;
+  appearance: none;
 }
 
 .solo-toggle,
